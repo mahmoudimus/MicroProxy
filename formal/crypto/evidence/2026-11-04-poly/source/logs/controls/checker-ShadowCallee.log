@@ -1,0 +1,11 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(55,9): Error: unregistered executable callee Shadow._default.Add
+   |
+55 |     r := SH.Add(a,b);
+   |          ^^^^^^^^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(54,40): Error: ShadowCallee: stale observation Call
+   |
+54 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Call(1,3,2) + ST.Ops(1,0,0,0,0,0,0);
+   |                                         ^^^^
+
+2 resolution/type errors detected in PolynomialControls.dfy

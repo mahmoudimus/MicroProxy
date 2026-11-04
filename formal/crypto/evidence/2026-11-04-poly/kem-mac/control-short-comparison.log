@@ -1,0 +1,8 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/short-comparison.dfy(245,16): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+    |
+245 |       invariant forall j: int :: 0 <= j < i as int ==> r[j] == (if c[..] == expected[..] then candidate[j] else fallback[j])
+    |                 ^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

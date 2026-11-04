@@ -1,0 +1,30 @@
+{
+  "scope": "Immutable main baseline for proposed Poly ghost-only integration erasure comparisons. Never substitute mutable A after adoption.",
+  "commit": "5ce660a69a1dd496dda02705bf1e2b1aa7a2be1d",
+  "tree": "df8b49bc8d181be18d78a9db7ab0233f23f7346f",
+  "source_discovery": "formal/crypto/delivery.py source_closure officialDafny parser; all frozen bytes verified against git show exactHEAD",
+  "discovery_sha256": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+  "created": "2026-11-04T04:48:38.995051+00:00",
+  "files": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+    "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  }
+}

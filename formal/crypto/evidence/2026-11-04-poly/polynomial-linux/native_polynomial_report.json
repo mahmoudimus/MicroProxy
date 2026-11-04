@@ -1,0 +1,193 @@
+{
+  "status": "passed",
+  "phase": "controls",
+  "inputs": {
+    "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/native_polynomial_domain.dfy": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/crypto/native_polynomial_checks.py": "ab28bc183379c69ab3ba9e20507e23d54eaad712426819a9e032001cd7bf2b61",
+    "formal/crypto/native_polynomial_test.java": "3726f78d85985d105de367e4656b51600948dddd11832094d2df81ed042dd80c",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+  },
+  "domain": "Every array of exactly 256 coefficients in [0,3329); input aliasing permitted",
+  "not_proved": [
+    "Dafny compiler/runtime and JVM correctness",
+    "physical memory erasure",
+    "CPU/JIT timing behavior",
+    "production integration and performance acceptance"
+  ],
+  "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+  "solver_version": "Z3 version 4.12.1 - 64 bit",
+  "controls": {
+    "reduce": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "87aedbc1477405e44d5036f0f296241ab4b4f61470320e4a3d627679c5d80eaa",
+      "symbol": "NativeField.Reduce.",
+      "log": "control-reduce.log",
+      "witness": {
+        "a": 1,
+        "requires": "a == 1",
+        "expected_modulo": 1,
+        "mutant_return": 0,
+        "scope": "temporary negative copy only"
+      }
+    },
+    "correction-shift": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "a8fb49441c1efb018d73930ea8c9be00ad031e9ede690973b662663698573f0f",
+      "symbol": "NativeField.ReduceOnce.",
+      "log": "control-correction-shift.log"
+    },
+    "barrett-shift": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "3d15f82b6d9e19a500b766f33e6314c99531de4c00b7c32be0c03ae103e0fb95",
+      "symbol": "NativeField.Reduce.",
+      "log": "control-barrett-shift.log",
+      "witness": {
+        "a": 16777216,
+        "requires": "a == 16777216",
+        "expected_modulo": 2385,
+        "product": 84540391424,
+        "shift24": 5039,
+        "mutant_shift23": 10078,
+        "mutant_remainder": -16772446,
+        "scope": "temporary negative copy only"
+      }
+    },
+    "mask": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "bb77354e5cd44bdb4dc1ca702b89ae58de12571de9ddb81b873f6295e2674a0d",
+      "symbol": "NativeField.ReduceOnce.",
+      "log": "control-mask.log"
+    },
+    "reciprocal": {
+      "result": "semantic proof failure",
+      "failure_kind": "call precondition: NativeField.ReduceOnce; requires 0 <= a < 6658",
+      "sha256": "5efecbb65751546b878c6224567aaea95ee3bc0d114e12a3ecc644175ea67b1f",
+      "symbol": "NativeReciprocalControl.Wrong.",
+      "log": "control-reciprocal.log",
+      "witness": {
+        "a": 9993658,
+        "requires": "a == 9993658",
+        "expected_modulo": 0,
+        "domain_anchor": "    requires 0 <= a <= 22154496\n",
+        "product": 50348049004,
+        "quotient": 3000,
+        "mutant_remainder": 6658,
+        "scope": "temporary negative copy only"
+      },
+      "correct_witness_sha256": "e1143690e518c5257d8ffb708f4072b79155ae230567aa0314119f4aae3275a5",
+      "correct_witness_log": "control-reciprocal-original.log"
+    },
+    "sign": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "01dae09d35196c84b8ae39a5cb7403b579d7558c68560834f64da6b0bc300253",
+      "symbol": "NativePolynomial.ForwardStage.",
+      "log": "control-sign.log",
+      "witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 128,
+        "expected_lane": 1600,
+        "mutant_lane": 1729,
+        "scope": "temporary negative copy and paired original-body check only"
+      },
+      "correct_witness_sha256": "4de922cd8bec4f7f872b3559ca0d0b1eb8f9814cf262bbae5968691c2cb68963",
+      "correct_witness_log": "control-sign-original.log"
+    },
+    "index": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "a77b162b1d03450aa57eb07ee76e61b256687c66db0fc1a1b2e0e085d6170521",
+      "symbol": "NativePolynomial.ForwardStage.",
+      "log": "control-index.log",
+      "witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 0,
+        "expected_lane": 1729,
+        "mutant_lane": 0,
+        "scope": "temporary negative copy and paired original-body check only"
+      },
+      "correct_witness_sha256": "749eaa9435bf32dcd2c17e9713a608923ee1529cb86a15f41fc1c822ec5f9c30",
+      "correct_witness_log": "control-index-original.log"
+    },
+    "inverse": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "9864a1a427678dd114716fc2c39539c7166a67e859b2d69c65453a7cfb227cfe",
+      "symbol": "NativePolynomial.InverseStage.",
+      "log": "control-inverse.log",
+      "witness": {
+        "stage": 0,
+        "nonzero_coefficient": 2,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 2,
+        "expected_lane": 2154,
+        "mutant_lane": 1175,
+        "scope": "temporary negative copy and paired original-body check only"
+      },
+      "correct_witness_sha256": "cb8c69099f348eda09f7daffafd173d28be788c2bb3df8f5b3bf36e1bac83d64",
+      "correct_witness_log": "control-inverse-original.log"
+    },
+    "product": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "51933e47f5081dbde66311e6c6232c6e3b4c13b3a08753037416718fa3c992d3",
+      "symbol": "NativeProductControl.Wrong.",
+      "log": "control-product.log"
+    },
+    "root": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "23ea6e514af2dea913153ca15b946eef8ec282b98627b6a28069ee6da373b280",
+      "symbol": "NativePolynomial.ZetasChunk0.",
+      "log": "control-root.log"
+    },
+    "wipe": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "5e74aa16939d49e12a5c38dde67a24df07ba824f05518c22db341c0297069f90",
+      "symbol": "NativePolynomial.Wipe.",
+      "log": "control-wipe.log"
+    },
+    "positive-dividend": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "38023d70bc49f1bdcf7b6bc82a6b99f64ccfbaf256298af84a807cbb7e3a4edf",
+      "symbol": "NativeField.MulSub.",
+      "log": "control-positive-dividend.log"
+    },
+    "scale": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "a91675227a0f2a310f77f28cbca704df4830467e0ad865521cd6e1f87795cdbf",
+      "symbol": "NativeScaleControl.Wrong.",
+      "log": "control-scale.log"
+    },
+    "freshness": {
+      "result": "semantic proof failure",
+      "failure_kind": "semantic proof failure",
+      "sha256": "8d57e9eb62f31cd38d47bebbc8bc5147bfbf6226ed23ed26ccef98f1ac7166a8",
+      "symbol": "NativeFreshControl.Wrong.",
+      "log": "control-freshness.log"
+    }
+  }
+}

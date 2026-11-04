@@ -1,0 +1,12 @@
+/tmp/native-polynomial-_6tjra83/native_polynomial_correction-shift.dfy(58,13): Error: assertion might not hold
+   |
+58 |       assert atLeastQ == 0;
+   |              ^^^^^^^^^^^^^
+
+/tmp/native-polynomial-_6tjra83/native_polynomial_correction-shift.dfy(62,13): Error: assertion might not hold
+   |
+62 |       assert atLeastQ == 1;
+   |              ^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 34 verified, 2 errors

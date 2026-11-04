@@ -1,0 +1,7 @@
+formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.
+formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.
+formal/crypto/NativeJdkHash.dfy(12,4): Warning: Hash: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.
+formal/crypto/NativeJdkHash.dfy(17,4): Warning: Expand: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.
+Dafny auditor completed with 4 findings
+
+Dafny program verifier did not attempt verification

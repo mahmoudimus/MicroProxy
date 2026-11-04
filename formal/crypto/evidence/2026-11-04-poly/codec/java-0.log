@@ -1,0 +1,1 @@
+PASS native_codec_test {"scalars":40713,"encodings":7044,"malformed":1820,"cbd":384,"feeds":19320,"java_samples":224,"assertions":334753}

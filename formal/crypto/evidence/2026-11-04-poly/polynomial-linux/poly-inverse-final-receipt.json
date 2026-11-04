@@ -1,0 +1,484 @@
+{
+  "schema": "microproxy.issue117.poly-inverse-linux-final/1",
+  "generated_at_utc": "2026-11-04T08:13:41.044052+00:00",
+  "task": "final Linux 14-control replay after the reviewed inverse witness repair",
+  "ownership": {
+    "write": "P/a-poly-kem-validation only",
+    "A": "read-only",
+    "git_github_memory": "untouched",
+    "budget_or_runner_change": false
+  },
+  "fixture": {
+    "dir": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/poly-inverse-control-repair",
+    "report.md": {
+      "path": "poly-inverse-control-repair/report.md",
+      "sha256": "3e0b4e681e26bb826a046acc4a03e7edab1ecfff142552dcdf27915bc455bfc3",
+      "bytes": 10039
+    },
+    "review-pins.json": {
+      "path": "poly-inverse-control-repair/review-pins.json",
+      "sha256": "d6740d31ff06806d75a27150ea4366c072f58bc4a974f11e498691fef9f4690a",
+      "bytes": 16373
+    },
+    "mac_controls_report": {
+      "path": "poly-inverse-control-repair/mac-controls-v1/native_polynomial_report.json",
+      "sha256": "9c3f274d4432747d562415486e0e5e8302ae646fe70f51ea318c249d221001fe",
+      "bytes": 8243
+    },
+    "mac_controls_status": "passed",
+    "mac_controls_count": 14,
+    "mac_all_runs": {
+      "jdk21": {
+        "report": "aa7c3443c2bed7ba860bc0fd5399e9df466fff605b1f476af138a1d35bcd95a2",
+        "status": "passed",
+        "dependency_verified": 1562,
+        "native_verified": 1092,
+        "domain_verified": 1,
+        "audit_findings": 0,
+        "translation_verified": 126,
+        "java_runs": [
+          {
+            "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+            "result": "NATIVE_POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=22865885",
+            "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
+          }
+        ]
+      },
+      "jdk25": {
+        "report": "ca5df69fc72c1d8072025481f02106aec06271d19ce294c648ed1666015ea5da",
+        "status": "passed",
+        "dependency_verified": 1562,
+        "native_verified": 1092,
+        "domain_verified": 1,
+        "audit_findings": 0,
+        "translation_verified": 126,
+        "java_runs": [
+          {
+            "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+            "result": "NATIVE_POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=22865885",
+            "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
+          }
+        ]
+      }
+    }
+  },
+  "source": {
+    "head": "5ce660a69a1dd496dda02705bf1e2b1aa7a2be1d",
+    "runner_now": "ab28bc183379c69ab3ba9e20507e23d54eaad712426819a9e032001cd7bf2b61",
+    "runner_before": "ad2fba67279f17a278145d523e7308b86e94b9aca60b879ee38dde97a5f927a7",
+    "test_now": "0e775ccc5653ac7b50bd38d7b57cbf39c2dbdedf655ab0796de5ab03999bc885",
+    "test_before": "cf16fed067a0aa6edd4b532fcc3dfc51ae0ac36f968394f836d9f7eac68d9037",
+    "runner_changed_only_among_13": true,
+    "runner_inputs": {
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/native_polynomial_domain.dfy": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/crypto/native_polynomial_checks.py": "ab28bc183379c69ab3ba9e20507e23d54eaad712426819a9e032001cd7bf2b61",
+      "formal/crypto/native_polynomial_test.java": "3726f78d85985d105de367e4656b51600948dddd11832094d2df81ed042dd80c",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+      "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+      "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+      "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+    },
+    "runner_inputs_unchanged_except_runner": {
+      "formal/crypto/NativePolynomial.dfy": true,
+      "formal/crypto/NativeField.dfy": true,
+      "formal/crypto/native_polynomial_domain.dfy": true,
+      "formal/crypto/NativeTypes.dfy": true,
+      "formal/crypto/Polynomial.dfy": true,
+      "formal/primitives/Field.dfy": true,
+      "formal/crypto/native_polynomial_checks.py": false,
+      "formal/crypto/native_polynomial_test.java": true,
+      "formal/source/SourceTrace.dfy": true,
+      "formal/source/vocabulary/ObservationVocabulary.dfy": true,
+      "formal/crypto/reference/MlKem768.java": true,
+      "formal/crypto/reference/Shake.java": true,
+      "formal/crypto/reference/provenance.json": true
+    },
+    "kem_graph21": {
+      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+      "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+      "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+      "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+      "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+      "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+      "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+      "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+      "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "kem_graph21_unchanged": true,
+    "aux_test_is_runner_input": false,
+    "runner_diff_scope": {
+      "file": "formal/crypto/native_polynomial_checks.py",
+      "from": "ad2fba67279f17a278145d523e7308b86e94b9aca60b879ee38dde97a5f927a7",
+      "to": "ab28bc183379c69ab3ba9e20507e23d54eaad712426819a9e032001cd7bf2b61",
+      "content": "new inverse_control_witness + dispatch branch for inverse only; the 13 other mutation templates are byte-identical after path relocation (see normalization)"
+    }
+  },
+  "linux": {
+    "image": {
+      "id": "sha256:2b26c88487f212c4fdf75f45be47ed5160503ae9464fc7735d9027d2e7f9ccb2",
+      "architecture": "amd64",
+      "os": "linux",
+      "created": "2026-11-04T08:05:31.993940569Z",
+      "context_sha256_recorded_at_build": "9fea99809a987faa6cd0d7a8399bdebe71e6a641336f224acdaecae1e601c100",
+      "context_note": "the authoritative context tar was recorded at build time; the on-disk linux-static-inverse-context.tar was then replaced by the observation variant (below), which differs only in shim/sitecustomize.py, a file the authoritative run never loaded",
+      "context_file_now": {
+        "path": "linux-static-inverse-context.tar",
+        "sha256": "328bcd271c90f808ddf1cc979b01c41b70efe77ece30127f3d5ae55aab5ad195",
+        "bytes": 507392
+      },
+      "context_files": [
+        {
+          "path": "linux-static-inverse/Dockerfile",
+          "sha256": "1dcc63c53e32e7bff247470431ad99488847ca1f152d9c83175d5db31a5e578c",
+          "bytes": 877
+        },
+        {
+          "path": "linux-static-inverse/pin-static.py",
+          "sha256": "027c2c8392733842a5244c9ee14c1d4f410c30e40ac5d156ecea25974816d275",
+          "bytes": 4191
+        },
+        {
+          "path": "linux-static-inverse/run-poly-inverse.sh",
+          "sha256": "c87321a035f9120814cb27e6dfb9e7ab2e5c511fb87fce40ab58def1085bf6c6",
+          "bytes": 1614
+        },
+        {
+          "path": "linux-static-inverse/run-poly-inverse-observed.sh",
+          "sha256": "18648d5163e0b5f47715dff3cf7731b760f1789d15190e3b22869f2cb3beda07",
+          "bytes": 1874
+        },
+        {
+          "path": "linux-static-inverse/inputs-poly.txt",
+          "sha256": "1afa5d8e468d6d9e9dbb200802cec6b48f3447aa4dffc426701a138ac3348cd7",
+          "bytes": 1331
+        },
+        {
+          "path": "linux-static-inverse/inputs-aux.txt",
+          "sha256": "2dd9f7912e3695a7ee006c50a114adb680e2112f5c91e27d1414a8d5233592a5",
+          "bytes": 115
+        },
+        {
+          "path": "linux-static-inverse/inputs-kem-graph.txt",
+          "sha256": "d211950a93465fe5bf36909ba40a1df81834271d92cab8149a872650b2511c17",
+          "bytes": 2026
+        },
+        {
+          "path": "linux-static-inverse/shim/sitecustomize.py",
+          "sha256": "b251428fae491ada3416feddb6ab6a824988eca83b7909983682e5cc4a6306da",
+          "bytes": 665
+        }
+      ],
+      "lineage": "derived from the pinned previous linux-static context (sha256 0ec44c29efafec6274108af98da5fc16556a4ae56061525439f477d68b301678); only formal/crypto/native_polynomial_checks.py and formal/crypto/test_native_polynomial_controls.py were replaced, plus this phase's run scripts/shim"
+    },
+    "container": {
+      "id": "981b42c0e55bfd79c1c4a26e824b17efb70324479a4385391b900a6759d5bd41",
+      "image": "sha256:2b26c88487f212c4fdf75f45be47ed5160503ae9464fc7735d9027d2e7f9ccb2",
+      "cmd": [
+        "sh",
+        "/repo/run-poly-inverse.sh"
+      ],
+      "network_mode": "none",
+      "readonly_rootfs": true,
+      "nanocpus": 2000000000,
+      "memory": 8589934592,
+      "pids_limit": 512,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "microproxy-poly-inverse-out",
+          "Source": "/var/lib/docker/volumes/microproxy-poly-inverse-out/_data",
+          "Destination": "/out",
+          "Driver": "local",
+          "Mode": "z",
+          "RW": true,
+          "Propagation": ""
+        }
+      ],
+      "started_at": "2026-11-04T08:05:41.346085414Z",
+      "finished_at": "2026-11-04T08:06:54.31297199Z",
+      "exit": 0,
+      "oom_killed": false
+    },
+    "command": "python3 formal/crypto/native_polynomial_checks.py --phase controls --dafny /opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny --output /out/poly-inverse",
+    "flags": [
+      "--phase controls",
+      "--cores 2 (runner constant)",
+      "--verification-time-limit 30 (runner constant)",
+      "--resource-limit 50000000 (runner constant)",
+      "--solver-option O:smt.case_split=0 (runner constant for controls)"
+    ],
+    "inner_exit": 0,
+    "inner_exit_file": {
+      "path": "poly-inverse-out/poly-inverse.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "stdout": {
+      "path": "poly-inverse-out/poly-inverse.run.stdout",
+      "sha256": "9b0b7338def354c6dbfc435300880ce5dfe4512423cd6414ec8130eb4322165c",
+      "bytes": 201
+    },
+    "stderr": {
+      "path": "poly-inverse-out/poly-inverse.run.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "report": {
+      "path": "poly-inverse-out/poly-inverse/native_polynomial_report.json",
+      "sha256": "71c68e388f534d4d2b51063c0087e4e46f978761156384a42f0ae683cc572a2b",
+      "bytes": 8243
+    },
+    "report_status": "passed",
+    "report_error": null,
+    "report_controls": 14,
+    "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+    "solver_version": "Z3 version 4.12.1 - 64 bit",
+    "pins_before": {
+      "path": "poly-inverse-out/pin-before.json",
+      "sha256": "8b89bc820b44961f998849346a428334d0f36e8b4ecb86ce91f6a5d714003654",
+      "bytes": 12105
+    },
+    "pins_after": {
+      "path": "poly-inverse-out/pin-after.json",
+      "sha256": "fdbaad41a70c48c0b161378e75779be870c6038ab34bbbc34a8d7b1528d95ea5",
+      "bytes": 12104
+    },
+    "pins_stable": true,
+    "pinned_groups": {
+      "inputs-poly.txt": 13,
+      "inputs-aux.txt": 1,
+      "inputs-kem-graph.txt": 21
+    },
+    "sha256sums": {
+      "path": "poly-inverse-out/SHA256SUMS",
+      "sha256": "6541ccea1163049f2c10d332df0730d47ac7a8e5f1ee6bb612af1f37ad17c513",
+      "bytes": 2699
+    },
+    "logs": {
+      "control-barrett-shift.log": {
+        "sha256": "19854012efabacc0631b234caefe65f68fd9d960eb86ba4b7ae2ff61fa9c3eb7",
+        "summary": "Dafny program verifier finished with 32 verified, 1 error"
+      },
+      "control-correction-shift.log": {
+        "sha256": "a260bea911c6397d8b29a4812763fe5074afe997c2a483d4ea64e3c5bdbe73a2",
+        "summary": "Dafny program verifier finished with 34 verified, 2 errors"
+      },
+      "control-freshness.log": {
+        "sha256": "12d00f19fe7521e7ad8bc8fd52e6755bd0efb42dfd7638bee54e5a6eeb718038",
+        "summary": "Dafny program verifier finished with 0 verified, 1 error"
+      },
+      "control-index-original.log": {
+        "sha256": "faeb9f26cd0a52c46f258a4cad5f567f5ae1f47af02cefb13e6e86f5a1a9ee49",
+        "summary": "Dafny program verifier finished with 10 assertions verified, 0 errors"
+      },
+      "control-index.log": {
+        "sha256": "1bbc4cfc8f6e905d7c0e41f6397adb48ed006e8c84e157a6b3f47561dd2b8bce",
+        "summary": "Dafny program verifier finished with 9 assertions verified, 1 error"
+      },
+      "control-inverse-original.log": {
+        "sha256": "faeb9f26cd0a52c46f258a4cad5f567f5ae1f47af02cefb13e6e86f5a1a9ee49",
+        "summary": "Dafny program verifier finished with 10 assertions verified, 0 errors"
+      },
+      "control-inverse.log": {
+        "sha256": "b2b286898d606010ad95466448c89b03d2327d8760fdbce58af769383f71fbbb",
+        "summary": "Dafny program verifier finished with 9 assertions verified, 1 error"
+      },
+      "control-mask.log": {
+        "sha256": "1273f0abe9577ce637d1633eaa5dc0ed7a20f78ea79d81f4081dc9bd306d8d85",
+        "summary": "Dafny program verifier finished with 35 verified, 1 error"
+      },
+      "control-positive-dividend.log": {
+        "sha256": "26548fb608e9d79beb4d84e96f59f93af574dc95b8ad7cf191d271be93e67fcf",
+        "summary": "Dafny program verifier finished with 1 verified, 2 errors"
+      },
+      "control-product.log": {
+        "sha256": "76dfe7bd0c541d9c89f7f5fe1fcc5a38ea090a40b8556cca55c22cbe053f9b1b",
+        "summary": "Dafny program verifier finished with 1 verified, 1 error"
+      },
+      "control-reciprocal-original.log": {
+        "sha256": "f2abe89c147308c4a46c5d3f48249668e45364cfeb2c40ab9cc38f887a5075be",
+        "summary": "Dafny program verifier finished with 32 verified, 0 errors"
+      },
+      "control-reciprocal.log": {
+        "sha256": "34e5f6ea04de89fc9ca04f55f2d44c7aa931bff6d33ef0456ddf59464dbe60fc",
+        "summary": "Dafny program verifier finished with 31 verified, 1 error"
+      },
+      "control-reduce.log": {
+        "sha256": "5d74a40ff6026514c80761c32a48bb2caf942d9dc9cdc9e479fa3ad2b2e9ff3b",
+        "summary": "Dafny program verifier finished with 33 verified, 1 error"
+      },
+      "control-root.log": {
+        "sha256": "c08f4e4642a7652d3ed48e2a493df30e2f9bb2373706560abdef8795a9c66dbd",
+        "summary": "Dafny program verifier finished with 0 verified, 1 error"
+      },
+      "control-scale.log": {
+        "sha256": "9c93865abde3945d03b4f65c9cf22d6726ff06046e37e2fe4c7ac2bb3cb3b158",
+        "summary": "Dafny program verifier finished with 1 verified, 1 error"
+      },
+      "control-sign-original.log": {
+        "sha256": "d4f76ca13829ed25bed300a8399e0b997fbfe07c62b6dbf217e74b80955fe06e",
+        "summary": "Dafny program verifier finished with 12 assertions verified, 0 errors"
+      },
+      "control-sign.log": {
+        "sha256": "6bec1d232842376c87805fd92c261b7981e506eeb7cde7720466a52ad2a7909f",
+        "summary": "Dafny program verifier finished with 11 assertions verified, 1 error"
+      },
+      "control-wipe.log": {
+        "sha256": "82e60585f81a9f679c3fc99cc6d07cddf75496c0a2a3c2c7126cfee602efe65c",
+        "summary": "Dafny program verifier finished with 1 verified, 1 error"
+      }
+    },
+    "no_out_of_resource_or_timeout": true,
+    "inverse": {
+      "negative": {
+        "result": "semantic proof failure",
+        "failure_kind": "semantic proof failure",
+        "sha256": "9864a1a427678dd114716fc2c39539c7166a67e859b2d69c65453a7cfb227cfe",
+        "symbol": "NativePolynomial.InverseStage.",
+        "log": "control-inverse.log",
+        "witness": {
+          "stage": 0,
+          "nonzero_coefficient": 2,
+          "value": 1,
+          "other_coefficients": 0,
+          "checked_lane": 2,
+          "expected_lane": 2154,
+          "mutant_lane": 1175,
+          "scope": "temporary negative copy and paired original-body check only"
+        },
+        "correct_witness_sha256": "cb8c69099f348eda09f7daffafd173d28be788c2bb3df8f5b3bf36e1bac83d64",
+        "correct_witness_log": "control-inverse-original.log"
+      },
+      "negative_log_summary": "Dafny program verifier finished with 9 assertions verified, 1 error",
+      "original_log_summary": "Dafny program verifier finished with 10 assertions verified, 0 errors",
+      "mac_negative": "3420843e24540639066c0a3a4ca54c8888509b2d737c8dcb012254e063a5f39a",
+      "semantic_failure": true
+    },
+    "control_counts_match_mac": {
+      "reduce": true,
+      "correction-shift": true,
+      "barrett-shift": true,
+      "mask": true,
+      "reciprocal": true,
+      "sign": true,
+      "index": true,
+      "inverse": true,
+      "product": true,
+      "root": true,
+      "wipe": true,
+      "positive-dividend": true,
+      "scale": true,
+      "freshness": true
+    }
+  },
+  "observation_image": {
+    "id": "sha256:253e2dc6531b00608736af77d438b83ffa7bb20b8d1667a4a46e33a74202ac4c",
+    "created": "2026-11-04T08:10:19.665542533Z",
+    "context": {
+      "path": "linux-static-inverse-context.tar",
+      "sha256": "328bcd271c90f808ddf1cc979b01c41b70efe77ece30127f3d5ae55aab5ad195",
+      "bytes": 507392
+    },
+    "difference_from_authoritative": "shim/sitecustomize.py only (TemporaryDirectory retention)"
+  },
+  "normalization": {
+    "file": {
+      "path": "poly-inverse-normalized-sources.json",
+      "sha256": "f7fa82907b25e48b93d1c0ead25261953831bc3ac6a7198ec9c45ab80bcbacde",
+      "bytes": 12072
+    },
+    "all_normalized_equal": true,
+    "templates": 14,
+    "method": "sha256 of the retained generated .dfy (identity), then sha256 after replacing the Linux repo root '/repo' with the fixture checkout root (path relocation only), compared with each report recorded sha256"
+  },
+  "observation_replays": [
+    {
+      "container": "8a948ec7bc85fd76fcd4087611d3ef138da80b22d2e4a56c831ede1ff625d48e",
+      "image": "sha256:2b26c88487f212c4fdf75f45be47ed5160503ae9464fc7735d9027d2e7f9ccb2",
+      "inner_exit": 0,
+      "report_sha256": "71c68e388f534d4d2b51063c0087e4e46f978761156384a42f0ae683cc572a2b",
+      "report_equals_authoritative": true,
+      "container_exit": 123,
+      "container_exit_reason": "harness sums step over a .NET commandline sentinel filename containing spaces/commas after the runner had already exited 0; mutants not retained by the first shim version"
+    },
+    {
+      "container": "79ef8f7e2de4a75b39bfb7360be6345c142981e4c736994038b2886249cfc752",
+      "image": "sha256:253e2dc6531b00608736af77d438b83ffa7bb20b8d1667a4a46e33a74202ac4c",
+      "inner_exit": 0,
+      "report_sha256": "71c68e388f534d4d2b51063c0087e4e46f978761156384a42f0ae683cc572a2b",
+      "report_equals_authoritative": true,
+      "container_exit": 123,
+      "container_exit_reason": "same harness sums-step defect; the reviewed runner exited 0 and the retained sources were extracted for hash normalisation",
+      "observed_image": "sha256:253e2dc6531b00608736af77d438b83ffa7bb20b8d1667a4a46e33a74202ac4c"
+    }
+  ],
+  "unchanged_previous_evidence": {
+    "full_linux_kem_receipt": {
+      "path": "linux-out/linux-full/native-kem-xh1s0sah/receipt.json",
+      "sha256": "fac869b12e09245c9ec7bf02bac69a59b8b2eb65ce96673f94c080cd265e9e9b",
+      "bytes": 113607
+    },
+    "static_projection": {
+      "path": "linux-static-ledger-projection.json",
+      "sha256": "63287f2f8de06d89af3e075d8685ae6ed38a4a58c12d51b34686d35a2689fd6d",
+      "bytes": 10716
+    },
+    "csv_metrics": {
+      "max_resource_count": 10275514,
+      "max_obligation_seconds": 10.1399173
+    },
+    "poly_failed_runs_preserved": [
+      {
+        "path": "poly-out/poly-controls/native_polynomial_report.json",
+        "sha256": "9de9921bc801ad40a7a2fb7d1396ec3c68a64fa398d438f4290d2238f6d11078",
+        "bytes": 5888
+      },
+      {
+        "path": "poly-out2/poly-controls/native_polynomial_report.json",
+        "sha256": "9de9921bc801ad40a7a2fb7d1396ec3c68a64fa398d438f4290d2238f6d11078",
+        "bytes": 5888
+      }
+    ]
+  },
+  "ledger_output_paths": {
+    "report": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/report-poly-inverse-final.md",
+    "machine_receipt": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/poly-inverse-final-receipt.json",
+    "control_evidence_dir": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/poly-inverse-out/poly-inverse",
+    "pins": [
+      "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/poly-inverse-out/pin-before.json",
+      "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/poly-inverse-out/pin-after.json"
+    ],
+    "normalized_sources": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/poly-inverse-normalized-sources.json",
+    "manifest": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/manifest.json"
+  },
+  "limits": [
+    "No GitHub-hosted CI qualification is claimed.",
+    "This is the controls phase only; the full/JDK phases were not rerun.",
+    "Dafny compiler/runtime and Z3 correctness are trusted, not proved.",
+    "Wall-clock timings are not part of this receipt."
+  ]
+}

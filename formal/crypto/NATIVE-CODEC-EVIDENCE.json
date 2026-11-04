@@ -1,6 +1,503 @@
 {
-  "validation_kind": "Fresh Java compilation, bytecode checker and JDK replay; unchanged SMT proofs and generation reused by exact identity; later ghost-only EncodeTen proof split and strict normal-exit gate are separately recorded below",
+  "schema": "microproxy.native-codec-evidence/v2",
+  "status": "complete",
+  "scope": "Actual NativeField/NativeCodec/NativeSampling source proofs, 15 semantic controls, 8 payload bytecode controls and both supported-JDK replays over the adopted ghost-instrumented source. Generated Java and canonical class bytes are produced and compared by the pinned runner; this is not a universal Java refinement, a JVM timing result or a production-adoption claim.",
+  "validation_kind": "Fresh actual proof, semantic-control, generation, compilation, bytecode and JDK21/JDK25 replay of the adopted source; the pre-Poly proof-reuse lineage is retained under historical only and is not evidence for these source hashes.",
   "commands": [
+    {
+      "label": "dafny-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "--version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "z3-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "audit-NativeField",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeField.dfy"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-NativeField",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeField.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "audit-NativeCodec",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeCodec.dfy"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-NativeCodec",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeCodec.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "audit-NativeSampling",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeSampling.dfy"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-NativeSampling",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeSampling.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "native_codec_domain",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_codec_domain.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "native_sampling_domain",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_sampling_domain.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "control-compress-rounding",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/compress-rounding/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Compress.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeCodec.dfy:211",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-decompress-half-tie",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/decompress-half-tie/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Decompress.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeCodec.dfy:264",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-encode-bit",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/encode-bit/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Encode.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-native-int-overflow",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/native-int-overflow/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.GroupValue.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-decode-modulus",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/decode-modulus/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Decode.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-wipe",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/wipe/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Wipe.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-cbd-sign",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/cbd-sign/NativeSampling.dfy",
+        "--filter-symbol",
+        "NativeSampling.Cbd2.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-feed-order",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-order/NativeSampling.dfy",
+        "--filter-symbol",
+        "NativeSampling.Feed.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-feed-reject-q",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-reject-q/NativeSampling.dfy",
+        "--filter-symbol",
+        "NativeSampling.Feed.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeSampling.dfy:95",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-feed-cap",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-cap/NativeSampling.dfy",
+        "--filter-symbol",
+        "NativeSampling.Feed.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeSampling.dfy:102",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-feed-consumption",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-consumption/NativeSampling.dfy",
+        "--filter-symbol",
+        "NativeSampling.Feed.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeSampling.dfy:108",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-extract-shift",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/extract-shift/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Extract.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-extract-mask",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/extract-mask/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Extract.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-compress-reciprocal",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/compress-reciprocal/NativeCodec.dfy",
+        "--filter-symbol",
+        "NativeCodec.Compress.",
+        "--isolate-assertions",
+        "--filter-position",
+        "NativeCodec.dfy:214",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-full-domain",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/full-domain/native_codec_domain.dfy",
+        "--filter-symbol",
+        "NativeCodecPublicDomain.Scalars.",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "generate-java",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "translate",
+        "java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeCodec.dfy",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeSampling.dfy",
+        "--output",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
     {
       "label": "javac",
       "command": [
@@ -10,41 +507,41 @@
         "-cp",
         "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/DecodeResult.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/DecodeResult_Decoded.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/DecodeResult_InvalidLength.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/DecodeResult_InvalidWidth.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/DecodeResult_ModulusError.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/CodecSpec/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/DecodeResult.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/DecodeResult_Decoded.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/DecodeResult_InvalidLength.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/DecodeResult_InvalidWidth.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/DecodeResult_ModulusError.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodec/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeCodecSampling.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeField/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/FeedResult.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/FeedResult_Full.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/FeedResult_InvalidBlockLength.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/FeedResult_InvalidPrefix.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/FeedResult_NeedMore.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeSampling/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeTypes/I.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/NativeTypes/L.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/FeedResult.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/FeedResult_Full.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/FeedResult_InvalidBlockLength.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/FeedResult_InvalidPrefix.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/FeedResult_NeedMore.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/SamplingSpec/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/VerifiedCodec/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/VerifiedField/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/NativeCodecSampling-java/VerifiedSampling/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_codec_test.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/reference/Shake.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/reference/MlKem768.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/DecodeResult.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/DecodeResult_Decoded.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/DecodeResult_InvalidLength.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/DecodeResult_InvalidWidth.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/DecodeResult_ModulusError.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/CodecSpec/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/DecodeResult.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/DecodeResult_Decoded.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/DecodeResult_InvalidLength.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/DecodeResult_InvalidWidth.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/DecodeResult_ModulusError.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodec/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeCodecSampling.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeField/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/FeedResult.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/FeedResult_Full.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/FeedResult_InvalidBlockLength.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/FeedResult_InvalidPrefix.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/FeedResult_NeedMore.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeSampling/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeTypes/I.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/NativeTypes/L.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/FeedResult.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/FeedResult_Full.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/FeedResult_InvalidBlockLength.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/FeedResult_InvalidPrefix.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/FeedResult_NeedMore.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/SamplingSpec/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/VerifiedCodec/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/VerifiedField/__default.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/NativeCodecSampling-java/VerifiedSampling/__default.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_codec_test.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/reference/Shake.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/reference/MlKem768.java"
       ],
       "exit": 0
     },
@@ -63,7 +560,7 @@
         "-Xmx1024m",
         "-ea",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "io.github.mahmoudimus.quic.tls.native_codec_test"
       ],
       "exit": 0
@@ -71,7 +568,7 @@
     {
       "label": "java-1-version",
       "command": [
-        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
         "-version"
       ],
       "exit": 0
@@ -79,11 +576,11 @@
     {
       "label": "java-1",
       "command": [
-        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
         "-Xmx1024m",
         "-ea",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "io.github.mahmoudimus.quic.tls.native_codec_test"
       ],
       "exit": 0
@@ -108,7 +605,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -135,10 +632,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-idiv/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-idiv/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-idiv/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-idiv/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -150,7 +647,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-idiv/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-idiv/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -164,10 +661,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-euclidean/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-euclidean/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-euclidean/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-euclidean/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -179,7 +676,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-euclidean/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-euclidean/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -193,10 +690,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-metadata/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-metadata/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-metadata/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-metadata/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -208,7 +705,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-metadata/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-metadata/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -222,10 +719,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-length/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-length/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-length/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-length/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -237,7 +734,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-length/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-length/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -251,10 +748,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-array-length/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-array-length/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-array-length/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-array-length/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -266,7 +763,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-array-length/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-array-length/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -280,10 +777,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-feed/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-feed/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-feed/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-feed/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -295,7 +792,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-array-feed/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-array-feed/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -309,10 +806,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-reference-array/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-reference-array/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-reference-array/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-reference-array/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -324,7 +821,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-reference-array/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-reference-array/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -338,10 +835,10 @@
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-dimensions/classes",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-dimensions/NativeCodec/__default.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-dimensions/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-dimensions/NativeCodec/__default.java"
       ],
       "exit": 0
     },
@@ -353,7 +850,7 @@
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/bytecode-payload-runtime-dimensions/classes:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/allocation-guard-o3qolmhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/bytecode-payload-runtime-dimensions/classes:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "NativeCodec.__default",
         "NativeSampling.__default",
         "NativeField.__default"
@@ -361,8 +858,103 @@
       "exit": 0
     }
   ],
-  "proofs": {},
-  "controls": {},
+  "proofs": {
+    "proof-NativeField": 86,
+    "proof-NativeCodec": 1503,
+    "proof-NativeSampling": 281,
+    "native_codec_domain": 8,
+    "native_sampling_domain": 4
+  },
+  "controls": {
+    "compress-rounding": {
+      "verified": 3,
+      "errors": 1,
+      "negative_control_witness": {
+        "x": 833,
+        "d": 1
+      }
+    },
+    "decompress-half-tie": {
+      "verified": 3,
+      "errors": 1,
+      "negative_control_witness": {
+        "y": 1,
+        "d": 1
+      }
+    },
+    "encode-bit": {
+      "verified": 1,
+      "errors": 1
+    },
+    "native-int-overflow": {
+      "verified": 205,
+      "errors": 1,
+      "failure_kind": "native_int_range"
+    },
+    "decode-modulus": {
+      "verified": 1,
+      "errors": 1
+    },
+    "wipe": {
+      "verified": 1,
+      "errors": 1
+    },
+    "cbd-sign": {
+      "verified": 1,
+      "errors": 1
+    },
+    "feed-order": {
+      "verified": 274,
+      "errors": 2
+    },
+    "feed-reject-q": {
+      "verified": 1,
+      "errors": 1,
+      "negative_control_witness_bytes": [
+        1,
+        13,
+        0
+      ]
+    },
+    "feed-cap": {
+      "verified": 4,
+      "errors": 1
+    },
+    "feed-consumption": {
+      "verified": 0,
+      "errors": 1
+    },
+    "extract-shift": {
+      "verified": 87,
+      "errors": 1,
+      "negative_control_witness": {
+        "value": 1,
+        "shift": 0,
+        "bits": 1
+      }
+    },
+    "extract-mask": {
+      "verified": 85,
+      "errors": 1,
+      "negative_control_witness": {
+        "value": 1,
+        "shift": 0,
+        "bits": 1
+      }
+    },
+    "compress-reciprocal": {
+      "verified": 0,
+      "errors": 1,
+      "negative_control_witness": {
+        "x": 3328,
+        "d": 11
+      }
+    },
+    "full-domain": {
+      "verified": 1,
+      "errors": 1
+    }
+  },
   "java": [
     {
       "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
@@ -389,199 +981,66 @@
       }
     }
   ],
-  "inputs_before": {
+  "inputs": {
     "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
     "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
     "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-    "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
-    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
     "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
     "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
-    "formal/crypto/native_codec_checks.py": "9765443ec0963bb99c5d92f8c5b3cc1f18ef0a91c3a7df280fcdd466665e353b",
+    "formal/crypto/native_codec_checks.py": "ad980f9c818a4aa9c1e66a60bcb4574704050d53ddc54dc7c2dff12822556247",
     "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
     "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
     "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  },
+  "inputs_before": {
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+    "formal/crypto/native_codec_checks.py": "ad980f9c818a4aa9c1e66a60bcb4574704050d53ddc54dc7c2dff12822556247",
+    "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  },
+  "inputs_after": {
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+    "formal/crypto/native_codec_checks.py": "ad980f9c818a4aa9c1e66a60bcb4574704050d53ddc54dc7c2dff12822556247",
+    "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
     "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
     "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
   },
   "runtime_path": "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
   "expected_runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
-  "revalidation_script_sha256": "18327106f3bb893d02e3e2c2cdc3cbaefa513a2c93c5175e838945529fa6e2b0",
-  "reused_evidence": {
-    "receipt_path": "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/native-codec-flax696x/receipt.json",
-    "receipt_sha256": "ccea5b75a60d04e55be62065643724c0eb04170a0558a92e7f1e5550bceb14eb",
-    "proofs": {
-      "proof-NativeField": 84,
-      "proof-NativeCodec": 1493,
-      "proof-NativeSampling": 281,
-      "native_codec_domain": 8,
-      "native_sampling_domain": 4
-    },
-    "semantic_controls": {
-      "compress-rounding": {
-        "verified": 3,
-        "errors": 1,
-        "negative_control_witness": {
-          "x": 833,
-          "d": 1
-        }
-      },
-      "decompress-half-tie": {
-        "verified": 3,
-        "errors": 1,
-        "negative_control_witness": {
-          "y": 1,
-          "d": 1
-        }
-      },
-      "encode-bit": {
-        "verified": 1,
-        "errors": 1
-      },
-      "native-int-overflow": {
-        "verified": 205,
-        "errors": 1,
-        "failure_kind": "native_int_range"
-      },
-      "decode-modulus": {
-        "verified": 1,
-        "errors": 1
-      },
-      "wipe": {
-        "verified": 1,
-        "errors": 1
-      },
-      "cbd-sign": {
-        "verified": 1,
-        "errors": 1
-      },
-      "feed-order": {
-        "verified": 274,
-        "errors": 2
-      },
-      "feed-reject-q": {
-        "verified": 1,
-        "errors": 1,
-        "negative_control_witness_bytes": [
-          1,
-          13,
-          0
-        ]
-      },
-      "feed-cap": {
-        "verified": 4,
-        "errors": 1
-      },
-      "feed-consumption": {
-        "verified": 0,
-        "errors": 1
-      },
-      "extract-shift": {
-        "verified": 87,
-        "errors": 1,
-        "negative_control_witness": {
-          "value": 1,
-          "shift": 0,
-          "bits": 1
-        }
-      },
-      "extract-mask": {
-        "verified": 85,
-        "errors": 1,
-        "negative_control_witness": {
-          "value": 1,
-          "shift": 0,
-          "bits": 1
-        }
-      },
-      "compress-reciprocal": {
-        "verified": 0,
-        "errors": 1,
-        "negative_control_witness": {
-          "x": 3328,
-          "d": 11
-        }
-      },
-      "full-domain": {
-        "verified": 1,
-        "errors": 1
-      }
-    },
-    "inputs_verified_unchanged": {
-      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-      "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-      "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
-      "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-      "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
-      "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
-      "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
-      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
-      "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
-      "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
-      "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
-    },
-    "generated_java": {
-      "CodecSpec/DecodeResult.java": "85110576567ccb1e97c3663a1e871d26197b67c301a6a38d071b493020800529",
-      "CodecSpec/DecodeResult_Decoded.java": "3f69813beca25368f219edc450653c3272cfad5c2a1f2474f0f3ba792d4242b4",
-      "CodecSpec/DecodeResult_InvalidLength.java": "6a1bfee55b0e781f82c1ecc6e6b66811b745740f4a283b92d814df8ea0d929e6",
-      "CodecSpec/DecodeResult_InvalidWidth.java": "f4f4b27ebcb901900e3b6fa4d5e31aaefbdf0dbbfdec2500ca7101ac398f8c30",
-      "CodecSpec/DecodeResult_ModulusError.java": "509efaad689441e50614c40e94901ce93db7f6afd8f11ef78075d14c764ebd45",
-      "CodecSpec/__default.java": "9079ca7771813026840e99fd577deda3c622aaafccb7da16acc462877c4b3bfd",
-      "NativeCodec/DecodeResult.java": "2a05a24195cc714984567760a9ab46abb0c5e6ee59f049a23e36aef31ee091a6",
-      "NativeCodec/DecodeResult_Decoded.java": "50d7e2b6909c20e192b964564d7d18b1cf37021ace731b7625cbbb2e4b00d913",
-      "NativeCodec/DecodeResult_InvalidLength.java": "3aed8007e5f1f021e22ce155b2a73ff3ffd76a513d20d830238e1bcf9d87314d",
-      "NativeCodec/DecodeResult_InvalidWidth.java": "643921797a6eca01d18523130a96183b351f37faaf83533a8d6b977e524db767",
-      "NativeCodec/DecodeResult_ModulusError.java": "dd83b089d2f2a8ee5af034bae056c64a744debad54c3f2b866a48d9767af4879",
-      "NativeCodec/__default.java": "d2c9c09629bc14e77bcf93f8c812b7737569ddb16af8393c39a24998b5382927",
-      "NativeCodecSampling.java": "22bcf0398a3e8d2a81e6bc02eda7d1365c8c4a9a0a637453dba75f38fd153926",
-      "NativeField/__default.java": "99b8994c63db1d4cb1cb1d98993efd4e5cf58cafd836ba8cdcf05c736b4d8498",
-      "NativeSampling/FeedResult.java": "67236a5f4ceea748f821303fb424fc3711dedb0d1518913e6b4171eb43d02483",
-      "NativeSampling/FeedResult_Full.java": "631adcc5ab7c150f07de9fe92d18450a4ada6f97f75440736a3f65126643407a",
-      "NativeSampling/FeedResult_InvalidBlockLength.java": "cb8d3d46599c78a6e43d44a6070d45df5552fb79f27e1b4cbe237dbb7385c36e",
-      "NativeSampling/FeedResult_InvalidPrefix.java": "cd6b040864f78660c2ca6c3b72fb1fe8ec6655b7ffdd361acd7f571491b91698",
-      "NativeSampling/FeedResult_NeedMore.java": "acbdc02c8377245dcb84a975ed2d02d30ef97547c4439d8df68389a5b4f57725",
-      "NativeSampling/__default.java": "64a819daad6b7e9d00e9aa2ae92655f1f6b0d971f9525d3122859c8f322200ac",
-      "NativeTypes/I.java": "99c223d8c172ce34cfeffd1fbc4252e964758b12b952ed46e2f0ef8db1610884",
-      "NativeTypes/L.java": "95465a1ba5b6fd7ee9f9af6f37f0845b7771a790c74e4140aa3ebf646882c834",
-      "SamplingSpec/FeedResult.java": "01857218a531ed02627ae5e7e03860c06ac354c64cb9e279ca1cd8d584d3c70a",
-      "SamplingSpec/FeedResult_Full.java": "9eae8b4a0621633737672e4a8408a0965f5205d1c36e9775cc4346cacd89f8fe",
-      "SamplingSpec/FeedResult_InvalidBlockLength.java": "6b7679cf4a1014d36ada57c4cf438ffed6a8994ec9155533165a702550f49dc3",
-      "SamplingSpec/FeedResult_InvalidPrefix.java": "9f063c3d48952778eb995574626c604566d1c49627d27bd3b6392360a593f6a5",
-      "SamplingSpec/FeedResult_NeedMore.java": "17180b5a74d8c7b848846cfbf37cde953c1cd8a9944ec241fcd171a4ce50f6cf",
-      "SamplingSpec/__default.java": "e631f3507565841907fdf51893b809b3e9a257a0daef8c40cdb021c1e8b86922",
-      "VerifiedCodec/__default.java": "cad2e6cf95598e06eb1f7f186edcacc463be8d14a530ec3fcdfe2fab95ba7c15",
-      "VerifiedField/__default.java": "8f14c0d37f9a097cb5aa5885de9a5f55bf71444eb735191fee3210adef7a9cb9",
-      "VerifiedSampling/__default.java": "b552ad9738292af92dae110450b0f3570495559aeced81977d088b1569f093e2"
-    },
-    "toolchain_sha256": {
-      "dafny": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
-      "solver": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396"
-    },
-    "proof_and_semantic_control_runner_section_unchanged": true,
-    "audit_findings": {
-      "NativeField": 0,
-      "NativeCodec": 0,
-      "NativeSampling": 0
-    }
-  },
-  "inputs": {
-    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-    "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
-    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
-    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
-    "formal/crypto/native_codec_checks.py": "9765443ec0963bb99c5d92f8c5b3cc1f18ef0a91c3a7df280fcdd466665e353b",
-    "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
-    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
-    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
-    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
-    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+  "toolchain_sha256": {
+    "dafny": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+    "solver": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396"
   },
   "generated_java": {
     "CodecSpec/DecodeResult.java": "85110576567ccb1e97c3663a1e871d26197b67c301a6a38d071b493020800529",
@@ -653,23 +1112,6 @@
     "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
     "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
     "io/github/mahmoudimus/quic/tls/native_codec_test.class": "4b083ccf89b263f71769d266b0132a4b4c82fbc6e16390dde287afa2aaf5de50"
-  },
-  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
-  "inputs_after": {
-    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-    "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
-    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
-    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
-    "formal/crypto/native_codec_checks.py": "9765443ec0963bb99c5d92f8c5b3cc1f18ef0a91c3a7df280fcdd466665e353b",
-    "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
-    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
-    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
-    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
-    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
   },
   "native_dataflow": {
     "methods_checked": 45,
@@ -763,236 +1205,473 @@
     "compiled_classes_bytes": 98191,
     "runtime_bytes": 159922
   },
-  "compiled_classes_identical_to_proof_receipt": true,
-  "independent_review": "Approved: arithmetic/full-domain contracts and source wiping reviewed; fresh eight compiled controls, actual45-method dataflow, all artifact/input/runtime pins and JDK21/25 replays verified. Proof and semantic-control reuse is explicit by unchanged source identity.",
-  "subsequent_proof_portability": {
-    "status": "Applied proof-only EncodeTen decomposition after composition confirmed graph release; source frozen.",
-    "source_before_sha256": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
-    "source_after_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
-    "patch_sha256": "3a4d26dc89660cc1e1382992e1d228e760f74d9dba25f3629dabf62bf66a5b98",
-    "full_original_contract_preserved": true,
-    "non_EncodeTen_source_bytes_preserved": true,
-    "budgets": {
-      "seconds": 30,
-      "resource_limit": 50000000,
-      "cores": 2,
-      "solver_option": "O:smt.case_split=0"
-    },
-    "checks": {
-      "mac-focused": {
-        "verified": 135,
-        "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
-        "exit": 0
-      },
-      "linux-focused": {
-        "verified": 135,
-        "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
-        "exit": 0
-      },
-      "mac-full": {
-        "verified": 1503,
-        "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
-        "exit": 0
-      },
-      "linux-full": {
-        "verified": 1503,
-        "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
-        "exit": 0
-      }
-    },
-    "audit_findings": 0,
-    "toolchain": {
-      "version": "Dafny 4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2 / Z3 4.12.1",
-      "mac_dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
-      "mac_solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
-      "linux_dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
-      "linux_solver_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a",
-      "linux_image": "sha256:55d5d3f4fdf202066f26d2888a10eba8490c6fb547e740d890d57a06d4755cb2"
-    },
-    "proof_dependency_sha256": {
-      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
-      "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
-      "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-      "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
-    },
-    "original_ci_failure": "/tmp/microproxy-ci-1b-native-codec-artifact/native-codec-g0o8k5x9/proof-NativeCodec.log",
-    "live_source_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
-    "runtime_artifacts_byte_identical": true
+  "provenance": {
+    "raw_receipt_path": "formal/crypto/evidence/2026-11-04-poly/codec/receipt.json",
+    "raw_receipt_sha256": "f741b5fe67a373d46864a710067267ca12915044e6f267174af9b81016a1f391",
+    "producer_receipt_path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/receipt.json",
+    "producer_receipt_sha256": "f741b5fe67a373d46864a710067267ca12915044e6f267174af9b81016a1f391",
+    "log_sha256": {
+      "audit-NativeCodec.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "audit-NativeField.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "audit-NativeSampling.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "compile-payload-array-feed.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-array-length.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-euclidean.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-idiv.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-metadata.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-reference-array.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-runtime-array-length.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compile-payload-runtime-dimensions.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "control-cbd-sign.log": "77ee04fe4491811038b5731743a370395229cefd8e7a32e1aa1695b90a93a8ab",
+      "control-compress-reciprocal.log": "5affe1cd9cfdf023549bd4584727c16056ad6222583c75124cbd7eb846f15622",
+      "control-compress-rounding.log": "72bad5e59a66fb414eb1e5f7b7fdbad0f726125d9e1724aba8673fa3fc020317",
+      "control-decode-modulus.log": "bccdd701be458b0ad13c4ec7681c7b55183e9374b10bd3cb7d9bcdc798ca598d",
+      "control-decompress-half-tie.log": "555d8bf34460e85644269ec169dcace6c509f7f1e0884dbe900b61cb139633a1",
+      "control-encode-bit.log": "0e0b80eb5f540c569f0957425e953fe556837582e14d254aeb540b21f5d9ce5f",
+      "control-extract-mask.log": "389faf6378624fa0f99b95745586acb81938e4310c0b995d7d745355da1d2aa3",
+      "control-extract-shift.log": "875fd432d37f468abe8ca137e9ece2c7a1aa029f7716aeefa668b76ed4c21e70",
+      "control-feed-cap.log": "eeaafb91cd1d9dfc9ee5c2fee795b311967a8672e75617651d96e0acc85ecc53",
+      "control-feed-consumption.log": "fa01a357a56a1a31dd4c209d0c2d7dc925be2807b2ab4f102622dd167802f257",
+      "control-feed-order.log": "b4f28b6081ff09b2aa0e235d6ac1711d757709b0ca5c9b68295d2a1a2f4c18ce",
+      "control-feed-reject-q.log": "38d1944096260ea846df783089c27f85005974d3bcb38ba347b6c3a8f4b757d8",
+      "control-full-domain.log": "760c60b9cef1b2ccd27404182f408aa1d5b56ac2c60fb880a92df41bfa2c6766",
+      "control-native-int-overflow.log": "fffeeaa726c5ffa2ba82ecfc35c945b95fb128802c7c5b10a6d997586eef0629",
+      "control-wipe.log": "3848972f6f618ec4d27b80550cd850ee71396eb3c4df4d14c292d75835c2104e",
+      "dafny-version.log": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+      "generate-java.log": "3bcf142afb077e1d28ebd781b2e86c09b69799ee3a5f88e83dfdf4fdfe5f271a",
+      "inspect-payload-array-feed.log": "b8f9eefe7d6b9a8d19d9ba8902a4463b57efb60a4c51bd527a7b61538759f3b7",
+      "inspect-payload-array-length.log": "aa0b9306ba8fdd670f125b18ac63e8ac4132d061fcdfaf518fba48ccc7c94425",
+      "inspect-payload-euclidean.log": "43bbaf588364bd055c403798bc31cd8ebe37ab65f529622c890a427c34e3d8e4",
+      "inspect-payload-idiv.log": "c6227e748c1b45226563b98adc878dfa6e44948b74d6a046b5347323b59998d1",
+      "inspect-payload-metadata.log": "adc90d8b6258487bb37b8ae9ac9390eb31f221ce10a647c8b96eaf209b096891",
+      "inspect-payload-reference-array.log": "d92bcce200fc52a8c246cd097a9efaf2886ba76145a6c1f1cfaa88ad5644e721",
+      "inspect-payload-runtime-array-length.log": "0650aea8a156469ce41c2a69507daba3a72601fa499969816fc048635f816ae7",
+      "inspect-payload-runtime-dimensions.log": "5f1732a2ab70e8bd8404f5f89fc130cdb8226e003a685fc9a1ec23ebb68a0478",
+      "java-0-version.log": "da6bb29c482c0fd5ea827d1eecfcf573d88175541589705d776142562e788e18",
+      "java-0.log": "c6cd77bbe7010e54b0cc219e7feaee44ede3ffbaab00626aec77a7595e07dac5",
+      "java-1-version.log": "dc25d4c269605476cbe8abf0a71814a943b1303a7249657c140d7e2878f5fa46",
+      "java-1.log": "c6cd77bbe7010e54b0cc219e7feaee44ede3ffbaab00626aec77a7595e07dac5",
+      "javac.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "native-bytecode.log": "ecde64c39d223cc81547e83b4b4bb24ede11403853702ece0f816825227e0261",
+      "native_codec_domain.log": "6870efe142567699d97323d3a4f70bc9854da2530f4cc8774a455002f592b712",
+      "native_sampling_domain.log": "5a85d064fb0f77424cdbc9152b314adb2489c99bc1ced2177cad5955d588c71c",
+      "proof-NativeCodec.log": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+      "proof-NativeField.log": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+      "proof-NativeSampling.log": "3cf04856939a2a81d2b65a288eaae18a143c07138b30e9f6c7dec2ba9313c6b7",
+      "runtime-euclidean-bytecode.log": "d571da07971bc40c5fe9ad0b0e2b74e6d4ae4fd7e5d65013a22221a6921f32ea",
+      "runtime-shift-bytecode.log": "ec65fc3f0370eaff6b0904ab5549e0f31dc58d5a42c03b9533adc7b3fb6df6d4",
+      "z3-version.log": "b9483dbdbdeee09f019dde3ba63e9aa51e41c2c40194e9308f494476001c2462"
+    }
   },
-  "subsequent_exit_gate": {
-    "change": "Both actual semantic-control rejection gates now require exit 4; all other validation remains unchanged.",
-    "runners": {
-      "native_codec_checks.py": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
-      "codec_sampling_checks.py": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d"
-    },
-    "actual_gate_regression": {
-      "formal/crypto/native_codec_checks.py": {
-        "sha256": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
-        "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
-        "cases": [
-          {
-            "exit": -11,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 0,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 1,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 2,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 3,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 4,
-            "rejected": false,
-            "expected_rejected": false
-          },
-          {
-            "exit": 5,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 137,
-            "rejected": true,
-            "expected_rejected": true
-          }
-        ]
+  "historical": {
+    "reused_evidence": {
+      "receipt_path": "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/native-codec-flax696x/receipt.json",
+      "receipt_sha256": "ccea5b75a60d04e55be62065643724c0eb04170a0558a92e7f1e5550bceb14eb",
+      "proofs": {
+        "proof-NativeField": 84,
+        "proof-NativeCodec": 1493,
+        "proof-NativeSampling": 281,
+        "native_codec_domain": 8,
+        "native_sampling_domain": 4
       },
-      "formal/crypto/codec_sampling_checks.py": {
-        "sha256": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d",
-        "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
-        "cases": [
-          {
-            "exit": -11,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 0,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 1,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 2,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 3,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 4,
-            "rejected": false,
-            "expected_rejected": false
-          },
-          {
-            "exit": 5,
-            "rejected": true,
-            "expected_rejected": true
-          },
-          {
-            "exit": 137,
-            "rejected": true,
-            "expected_rejected": true
+      "semantic_controls": {
+        "compress-rounding": {
+          "verified": 3,
+          "errors": 1,
+          "negative_control_witness": {
+            "x": 833,
+            "d": 1
           }
-        ]
-      }
-    },
-    "tests_passed": 16,
-    "proof_reuse": [
-      {
-        "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-codec/codec-sampling-ry9zcb1o/receipt.json",
-        "receipt_sha256": "f82f01524e38b9627da467e96ed5a0d6121e87a7c92403e1cbf9969b5339fecb",
-        "matched_proof_source_identities": {
-          "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-          "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-          "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
-          "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9"
         },
-        "prior_proofs": {
-          "proof-Codec": 469,
-          "proof-Sampling": 26,
-          "codec_domain": 7,
-          "sampling_domain": 2
+        "decompress-half-tie": {
+          "verified": 3,
+          "errors": 1,
+          "negative_control_witness": {
+            "y": 1,
+            "d": 1
+          }
+        },
+        "encode-bit": {
+          "verified": 1,
+          "errors": 1
+        },
+        "native-int-overflow": {
+          "verified": 205,
+          "errors": 1,
+          "failure_kind": "native_int_range"
+        },
+        "decode-modulus": {
+          "verified": 1,
+          "errors": 1
+        },
+        "wipe": {
+          "verified": 1,
+          "errors": 1
+        },
+        "cbd-sign": {
+          "verified": 1,
+          "errors": 1
+        },
+        "feed-order": {
+          "verified": 274,
+          "errors": 2
+        },
+        "feed-reject-q": {
+          "verified": 1,
+          "errors": 1,
+          "negative_control_witness_bytes": [
+            1,
+            13,
+            0
+          ]
+        },
+        "feed-cap": {
+          "verified": 4,
+          "errors": 1
+        },
+        "feed-consumption": {
+          "verified": 0,
+          "errors": 1
+        },
+        "extract-shift": {
+          "verified": 87,
+          "errors": 1,
+          "negative_control_witness": {
+            "value": 1,
+            "shift": 0,
+            "bits": 1
+          }
+        },
+        "extract-mask": {
+          "verified": 85,
+          "errors": 1,
+          "negative_control_witness": {
+            "value": 1,
+            "shift": 0,
+            "bits": 1
+          }
+        },
+        "compress-reciprocal": {
+          "verified": 0,
+          "errors": 1,
+          "negative_control_witness": {
+            "x": 3328,
+            "d": 11
+          }
+        },
+        "full-domain": {
+          "verified": 1,
+          "errors": 1
         }
       },
-      {
-        "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/native-codec-flax696x/receipt.json",
-        "receipt_sha256": "ccea5b75a60d04e55be62065643724c0eb04170a0558a92e7f1e5550bceb14eb",
-        "matched_proof_source_identities": {
-          "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-          "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-          "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-          "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-          "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-          "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
-          "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
-          "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
+      "inputs_verified_unchanged": {
+        "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+        "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+        "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+        "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+        "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
+        "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+        "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+        "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+        "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
+        "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+        "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+        "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+        "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+      },
+      "generated_java": {
+        "CodecSpec/DecodeResult.java": "85110576567ccb1e97c3663a1e871d26197b67c301a6a38d071b493020800529",
+        "CodecSpec/DecodeResult_Decoded.java": "3f69813beca25368f219edc450653c3272cfad5c2a1f2474f0f3ba792d4242b4",
+        "CodecSpec/DecodeResult_InvalidLength.java": "6a1bfee55b0e781f82c1ecc6e6b66811b745740f4a283b92d814df8ea0d929e6",
+        "CodecSpec/DecodeResult_InvalidWidth.java": "f4f4b27ebcb901900e3b6fa4d5e31aaefbdf0dbbfdec2500ca7101ac398f8c30",
+        "CodecSpec/DecodeResult_ModulusError.java": "509efaad689441e50614c40e94901ce93db7f6afd8f11ef78075d14c764ebd45",
+        "CodecSpec/__default.java": "9079ca7771813026840e99fd577deda3c622aaafccb7da16acc462877c4b3bfd",
+        "NativeCodec/DecodeResult.java": "2a05a24195cc714984567760a9ab46abb0c5e6ee59f049a23e36aef31ee091a6",
+        "NativeCodec/DecodeResult_Decoded.java": "50d7e2b6909c20e192b964564d7d18b1cf37021ace731b7625cbbb2e4b00d913",
+        "NativeCodec/DecodeResult_InvalidLength.java": "3aed8007e5f1f021e22ce155b2a73ff3ffd76a513d20d830238e1bcf9d87314d",
+        "NativeCodec/DecodeResult_InvalidWidth.java": "643921797a6eca01d18523130a96183b351f37faaf83533a8d6b977e524db767",
+        "NativeCodec/DecodeResult_ModulusError.java": "dd83b089d2f2a8ee5af034bae056c64a744debad54c3f2b866a48d9767af4879",
+        "NativeCodec/__default.java": "d2c9c09629bc14e77bcf93f8c812b7737569ddb16af8393c39a24998b5382927",
+        "NativeCodecSampling.java": "22bcf0398a3e8d2a81e6bc02eda7d1365c8c4a9a0a637453dba75f38fd153926",
+        "NativeField/__default.java": "99b8994c63db1d4cb1cb1d98993efd4e5cf58cafd836ba8cdcf05c736b4d8498",
+        "NativeSampling/FeedResult.java": "67236a5f4ceea748f821303fb424fc3711dedb0d1518913e6b4171eb43d02483",
+        "NativeSampling/FeedResult_Full.java": "631adcc5ab7c150f07de9fe92d18450a4ada6f97f75440736a3f65126643407a",
+        "NativeSampling/FeedResult_InvalidBlockLength.java": "cb8d3d46599c78a6e43d44a6070d45df5552fb79f27e1b4cbe237dbb7385c36e",
+        "NativeSampling/FeedResult_InvalidPrefix.java": "cd6b040864f78660c2ca6c3b72fb1fe8ec6655b7ffdd361acd7f571491b91698",
+        "NativeSampling/FeedResult_NeedMore.java": "acbdc02c8377245dcb84a975ed2d02d30ef97547c4439d8df68389a5b4f57725",
+        "NativeSampling/__default.java": "64a819daad6b7e9d00e9aa2ae92655f1f6b0d971f9525d3122859c8f322200ac",
+        "NativeTypes/I.java": "99c223d8c172ce34cfeffd1fbc4252e964758b12b952ed46e2f0ef8db1610884",
+        "NativeTypes/L.java": "95465a1ba5b6fd7ee9f9af6f37f0845b7771a790c74e4140aa3ebf646882c834",
+        "SamplingSpec/FeedResult.java": "01857218a531ed02627ae5e7e03860c06ac354c64cb9e279ca1cd8d584d3c70a",
+        "SamplingSpec/FeedResult_Full.java": "9eae8b4a0621633737672e4a8408a0965f5205d1c36e9775cc4346cacd89f8fe",
+        "SamplingSpec/FeedResult_InvalidBlockLength.java": "6b7679cf4a1014d36ada57c4cf438ffed6a8994ec9155533165a702550f49dc3",
+        "SamplingSpec/FeedResult_InvalidPrefix.java": "9f063c3d48952778eb995574626c604566d1c49627d27bd3b6392360a593f6a5",
+        "SamplingSpec/FeedResult_NeedMore.java": "17180b5a74d8c7b848846cfbf37cde953c1cd8a9944ec241fcd171a4ce50f6cf",
+        "SamplingSpec/__default.java": "e631f3507565841907fdf51893b809b3e9a257a0daef8c40cdb021c1e8b86922",
+        "VerifiedCodec/__default.java": "cad2e6cf95598e06eb1f7f186edcacc463be8d14a530ec3fcdfe2fab95ba7c15",
+        "VerifiedField/__default.java": "8f14c0d37f9a097cb5aa5885de9a5f55bf71444eb735191fee3210adef7a9cb9",
+        "VerifiedSampling/__default.java": "b552ad9738292af92dae110450b0f3570495559aeced81977d088b1569f093e2"
+      },
+      "toolchain_sha256": {
+        "dafny": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+        "solver": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396"
+      },
+      "proof_and_semantic_control_runner_section_unchanged": true,
+      "audit_findings": {
+        "NativeField": 0,
+        "NativeCodec": 0,
+        "NativeSampling": 0
+      }
+    },
+    "subsequent_proof_portability": {
+      "status": "Applied proof-only EncodeTen decomposition after composition confirmed graph release; source frozen.",
+      "source_before_sha256": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
+      "source_after_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "patch_sha256": "3a4d26dc89660cc1e1382992e1d228e760f74d9dba25f3629dabf62bf66a5b98",
+      "full_original_contract_preserved": true,
+      "non_EncodeTen_source_bytes_preserved": true,
+      "budgets": {
+        "seconds": 30,
+        "resource_limit": 50000000,
+        "cores": 2,
+        "solver_option": "O:smt.case_split=0"
+      },
+      "checks": {
+        "mac-focused": {
+          "verified": 135,
+          "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+          "exit": 0
         },
-        "prior_proofs": {
-          "proof-NativeField": 84,
-          "proof-NativeCodec": 1493,
-          "proof-NativeSampling": 281,
-          "native_codec_domain": 8,
-          "native_sampling_domain": 4
+        "linux-focused": {
+          "verified": 135,
+          "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+          "exit": 0
+        },
+        "mac-full": {
+          "verified": 1503,
+          "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+          "exit": 0
+        },
+        "linux-full": {
+          "verified": 1503,
+          "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+          "exit": 0
         }
       },
-      {
-        "receipt": "/tmp/native-codec-encode-ten-vka4k1b1/readiness.json",
-        "receipt_sha256": "1068d758566b0b556ce6fd0fb3d08c999f7ec9a3e6df3183136efc8ae34c9a62",
-        "live_NativeCodec_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
-        "checks": {
-          "mac-focused": {
-            "verified": 135,
-            "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
-            "exit": 0
+      "audit_findings": 0,
+      "toolchain": {
+        "version": "Dafny 4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2 / Z3 4.12.1",
+        "mac_dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+        "mac_solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+        "linux_dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+        "linux_solver_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a",
+        "linux_image": "sha256:55d5d3f4fdf202066f26d2888a10eba8490c6fb547e740d890d57a06d4755cb2"
+      },
+      "proof_dependency_sha256": {
+        "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+        "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+        "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+        "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+        "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+        "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+        "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+        "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
+      },
+      "original_ci_failure": "/tmp/microproxy-ci-1b-native-codec-artifact/native-codec-g0o8k5x9/proof-NativeCodec.log",
+      "live_source_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "runtime_artifacts_byte_identical": true
+    },
+    "subsequent_exit_gate": {
+      "change": "Both actual semantic-control rejection gates now require exit 4; all other validation remains unchanged.",
+      "runners": {
+        "native_codec_checks.py": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
+        "codec_sampling_checks.py": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d"
+      },
+      "actual_gate_regression": {
+        "formal/crypto/native_codec_checks.py": {
+          "sha256": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
+          "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
+          "cases": [
+            {
+              "exit": -11,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 0,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 1,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 2,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 3,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 4,
+              "rejected": false,
+              "expected_rejected": false
+            },
+            {
+              "exit": 5,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 137,
+              "rejected": true,
+              "expected_rejected": true
+            }
+          ]
+        },
+        "formal/crypto/codec_sampling_checks.py": {
+          "sha256": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d",
+          "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
+          "cases": [
+            {
+              "exit": -11,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 0,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 1,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 2,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 3,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 4,
+              "rejected": false,
+              "expected_rejected": false
+            },
+            {
+              "exit": 5,
+              "rejected": true,
+              "expected_rejected": true
+            },
+            {
+              "exit": 137,
+              "rejected": true,
+              "expected_rejected": true
+            }
+          ]
+        }
+      },
+      "tests_passed": 16,
+      "proof_reuse": [
+        {
+          "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-codec/codec-sampling-ry9zcb1o/receipt.json",
+          "receipt_sha256": "f82f01524e38b9627da467e96ed5a0d6121e87a7c92403e1cbf9969b5339fecb",
+          "matched_proof_source_identities": {
+            "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+            "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+            "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
+            "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9"
           },
-          "linux-focused": {
-            "verified": 135,
-            "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
-            "exit": 0
-          },
-          "mac-full": {
-            "verified": 1503,
-            "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
-            "exit": 0
-          },
-          "linux-full": {
-            "verified": 1503,
-            "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
-            "exit": 0
+          "prior_proofs": {
+            "proof-Codec": 469,
+            "proof-Sampling": 26,
+            "codec_domain": 7,
+            "sampling_domain": 2
           }
         },
-        "generated_java_and_classes_unchanged": true
-      }
-    ],
-    "smt_replayed": false,
-    "java_replayed": false,
-    "reuse_reason": "Only the runners' negative-control exit predicates changed; all proof inputs, generated Java and runtime bodies remain unchanged."
+        {
+          "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/native-codec-flax696x/receipt.json",
+          "receipt_sha256": "ccea5b75a60d04e55be62065643724c0eb04170a0558a92e7f1e5550bceb14eb",
+          "matched_proof_source_identities": {
+            "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+            "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+            "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+            "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+            "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+            "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+            "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+            "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
+          },
+          "prior_proofs": {
+            "proof-NativeField": 84,
+            "proof-NativeCodec": 1493,
+            "proof-NativeSampling": 281,
+            "native_codec_domain": 8,
+            "native_sampling_domain": 4
+          }
+        },
+        {
+          "receipt": "/tmp/native-codec-encode-ten-vka4k1b1/readiness.json",
+          "receipt_sha256": "1068d758566b0b556ce6fd0fb3d08c999f7ec9a3e6df3183136efc8ae34c9a62",
+          "live_NativeCodec_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+          "checks": {
+            "mac-focused": {
+              "verified": 135,
+              "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+              "exit": 0
+            },
+            "linux-focused": {
+              "verified": 135,
+              "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+              "exit": 0
+            },
+            "mac-full": {
+              "verified": 1503,
+              "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+              "exit": 0
+            },
+            "linux-full": {
+              "verified": 1503,
+              "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+              "exit": 0
+            }
+          },
+          "generated_java_and_classes_unchanged": true
+        }
+      ],
+      "smt_replayed": false,
+      "java_replayed": false,
+      "reuse_reason": "Only the runners' negative-control exit predicates changed; all proof inputs, generated Java and runtime bodies remain unchanged."
+    },
+    "independent_review": "Approved: arithmetic/full-domain contracts and source wiping reviewed; fresh eight compiled controls, actual45-method dataflow, all artifact/input/runtime pins and JDK21/25 replays verified. Proof and semantic-control reuse is explicit by unchanged source identity.",
+    "compiled_classes_identical_to_proof_receipt": true,
+    "revalidation_script_sha256": "18327106f3bb893d02e3e2c2cdc3cbaefa513a2c93c5175e838945529fa6e2b0",
+    "inputs_previous": {
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+      "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
+      "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+      "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+      "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+      "formal/crypto/native_codec_checks.py": "9765443ec0963bb99c5d92f8c5b3cc1f18ef0a91c3a7df280fcdd466665e353b",
+      "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+      "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+      "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+    },
+    "note": "Pre-Poly proof-reuse and earlier portability/exit-gate records, kept for history only."
   }
 }

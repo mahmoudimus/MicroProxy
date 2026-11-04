@@ -1,0 +1,17 @@
+/tmp/native-polynomial-_6tjra83/native_polynomial_positive-dividend.dfy(124,4): Error: a precondition for this call could not be proved
+    |
+124 |     F.ProductBound(a as int,adjusted as int,3328,6657);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+formal/primitives/Field.dfy(63,28): Related location: this is the precondition that could not be proved
+   |
+63 |     requires 0 <= a <= u && 0 <= b <= v
+   |                             ^^^^^^
+
+/tmp/native-polynomial-_6tjra83/native_polynomial_positive-dividend.dfy(128,11): Error: assertion might not hold
+    |
+128 |     assert (a as int)*(adjusted as int) == (a as int)*((b as int)-(c as int))+(a as int)*3329;
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 2 errors

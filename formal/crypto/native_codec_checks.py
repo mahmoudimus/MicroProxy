@@ -17,7 +17,7 @@ import shutil
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 EXPECTED_RUNTIME_SHA = 'dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6'
-EXPECTED_FIELD_SHA = 'f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92'
+EXPECTED_FIELD_SHA = 'f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f'
 DEFAULT_DAFNY = Path.home() / '.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny'
 EXPECTED_TESTS = {'scalars': 40713, 'encodings': 7044, 'malformed': 1820,
                   'cbd': 384, 'feeds': 19320, 'java_samples': 224, 'assertions': 334753}
@@ -240,13 +240,17 @@ def main():
     receipt = {'commands': [], 'proofs': {}, 'controls': {}, 'java': [], 'inputs': {}}
     refs = [HERE/'reference'/name for name in ('Shake.java','MlKem768.java')]
     inputs = [HERE/file for file in ('NativeTypes.dfy','NativeField.dfy','Codec.dfy','Sampling.dfy','NativeCodec.dfy','NativeSampling.dfy',
-                                    'native_codec_domain.dfy','native_sampling_domain.dfy','native_codec_checks.py','native_codec_test.java')]+[ROOT/'formal/primitives/Field.dfy',HERE/'reference/provenance.json']+refs
+                                    'native_codec_domain.dfy','native_sampling_domain.dfy','native_codec_checks.py','native_codec_test.java')]+[ROOT/'formal/primitives/Field.dfy',HERE/'reference/provenance.json',ROOT/'formal/source/SourceTrace.dfy',ROOT/'formal/source/vocabulary/ObservationVocabulary.dfy']+refs
     before = {str(p.relative_to(ROOT)): sha(p) for p in inputs}
     receipt['inputs_before'] = before
     receipt['runtime_path'] = str(runtime)
     receipt['expected_runtime_sha256'] = EXPECTED_RUNTIME_SHA
     (out/'primitives').mkdir()
     shutil.copy2(ROOT/'formal/primitives/Field.dfy',out/'primitives/Field.dfy')
+    for shared in ('SourceTrace.dfy', 'vocabulary/ObservationVocabulary.dfy'):
+        target = out/'source'/shared
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT/'formal/source'/shared, target)
     receipt['toolchain_sha256'] = {'dafny':sha(args.dafny),'solver':sha(solver)}
     for source in inputs:
         saved = out/'inputs'/source.relative_to(ROOT)
@@ -292,7 +296,7 @@ def main():
         ('native-int-overflow', 'NativeCodec', 'NativeCodec.GroupValue.', '1073741824*(f[k+3] as T.L)', '((1073741824*f[k+3]) as T.L)'),
         ('decode-modulus', 'NativeCodec', 'NativeCodec.Decode.', 'if d == 12 && !valid { Wipe(a); return ModulusError; }', 'if false { return ModulusError; }'),
         ('wipe', 'NativeCodec', 'NativeCodec.Wipe.', '{ a[i] := 0; }', '{ a[i] := 1; }'),
-        ('cbd-sign', 'NativeSampling', 'NativeSampling.Cbd2.', 'f[i] := F.ReduceOnce(3329+low-high);', 'f[i] := F.ReduceOnce(3329+high-low);'),
+        ('cbd-sign', 'NativeSampling', 'NativeSampling.Cbd2.', 'f[i], ft := F.ReduceOnce(3329+low-high);', 'f[i], ft := F.ReduceOnce(3329+high-low);'),
         ('feed-order', 'NativeSampling', 'NativeSampling.Feed.', 'var x: T.I := (b[off] as T.I)+256*N.Extract(b[off+1] as T.L,0,4);\n      var y: T.I := N.Extract(b[off+1] as T.L,4,4)+16*(b[off+2] as T.I);', 'var y: T.I := (b[off] as T.I)+256*N.Extract(b[off+1] as T.L,0,4);\n      var x: T.I := N.Extract(b[off+1] as T.L,4,4)+16*(b[off+2] as T.I);'),
         ('feed-reject-q', 'NativeSampling', 'NativeSampling.Feed.', 'if x < 3329 {', 'if x <= 3329 {'),
         ('feed-cap', 'NativeSampling', 'NativeSampling.Feed.', 'if used < 256 && y < 3329 {', 'if y < 3329 {'),

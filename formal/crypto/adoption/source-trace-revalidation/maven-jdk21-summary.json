@@ -1,0 +1,2950 @@
+{
+  "command": [
+    "mvn",
+    "-q",
+    "-pl",
+    "microproxy-starlark",
+    "-am",
+    "verify"
+  ],
+  "exit": 0,
+  "java_home": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+  "log_sha256": "f5366d4676d25edbd92754043e784e5772afbf38aa9db0a9007175f606a9575b",
+  "scope": "fresh reactor verify after canonical source migration; optional skipped peers reported",
+  "totals": {
+    "tests": 4109,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 23
+  },
+  "reports": [
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.FrameRoundTripTest.xml",
+      "sha256": "fc81f099effb0d4d0bfe1848d175d0890f231445b5fd85161d8c0cb051dd584b",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.OriginFrameTest.xml",
+      "sha256": "0d47f8a46bb1081fe8154b756709de85347ce8f176426c5d29c3bc216b807bfe",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.Http2HeadersTest.xml",
+      "sha256": "0426140a44dbbba4dfcf0aaee4f17192eb509db5179d3ef36012dc3afaeddd3b",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.HpackRfcExamplesTest.xml",
+      "sha256": "fb91fbb709f2d7007ce6db99078865bde2e9b094f2f9e9d7f4057d842e77d8e3",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.FuzzTest.xml",
+      "sha256": "ec29b569c35d3630411c0bafd88efc6868edd411f75bb367a814845c7dd04e09",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.FrameReaderTest.xml",
+      "sha256": "7123a3c14410595b43080778bb46c041a8483ae08f5077306d5b195336dcddbe",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.Http2SettingsTest.xml",
+      "sha256": "7f045f1c65a829be7c08c5b6997887a5bcaeacb24e00eaba8b680928af01662e",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.FlowControlTest.xml",
+      "sha256": "46cbc73577b67c5439f0611830dac4d337935845d6fd67b2f08f68275e8179e0",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.HpackTest.xml",
+      "sha256": "83af7770a39d080be13c05e3bc066ede1ae22954a5169c2319e611591776d8be",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.Http2ClientProfileTest.xml",
+      "sha256": "a9e5f263507a8274c813aaf66704d5192530db578eb113681c418e6bb429786e",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http2-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http2.HuffmanTest.xml",
+      "sha256": "0b334d5d7f3a41880c65b8cd862cc8af0a516d93ac8da809f990addfbc03f3d8",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.Http3HeadersTest.xml",
+      "sha256": "5d78ce05bc2f9b1d13e845bbfaf934b3f92a8ac695ff30e0636afaa952844810",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.Http3SettingsTest.xml",
+      "sha256": "524055036d127544f2cc1d0890fdd855c72215611037b2d46b0f5b31db77f0b8",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.QuicVarIntTest.xml",
+      "sha256": "1c281d7f8f7334a8b0fdeff1eb1575888c37ec09422e931372ecbdc0ab305fa6",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.StreamValidatorTest.xml",
+      "sha256": "46362c64f6d84b3e70eb21840784114da5c0f1420d29117530b149dd5292e6a8",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.QpackTest.xml",
+      "sha256": "cd03ae4be93dbaaa05594fc7f7866ead6caf26c4fafade23f55331b4d3fbde58",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.FrameRoundTripTest.xml",
+      "sha256": "3663ee11e43de61105cca011b3588b88f1b592ca803f2d9dbc0f8c2be945b088",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.HuffmanTest.xml",
+      "sha256": "51cc213efeab2790a58fa4adf8fd14a9b7dd94c1ee83ffa3345bc4c9e524ad8f",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.QpackStaticTableTest.xml",
+      "sha256": "9cf6ce359cf4961c7190d276b1ec935e7dcd6efd6ea77c8df7359acf15cdfb45",
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.QpackRfcExamplesTest.xml",
+      "sha256": "83722c84459bd8a1daeb2a84af364fb4f4ac561be59c6ce90373fab8ce7f21df",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.FuzzTest.xml",
+      "sha256": "34838b8d458ceca1fba0397f825c84c96ff0814a00080324981404c874706951",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "http3-codec/target/surefire-reports/TEST-io.github.mahmoudimus.http3.FrameReaderTest.xml",
+      "sha256": "3babf31ec0d42883b6cd5fdf0071cb1218ec3e8e668723bbca3635ff48b01324",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "zstd-decoder/target/surefire-reports/TEST-io.github.mahmoudimus.zstd.ReferenceEncoderTest.xml",
+      "sha256": "2e7b07f0b0975429919784f21b5556dad6e230f37e8fc9ef565badbc6bf1f87a",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "zstd-decoder/target/surefire-reports/TEST-io.github.mahmoudimus.zstd.DecoderTest.xml",
+      "sha256": "f15ef1a39a75dda0e87f46820a36bc703dc9b1e1ac9eff15aa33ce64a0bcb3c0",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "zstd-decoder/target/surefire-reports/TEST-io.github.mahmoudimus.zstd.FixturesTest.xml",
+      "sha256": "92956e34f8e30abd44886959e1aa2f335d6ce57103b86c32bca9ee249c746b20",
+      "tests": 52,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "zstd-decoder/target/surefire-reports/TEST-io.github.mahmoudimus.zstd.CorruptionTest.xml",
+      "sha256": "96dc262cf01b6dcef4700b745f0ddd072e6f2fbad393501c0b686a492c10ca6d",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ProxyProtocolDetectionTest.xml",
+      "sha256": "ed95533a56533dbd5041d91b12ab789086d48d0797f5d233d9aa5de44659b6d1",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ReverseProxyTest.xml",
+      "sha256": "a16833b34714ea32a87c40fa2ec73100de3a68f5a177af211b04b15cbc331ff4",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AccessLogTest.xml",
+      "sha256": "e59c002fae775733f62d1924c617244acb8d80395b4ca8e45789f91c42c7ca9d",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ChunkedLengthTest.xml",
+      "sha256": "ea14007dd20f0552b4ffad9819799ac9232d9792d2275d2da2cde51d1bf3c49b",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TcpTlsInterceptionTest.xml",
+      "sha256": "156c52401878406e50cffc20d76e1b7c4a9f159b8357390a3eb1fda08bded7f3",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MitmNonTlsServerTest.xml",
+      "sha256": "f0135a0459a0d3ee0d93fc9aca7875ae57ab3ae8259385a53c36868fd4765d44",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.MessageAssemblerTest.xml",
+      "sha256": "b0ee0673a887c88feb09da8caad0028935d0857fe239e81e98f4e40144055b22",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.RefusingPortTest.xml",
+      "sha256": "868784d458886bd3a6cf28caeca64e0abad11619d49de94f3a9fbdd948e8d28b",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AioquicTransparentQuicTest.xml",
+      "sha256": "1e4776f1ada49b463d0487caec156c5ada93329b5af60b57ef12d0f9fd789979",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.StrippedRequestHeadersTest.xml",
+      "sha256": "080f86838e540b3387d6bada8bf0fb5a020e894ded44fd4af92c9558ca6dc816",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.DefaultHostResolverTest.xml",
+      "sha256": "1226be53adbc6a89c337db8f4351c68a27e9c5eab99d4b5cbbddd5038123a0e3",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.stats.StatsFormatterTest.xml",
+      "sha256": "41499b2021441986f182f29ea7ed9668903bf0d9aefdaf2222c50a2e98f1210d",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.BufferPoolTest.xml",
+      "sha256": "bcdbf7e5c9a75dc485612e859fa9719e5b824a07169ca2712bc949d20d66c7c1",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3ReverseProxyTest.xml",
+      "sha256": "22370ece415fae0f7ff94967cada14657a37021f535efa793c7f62863397476b",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2FrameInterceptorTest.xml",
+      "sha256": "617daf6ef2f0adeeb39889112e4c31af2495ed645a4d2a54c2692cd6bce2033f",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsServerIdentityTest.xml",
+      "sha256": "3e3850ac34d686186379e08e489733352214829c4cf7cd6d99d27036a9e3bacb",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.contentviews.ProtobufTest.xml",
+      "sha256": "e36cf87c64eed5fb7a7506d8bc03e9ed2cae9f4fcde4a2b6f706aea868c794ae",
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.VariableSpeedClientServerTest.xml",
+      "sha256": "6571de872afe4b4166ccabc67e1b70c76f51a7446d75f136fcdd65be6193ec02",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.TlsFingerprintsTest.xml",
+      "sha256": "a5b27eee3476cd15a1c6095957bc510970f9b1636858a7fec613b3818c5585f7",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3ZeroRttTest.xml",
+      "sha256": "df9b709f9bd0d99c990e77248e3623bd14b26517f7f8985af3d7d5435d96c7ec",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TcpInterceptorTest.xml",
+      "sha256": "f7845f3d6c9d30a942e43ece81e0cac0c922d85bcfa367b24252c04bc3615fc1",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsRetryWithoutSniTest.xml",
+      "sha256": "1a5f759ca7fe64a9f9332334082ec2fdbdb8d44e92c8c73159237478153de856",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3ConnectTest.xml",
+      "sha256": "078390ff694d7c1575d0b62410814559d6a70361276dfefee5dc3c25b2f69f21",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2MasqueTest.xml",
+      "sha256": "abb1718409ecb208d3a2eece153677604920f7b24c1183647189769690a75205",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.MessageSemanticsTest.xml",
+      "sha256": "3b36bf25216b16e9f7107252edef6c09d69dd3363ae149f529e9bddf00243984",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.tls.TlsUtilitiesTest.xml",
+      "sha256": "b21b9c79001b4131e6a3d25f1f43c637cf074f8be4a956aa4c3bd7682c3321d3",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.WebSocketStatsTest.xml",
+      "sha256": "33edf5ec0613b291883ab8a39c1e3a6d74f167c9fefc9e11edbb037f1c098f11",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.DrainTest.xml",
+      "sha256": "173ab37e9a5a7e3e84827f102ebcf09da1de49283420d7c838bed09a3a4ae900",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.stats.StatsRegistryTest.xml",
+      "sha256": "aaec83b17f3fb24752c6b0ffd4d10cde8c20b30fcbe4a9c4d22a01341d21058c",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TransparentQuicTest.xml",
+      "sha256": "9b4eaf0f41b52e005c16377ec64c4301bb7142a3ec81a7364ac860485f2861c6",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MitmRedirectTest.xml",
+      "sha256": "abea4f9e1f9c29986b889a0db5af89d95a91c978895ecf1c1df4b48cd04cd7b0",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.AccessLogFormatTest.xml",
+      "sha256": "8149c6ef40f43d18de9e302062021708198a77d51fbe19b4c5ae69a672a0e502",
+      "tests": 101,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpFiltersChainTest.xml",
+      "sha256": "7928f278d7146af43d307faaff0da8aac7562cee5ba345cfca215b51b5301f3c",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TunnelTest.xml",
+      "sha256": "e39bf9937d24af0bb1eac7b98a00bfa07f89600200fb3196da7b82b930778915",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TlsHandshakeTimeoutTest.xml",
+      "sha256": "76bce7088a42ad3a15599effaacfca2e845800d1dff6a96e69effc2780cc7c5b",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.GeneratedResponsesTest.xml",
+      "sha256": "236b264a69a25960e82c27faeb6b159763d3d2ad31ef9654c17bd234508d46a4",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AddonsTest.xml",
+      "sha256": "26db91bfdf99ec8e7d2b30a04d3e4be9994ea0c933d3ee8c7cd04b6f5adbbfac",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http3OriginsTest.xml",
+      "sha256": "dfec47383a0ccf8ebb40ce39e750e3a440f6068cee9dc8284faa63f02547c2ca",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.stats.StatsFastPathTest.xml",
+      "sha256": "a6b059f9f32fc2b69d33adf7f28b7948275d2e2b6071d19e413a0f2cc0a7fe75",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ChainedProxyTest.xml",
+      "sha256": "73df76a74149ebd2fc33bdadf747bb34719229e003769546701f9377a952890e",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2ConnectTest.xml",
+      "sha256": "b319117acc940accda7eb80549468ec7dee13255f4a0f9119c42865e2fa1506f",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpFilterTest.xml",
+      "sha256": "46ae084ceb3022f23e30f5dcccc3758065d94e7735e351f941412b78dc6f5aab",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2ChainedProxyTest.xml",
+      "sha256": "b38fc112795f7a213a369ee3cdb45191e958ee5d646c9a562845c86497e69838",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.simd.SimdTest.xml",
+      "sha256": "6f1548af07f4c4f812d37f42cc0ac1ece35e873492b7843232c7939b3b25e944",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.WebSocketClientServerTest.xml",
+      "sha256": "7cec1b4f13498de04bba47961c0099d12e6b13636b04c4b0da7c32275d746aa7",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TrackersTest.xml",
+      "sha256": "c64c49f245741658ac32e06103e31068a2fb79c4241f14c2c0432c2e0df5494a",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.warc.WarcRecorderTest.xml",
+      "sha256": "895314efb73c52a6135a0cc78e75e7a87fbaf5856c5c2f956ddb20cbe1a5a72d",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FlowContextAddressesTest.xml",
+      "sha256": "3618e4a953cfba3ee451b2f1dc45aa74cf351306ceeb19eb454a6ba0f4c9b8ca",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.SharedConnectionPoolUnitTest.xml",
+      "sha256": "807e22875fb334f8bd38e0b449312f84e6548ab3740e3eaed3cfe5f055a36842",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TransparentQuicListenerTest.xml",
+      "sha256": "4b0a4a880ff06580fcfec79e736b82ac02a2ec6ee302f974e29d76c4c7e0fae8",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.contentviews.ProtoSchemaTest.xml",
+      "sha256": "ba4075d0ed659482a9f022dced06df938f7a2052251bef892735b14046d0707d",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.BrowserFingerprintUpstreamTest.xml",
+      "sha256": "e7171617ade0e0428b70d7f36d214faac41faca32b4d9384f5737e3895e9952f",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MetricsTest.xml",
+      "sha256": "cf4e819ecf2aed0562c75c9fabfd885c3cae05994c704c4fddfced5c1bd8a8f3",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3WebSocketTest.xml",
+      "sha256": "c1e80c9d0ed19b749e547eef4e9723ef0ff9bd8e619d1c86af7e30d50eabd3d1",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AioquicDoqTest.xml",
+      "sha256": "dd88a38c4845060f1369551adf15b65a009ec1a372a9bfe8905b82ddb7d8a367",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FlowTracerTest.xml",
+      "sha256": "ec0b5227628b1a45973459e3b453bffda13c8c88b5cc59fe9bc4d8d07dbb8f0e",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.LifecycleTest.xml",
+      "sha256": "a91893f74074d51f37b7cda5e1bae65776976b3d7ae2c48e65cf130fc36e810d",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MitmPerConnectionTest.xml",
+      "sha256": "3fc8afd3ffb59492b5dfb764dd8edbf675ee2d1e32b0e92501830a70be7138a5",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.MitmServerHandshakeTest.xml",
+      "sha256": "e61cdf12f32e1776950f868b82b152b4405067ce0f3b05a944e74a6a942d8bc1",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TimeoutTest.xml",
+      "sha256": "e4ab8a4ed3ef31d22f1ca5df0fdd92d7bc15bfba663c427f799f35369b291b8a",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.SocksServerTest.xml",
+      "sha256": "40a7fe343ca407360754d4527d7e8c4cb311d06dccc807ce17693dd0229b6ea0",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.UpstreamProxyManagerTest.xml",
+      "sha256": "ed8e9ff5ab8bccc35709a1c35fde7ec90ec9c5213558ea5623aa4891d48295f0",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.tls.CertificateBuilderTest.xml",
+      "sha256": "da82269aa13650ea75608f49bac36fc7306739783e6597bcb376c37a73fa82df",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TransparentQuicStatsTest.xml",
+      "sha256": "ec85cb7137d9dff23cb6faf3eed59599e65b220a933a2c3acdf5e9df7d1f34ad",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FilterCallbacksTest.xml",
+      "sha256": "6a2c31ba9690d812404e1af1b544d948fc1f5b0a6d533bf4f01f689affd49e67",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MitmChainedProxyTest.xml",
+      "sha256": "0babae1981d83a6800c170e8ef1d71ed643367dc4f9ecdbc3c5c965a53d59963",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpBodiesTest.xml",
+      "sha256": "a47cfffd7ccb98bfe65854c7f3d4c4fffb69fcdb71260055aa72ef666a69938e",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsOriginationTest.xml",
+      "sha256": "80dc62882f34fb3781cb3acd43c133bbdc7ab48fe961b9131fbe38c114b83867",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.LauncherAdminTest.xml",
+      "sha256": "228715f0b2f49cd135d0850e695bc616e4addcc1bbffd3584248536cb097f47a",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnssecResourceLimitsTest.xml",
+      "sha256": "a9b1e5514624677801c0140f1e0d46d9a455d4d2e1f9119c2014ec013e4cfd08",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpProxyForwardingTest.xml",
+      "sha256": "21421aad1c1177a68a1cdc2d2370f7d923b092efbc198598efa441f98498f01a",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ResponseSourceTest.xml",
+      "sha256": "4d1492e2155d306398aae1153535007185a764dd65b034a506e4f068cfc1c3de",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ProxyUtilsTest.xml",
+      "sha256": "508a759b384e875733b3d0eb95adc663296494e409b10a79d5b6a0225c1c4687",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.FormalResourceModelTest.xml",
+      "sha256": "4e61234695534dc67c191d9f180843736eb176959b49b0d9fdcb7faed9c438a4",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ChainedProxyAuthenticationTest.xml",
+      "sha256": "88519a6664b7e0b82cfdb1d5c517112d23d9c3884f47084131fccbbf1f6b34bc",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ProtocolPoliciesSideBySideTest.xml",
+      "sha256": "8ee6cd8aa812a4cbc275368ce90b3e550855fb0ec9f863e37eb079ddd20a4bfe",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.tls.BrowserProfileTest.xml",
+      "sha256": "a19e98a9855a590cfca4899e7f577963cc1c61458c113fc22fecf68227ead717",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AdminTest.xml",
+      "sha256": "308d51a0c5103fe827d5276183931e174517175ccb4142de0bb78c203fee8e1b",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpsProxyForwardingTest.xml",
+      "sha256": "ae106a4d06f3fa03179c35cec043f4e526ad5ca399627c99ea8f3689d0e559c8",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.QuicMigrationProxyTest.xml",
+      "sha256": "e9b030fde55c03e7d64a8e40aff96017221c21b4ba28103cdb5297d71136febe",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.stats.StatsdSinkTest.xml",
+      "sha256": "e5ea8f4e42626efc0c6e1f3b67fdad3cdb0a9f2bd386663f29adf0b759d86383",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.BrowserHttp3FingerprintTest.xml",
+      "sha256": "42ddb0c853f8b5c20fb86d93d8b4bb24f41df4ab33144d0519f9d6b4e9c67790",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ActivityLoggerTest.xml",
+      "sha256": "5714d43ad6344f052eb61d144378ab91b08eed3ad23ad22286dd0f3d4d01d5e9",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.AddonBufferingTest.xml",
+      "sha256": "44ac08de3307f7a7638c1e287116380ac2ad3fe9ff84851e30e57c98fea318cc",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.LineEndingTest.xml",
+      "sha256": "f598fd94121a4a5647f2b321656cfc615aa62028222a3438f09541aec53b04ac",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2TlsListenerTest.xml",
+      "sha256": "d4c10117b4bc5a364c1caa14af475eae353b13e92d1d5940f0d1bd77bc6b250b",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.StickyCookieTest.xml",
+      "sha256": "1502462683265918f9c1b189ab6cf1620f5a4ee86f9406dd65b94a00c8982a59",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.BrowserHttp2FingerprintTest.xml",
+      "sha256": "c7863583b37e114c1e9e53c7c86f975205fd14734218f6506d51561abb485580",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ConnectAnswerCompatibilityTest.xml",
+      "sha256": "0cc45b63f16de501e9120c7fa7241888f37bb558741be924acc28da8663ec832",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.FastPathDetectionTest.xml",
+      "sha256": "d27800026c11153bc688630a5fbd0772031b12067cb69185f87f84e244b24513",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ClientHelloInterceptionTest.xml",
+      "sha256": "748a80d1d7049a528d5cde724e4748f8eb06cf18533f0e2d28fae52900597b93",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsFailureCauseTest.xml",
+      "sha256": "54f09a1ed9eb130afd989d904212a3f59af16cc55c08e08f5b5ed2534e9da633",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ForwardedTunnelTest.xml",
+      "sha256": "c82c961cea95a53b146e7c8bd93905bc1363e081509cf971e3f60aa4f25b0b80",
+      "tests": 55,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ProxyProtocolOptionalTest.xml",
+      "sha256": "90cda00ac095fd32fcfcfd0dd42ca8cde8f032ba37ebc10458c67d9ad282173a",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http2CodecAbsentTest.xml",
+      "sha256": "c952b6367bc4812d46e120688cd7de5c02f39d6c3dde4ef9a5571022c1db193f",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ConnectTimeoutPerRequestTest.xml",
+      "sha256": "81d43b51d083b17f0d04770fad2b81e7c604f0dff3a6cfdf9e2980b8e6079187",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.PerMessageDeflateTest.xml",
+      "sha256": "912692dce8285486c91b89409052c3e7f39e0cda20ea704f4f402d16584a12a3",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.IdleWaitsTest.xml",
+      "sha256": "3859454f8a003061e8ee3e710e9df8a9e742b64c76a89feab5286366f71c0041",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TestSupportTest.xml",
+      "sha256": "cf907317a5a09595ffe65dad1bc1f05279f163f41d262e94fd38ce107e0636b7",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnssecSyntheticTest.xml",
+      "sha256": "ad506a6b84887baa9544e418abeb134412cee3eaec39d611a37c5bd8ca051959",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2CleartextTest.xml",
+      "sha256": "75351e890157de31f88ada36c40890a481a629b72f92e6023d4a6ecd6e57bc24",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnssecPrimitivesTest.xml",
+      "sha256": "febba1f8697b386f0332fd5c83f138c63032a4954d1976279c4b6cc196408808",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.SimpleProxyTest.xml",
+      "sha256": "495257d2ad85a171f58db34c4c0ce35d87717bb7567c37ab2d15b5d64b82e96b",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2WebSocketTest.xml",
+      "sha256": "632641ed6a71d4410ef8e3e20a27c0629d951719a4a9f3a12a60123d27b0faa5",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.WebSocketDeflateTest.xml",
+      "sha256": "18d3b79ceb6ba084722ba9616aa87b3bad436b818e79632830bf9dbba742ca89",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.QuicMessageHooksTest.xml",
+      "sha256": "46b4bea01a173a88974c50b471fee0bf605008380ff4916b03e9076a2922a606",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AioquicQuicStreamsTest.xml",
+      "sha256": "ab404247c260fb0465a24e1922f6d60d858945593828a625960d47521c9202b7",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.AccessLogFilterTest.xml",
+      "sha256": "0d30ac6b176571d9fa78df4d61397f99c234ccaae0ca1fd8d3550d17d7dffcac",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http2FramesTest.xml",
+      "sha256": "070a45e00fa2afef321b992d12b533b2cd6c9ab5e6748388c6dab3d8400e2157",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.HarRecorderTest.xml",
+      "sha256": "648b1f3bcd232a5882f42a0a5d432f9cc14a41428c7ce9bbb317dc81b99eca86",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http3SupportTest.xml",
+      "sha256": "a9f4abd32afcb2ddcc94b65bd2da26e34de393b0a4baf616a46ae9ca2e25c8f1",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AuthenticationSchemesTest.xml",
+      "sha256": "5a4e6739c6d92f544b39c861c0dc2533054a9d8813e6d12e268d6394f2d20901",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2WebSocketUpstreamTest.xml",
+      "sha256": "303b2b7e45b81563ad95845aef49aaafffe4f0300b6ccd8bc06b03408ed99086",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2ProtocolTest.xml",
+      "sha256": "d3e3ca059a1a24622ebb8fa9ca71d3701af2f7b91276d27c71357834584a165d",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ProtocolPolicyTest.xml",
+      "sha256": "e7d3c8c86d529f4588fdf406c971410115a72a5fe8464fe0b71e230764252350",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2TunnelTest.xml",
+      "sha256": "d31728ba66ff0db0b2aa23c218612aabcb5ef078a725e70c09142f29f050091e",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.BoundedExpiringCacheTest.xml",
+      "sha256": "4ca0e687dd174ed966ef5ba874aad54bdfb83b373dbb4ef9f9e7b4d00a0aa150",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.ConcurrencyLimiterTest.xml",
+      "sha256": "59a803d9fdecec04b0e82ecc00cb2370bee17b28e4705674d8ff37dc9558868b",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3ForwardProxyTest.xml",
+      "sha256": "fce1759d8eb6292b3bc2366422fb6aa76ec358e1f0aadf26198c83cf085fc6a2",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsProtocolPinningTest.xml",
+      "sha256": "a8b3a03749090c2ae6ffe634c63dd1e1393d0c9f1c85a3bd1019ffc0c5ba1cf0",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ExchangeEndedTest.xml",
+      "sha256": "d6d23ec70505aec48fdfd73d9ddde422545db84e094815332d449a99be6acc50",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ServerSslSessionTest.xml",
+      "sha256": "43e84ba09134d3a2c10d8f7a387b623e1768279389e8199ffa9e65e357c5c67e",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Firefox159FingerprintTest.xml",
+      "sha256": "65532d30d7415c9da4a680775b9ecf59359b0ab798b38b5631021f1d9e920198",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http3CodecAbsentTest.xml",
+      "sha256": "4a56df1bee3d239541654f20817c417483c3d5b345be1eb04eea105c47015731",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TlsClientHelloTest.xml",
+      "sha256": "15ce4c35900abcf95b75f78c6361a9e1f90446afb7d32c54fe231c56697c3333",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpsTest.xml",
+      "sha256": "c917b2c3126f9fea92aa10351d1125c74febe241b8ef87f8c200346f0ef31233",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.QuicStreamHooksTest.xml",
+      "sha256": "44955542f39dbd01e8ac4d3b1ec4b673520a3c0965d78bf523f07be451e6a4ef",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TransparentTlsTest.xml",
+      "sha256": "c235f459552ce9f974c828bf9109202a3ec92827575288bf053335d7be4b91a2",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ClientCertificateTest.xml",
+      "sha256": "75c8f4f2e7410001d80b07c540b947f5e8b0d75157cbd5a3e0d23287afa60ff2",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.LauncherTest.xml",
+      "sha256": "638ee44302a5b8f19c77e5cb17d10b6e45f37fc697c4c39859169096914480fe",
+      "tests": 102,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2MasqueQuicTest.xml",
+      "sha256": "2ab88b90c7b84d83e89434329d24af1ef2e020c5fbfe177b7313f0affff173f4",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.AltSvcTest.xml",
+      "sha256": "a290ff4e2257d2a8e5e8efcdd69630e68f2fae7ab23947b4107645b6e91d88ba",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.GrpcThroughProxyTest.xml",
+      "sha256": "f920636864443fee8d18f63e84b41298e6403c9efcc1f6c61877a3fb2a666c72",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3StatsTest.xml",
+      "sha256": "d9511a7eee4ca701e2a640b13cf74302c46db0dcc4f01914100835088fa3626c",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ChainedProxyBackoffTest.xml",
+      "sha256": "955db373f29a8b0d940dcef694fe6865b9efea82835e5c36c14c2e2bf16f22e3",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FlowTimingsTest.xml",
+      "sha256": "ffc7a656d7f46ce0eaa22ce1e39e8dba8c9d14eafbf93e068a49569fb7fad831",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.HttpCodecTest.xml",
+      "sha256": "a533ffa632f014bc2d036d27fc5e52025364588b39252fbaae5d62b502bf43bf",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.contentviews.ContentViewsTest.xml",
+      "sha256": "ec1e50f1a99c6e3154c6f8a6bb7f6e6d5e5894748749a67b278157057a40e4a2",
+      "tests": 69,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ThrottlingTest.xml",
+      "sha256": "bb389387c807705f1a1854ecda382af6b5bca49025a7d85a180e208b92d039b5",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ProxyProtocolChainTest.xml",
+      "sha256": "03e04ddcde31541ffa42af734bdf3a73aba6e732bcbfee0ddd6884be0f778432",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.WebSocketFrameTest.xml",
+      "sha256": "29e2c49f31a33ef9f29fd21626a4fd9f53f40e8f8ab1dc89054b818ae3c5075b",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3FrameInterceptorTest.xml",
+      "sha256": "0135d87124d109d8264e11bd22860c1135c8c57d4b9a0df677f66ccc1c780aa8",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ActivityTrackerTest.xml",
+      "sha256": "f9411b1ceb46bde3410be8499a44a0b4615d2ddc26d5ece32acc8391a2b518f8",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ChainedProxyTlsTest.xml",
+      "sha256": "302d8d21fb79ee3bed93296da60de0a60f69661bcc0389c1b54259f53dbdb964",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.TlsHandshakeTimeoutPerRequestTest.xml",
+      "sha256": "be0f82da5336db2c74679f73349ae2615271494932adcdb8aacd3490ded0de59",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2StatsTest.xml",
+      "sha256": "e83cd179f7a9f7998d14328000510b01ec9873d2e6643db0889a05a9ac1ecf17",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnsMessageTest.xml",
+      "sha256": "e7721aac849bc745263f7db9abecf20cce87cfc0d24e35558dfb7778a660c052",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpHeadersTest.xml",
+      "sha256": "c459b3d3a69c2505657b1e4581d589ac6d3b2a05c42ea39d4381cc1db79f543b",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ProxyProtocolPoolTest.xml",
+      "sha256": "6ad80c45275d8e5910e08ed0edbdefa74d9dc3da44fe39722b227139cedb0876",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.QuicClientHelloTest.xml",
+      "sha256": "9bebc888f199b312327e1d91f5f4ab0452933c7125e20a9fd4fa0c55c1d62817",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.frames.Http3FramePipelineTest.xml",
+      "sha256": "26d0bc7c4f3fa229765a5d732444034d5e3b198c60f0f3ac8164fb6d85535078",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HookStatsTest.xml",
+      "sha256": "f1c01fc9b9184d95cae9bfbf41c919aa85187c12e4f2e6f4abe1dc98e29caf38",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http2SupportTest.xml",
+      "sha256": "8438a10d0395945eddc20a1e3edb651d8fbbd1cd8f394c8aba69245291989da7",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.PoolConfigTest.xml",
+      "sha256": "12ca00c526ba20e6608da6a33dbcd25fd734daa3c44b2a62a74651a8f9f68ede",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.WebSocketMessageTest.xml",
+      "sha256": "28e4b19ab4d104c6f6be57c60314600c82ec12cb28ec57ab206794c95f7ab76c",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AlpnMirroringTest.xml",
+      "sha256": "60ec3063998f7ce2e2be944a3889bbcf94f7136b28d63668187a94c423d22e32",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3HardeningTest.xml",
+      "sha256": "8f8f3d10031ad7365b81d0212d1385a0db3822b6ed181f59ef4f06c486ef3305",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3UpstreamTest.xml",
+      "sha256": "0ff9f2d2cfea00bad7e3cf6b84cf34a2ff5c0b65188cc71926b74f0afc3bd27e",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ScriptUsageTest.xml",
+      "sha256": "83dc0ac74e7f23bdfed3b7df7184a095887f66ee267edddb1bb9e751e83c7161",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.UpstreamFailureRegressionTest.xml",
+      "sha256": "562f22cd944bdee8f2ce0f0579fcc1de8a441821da05d6d70b11f12bdda11f0b",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.SocksChainedProxyTest.xml",
+      "sha256": "d7f5742566ad0d1ad6bc64e28efcbb08a3c95aabafcdd4b92be56ed1bd99b181",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.InterceptedQuicZeroRttTest.xml",
+      "sha256": "d72a21a6d3ca2c6971ac1be8706d6e6f36b12be957ef0d9baacc8eb28b0ef3a0",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AioquicMasqueTest.xml",
+      "sha256": "5b75c8c3ea738bf9fd839f9314bb32d9364499c306a2fdd21ed76e6ed47c39e2",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AioquicHttp3Test.xml",
+      "sha256": "f43eaf98b3f15d61b6edd8eaa615c32422f04d190764fe74e4b5c43be4c5055b",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2DefaultsTest.xml",
+      "sha256": "e3994335ef0f36fb9fd0354e278657055a93ab1dc734429d41651b17f6b6e377",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.GrpcInteropTest.xml",
+      "sha256": "f01e8ccdb2231da724ffc0d7c2e19f281246d40e06f371f4c36c15ddec6f48e6",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnssecLiveTest.xml",
+      "sha256": "74a502c94e43c60672beea1f53888186bcd0f790c3fd5bb1278affdcdc0dbc51",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.warc.WarcReaderTest.xml",
+      "sha256": "7a53164039cd06522e3fea231848db69b991bb7443d313a08cb058e78e5cc69c",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ConnectUdpTemplateTest.xml",
+      "sha256": "28b703ee7fea497b782de3831f7727077b4a9c069e767c4ef38f31ad53cf3088",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ProxyProtocolTest.xml",
+      "sha256": "68ab045628736340e4fb4764278cf5e77cd5f9d6f83fe52c63e66d667f9e94ff",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.contentviews.FuzzTest.xml",
+      "sha256": "461b9eff8808c4c1d57fcad1d0ad27ded8757920b9adc566987d9263df13bd08",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Chrome156FingerprintTest.xml",
+      "sha256": "e4c0ea5e82a1a49182b1942493da58b881c6a4ac8188eff028f44c1ec602f899",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.WireLevelTest.xml",
+      "sha256": "feff0db16461e5f3adad26d8937f98319514d17169bba32cc6fa0972d7e07b59",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ChainedRequestsTest.xml",
+      "sha256": "c917455471c30769d57d0efabb6dc84c29232593bec071309eb0a518ea141ffe",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FilterResponsesTest.xml",
+      "sha256": "858cfbf9b84f3dc9014517b9c2c111e1aa9bc835dafa5aa30f8d05360755d156",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.LittleProxyCompatibilityTest.xml",
+      "sha256": "3e5999ef41fb7d82fa708fc66a7c1dd6066765c487848f6ef6d1ad152de3819a",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.ActivityLoggerEscapingTest.xml",
+      "sha256": "0bfbb8c54bb66b77df087f2e9178a6341d701d629e8b0feca0710aefcb46bf89",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.ProxyProtocolEncodingTest.xml",
+      "sha256": "3cee24f1c3fa9b063b420184df2e4418b685974138815992be9d845f26e880f5",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MasqueQuicTest.xml",
+      "sha256": "3526d17614df7635221307070b8a65c0a9e65b7a0d00738648ce04b41b8e2c9d",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.SharedConnectionPoolTest.xml",
+      "sha256": "90119bc8525555dd7a2b5d657e5737869c2026cf35c77bdf53972f75a37b68fd",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.TlsDiagnosticsTest.xml",
+      "sha256": "6002707060172b87b388d1d04e6372521e9e73dc8a2e7f07f4729524b16ab294",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AllocationTest.xml",
+      "sha256": "aa700bb251324d6946475a1cf4bf27eb44f81dcfdcac3b802b83eb002caab527",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.FailureResponderTest.xml",
+      "sha256": "b6bb9ffe10b608cc008fd0ab16855bfc6baa6a0e41c48a57a977ffb858c5c36d",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AuthenticationTest.xml",
+      "sha256": "802326d36fd90d6ad95b7ff483e18b10dd5f6d4c561b010a3939f227d90d1eac",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2UpstreamTest.xml",
+      "sha256": "ac47dc44959acc190df97283674fd40f85696be08bda06e906ae82e9df37ecaf",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.AltSvcStrippingTest.xml",
+      "sha256": "5e943e2ee0c468729c60378e07054387728cb08a46a88a592c193493c0cc0345",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnsTransportFailoverTest.xml",
+      "sha256": "cb2c2665353402dbe9de23cdff2259adfe2361dc5b5849a97c4d9a1ea5398ff9",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2CoalescingTest.xml",
+      "sha256": "d58431ef4bda9dd9ba7c115a5c3bd1410f810d3b38aee06a7339066cb766c71e",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.RewriteRulesTest.xml",
+      "sha256": "ed5421526d36e34f5bd79ab9a45ec0136aa75f372ed39f665081e748a895f4bc",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.dns.DnssecRecordedTest.xml",
+      "sha256": "28c61fb7a738a1192216e294421c34373cf699247f99d68549e158a81cb040e7",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.cache.CacheStoreTest.xml",
+      "sha256": "2f2e2575d67741483bdf5f82beeddea82fccf9448b25429d8046515cae05f003",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.SocksStatsTest.xml",
+      "sha256": "6432b2076569636705766feef706a6de2bab55111b4e491b6c7a33f714b199b8",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.cache.HttpCacheTest.xml",
+      "sha256": "185d2b8b0b4beb770d53eb1235c8b3746b632b075588307791a09939dcfa6ffd",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.quic.QuicFramingTest.xml",
+      "sha256": "46f99b58c5ddf1d24a0b0b9e42cdbe593e772de51aadd6b538d5541295fdab99",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.cache.CachedHttpsTest.xml",
+      "sha256": "0eef8afd68ecf6828cb888bbacb5e1e489c12b468d86b969c1a3d86e82760307",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.RetryBackoffTest.xml",
+      "sha256": "f2ef36282713b1967d39d7ba6fd8488e4532e969294d32945017b559c124b006",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.tls.TrustAndCacheTest.xml",
+      "sha256": "1ba1b4ab79f9123cd5ee270846decf865a7e52e5ed6555eb7ba358f01d3a6968",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.FlowFilterTest.xml",
+      "sha256": "c2d4b055c24daf6aa2779902283c24295efffc1036c4872d4f62a36346e88133",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.Http2CoalescingNamesTest.xml",
+      "sha256": "6c309af3f7489ea88e396ab23281306b45df3fe79f8ca89e762eecbbb47964cd",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.DocsDriftTest.xml",
+      "sha256": "6cde73615a1d5da0d012fae5ae9e0997f7062885586b32acf8648b920f368aac",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpLoggerTest.xml",
+      "sha256": "a9286003937c38846911fb54a5da9f421ada59e073f21e55e6a56bfdbc8eee4b",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.LauncherAddonsTest.xml",
+      "sha256": "81bacd436db7a84b4efc3cbe8dae77327a8b0e0ccbc902f2899ccebd933e85d6",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.ReplayTest.xml",
+      "sha256": "41dfcd8b220fe9691c3913fa720551ddd14bc21781564bdc804418c2ae8e1e0f",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http3MasqueTest.xml",
+      "sha256": "044dae48c80ebd9ecb5eb4154fca3cc408efca16f23292f2eb189e706e6de1ff",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.extras.ServerReplayTest.xml",
+      "sha256": "a4ba8dafa93eb82f7299ae6461f6e415f82d9597d51059ef54aaec7e1c2e8cf1",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.contentviews.GrpcTest.xml",
+      "sha256": "e44c48e281540084dd275464d99bcc503eef4b2f61ef5b47104fa08935d888f5",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.MasqueStatsTest.xml",
+      "sha256": "303d8f631e29ef509fd2a4fda6fae2ec513964b24df7de2c43dde57b9401f44e",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.Http2ProxyTest.xml",
+      "sha256": "a2955f7ad707c14b6c8fd766005e8a466378ebec0fd629d33f8b352aae62e4a0",
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.impl.UdpFlowBoundTest.xml",
+      "sha256": "7aefe895d3172ac1db10625aab049b11722f7dd5ac25cb085047b14de576d636",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy/target/surefire-reports/TEST-org.microproxy.HttpFiltersBuilderTest.xml",
+      "sha256": "2348b9da5898e353112a594596edf2226d828dc771e84b58f1cab6b5517b0661",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptConstantsTest.xml",
+      "sha256": "ad1b5f749300eff3fba841fa4c429d75e6f25c15458d17e6758df404737b22c6",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedSocksTest.xml",
+      "sha256": "e709570d199f988ef260c414a25f8ac774c76e9d86a658d0e93fc8a7a322f4dd",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedClientHelloTest.xml",
+      "sha256": "58305109d77a5ed8e61075402cba2263579bb0cf2325de13a6de6b2debc7faa7",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.otel.ScriptSpansTest.xml",
+      "sha256": "fc5886198e544617a2f8506704eaddd7c2fb65b1f66cb42f2b8c45f9d91b18e5",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedFrameTest.xml",
+      "sha256": "d0896f0d203dfcb2ea0d20c1a80a2b5b2c6a4f9de3c2297e55f1ed9204ec24f5",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedQuicMessageTest.xml",
+      "sha256": "44427ce05689354b78f3d092d74e23f8571e234be0d3f7480beb07f36bea86fd",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedHttp3Test.xml",
+      "sha256": "89563583c4340fa6b1eca90979afa1dfc6ebf62d9b3afb06dc880bc7647828b5",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedMasqueQuicTest.xml",
+      "sha256": "317235e20b7eb9a84c1d5c11d7692defafd4e905a3c7c6bb4fa92d1315258f5d",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptOverheadTest.xml",
+      "sha256": "d27ecadc045210043a2b43cbca32882355c8b2912998d589bbe1095c1893a2df",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedMitmTest.xml",
+      "sha256": "446eab44681ff17d7cf62da97710001f95b6bb921c43eb4f3913c85bc2d5df81",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedTraceTest.xml",
+      "sha256": "affef7aadfec389a7af7700de6627984fabe1f3294221f3a1c049624a42dd309",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedQuicTest.xml",
+      "sha256": "5616022836e317c34a29cf39a940184df9f4c88a08471762b9aff91b6e451615",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedWebSocketTest.xml",
+      "sha256": "bb520093b3061cf6fb7e7c2f2cd5e195ffe3cef7d9bd8d9a7677c5c913133215",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.stdlib.StdlibLoaderTest.xml",
+      "sha256": "22fdd823b42290994dda7b151d360d590cc6572821ec4bf93f66342146e8f80e",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedAuthTest.xml",
+      "sha256": "9ff5d4964d1de3f01cbbf39b3cfa9842d02a1379a09a795c55ae9da891006e02",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.StdlibScriptTest.xml",
+      "sha256": "27aa0e6cd363f162d1c93adb89f122ea02c7c51147d3d0d1d9f97ecb870f6cf8",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedStatsTest.xml",
+      "sha256": "5b0926eef248f2ad8551091f1e8d9a42fbd0b212f6e865ef1453dbb20c28e256",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedTransparentQuicTest.xml",
+      "sha256": "fba08904c176a3a488f65032cf4646d127473fb1f2308559c0f2dc760293661c",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedGrpcInteropTest.xml",
+      "sha256": "5b464940b5a865ab0e30a1f0e7183251ab4c035e1e80d19b8df6ed185fb4f9c3",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedWebSocketMessageTest.xml",
+      "sha256": "c61fff88d0afc976ea75cce46028130f2f3b832b03ca6e6b82026d0cc65de33e",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedReadmeTest.xml",
+      "sha256": "263718b8889a4804831e78cdec1df7083acbb372981c9237c00d06955a0276c0",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ProtoModulesTest.xml",
+      "sha256": "83e0929edeb20f4fb69320fb4844e1b32889c0ab11ffa8e855ba449268a76fe8",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.TypedScriptTest.xml",
+      "sha256": "81f45c8660a2e802d29b429691a5d2549dab73d39c0625543b315cace77b3939",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedObservabilityTest.xml",
+      "sha256": "1a4b02c3a0211e00d44468e542e8b21bdddad7ca77333643d48da9ac763d16fa",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.LauncherScriptTest.xml",
+      "sha256": "819aabd1491d7abe21e388880d58b3e0e3f5d8f2fb17758d96967374b0e585d0",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedTlsOriginationTest.xml",
+      "sha256": "69f1500a1672a9fa55dbb0685fc999f115c623208e597397f480e92f096cbcbc",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.BuiltinsTest.xml",
+      "sha256": "c0424014c0b18f9f21d134a9fb2a9df9d98d074ba06797353c527d41808f04a6",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedProxyTest.xml",
+      "sha256": "597d5379a5bf49976376d247124f0ab27f35ddb1fc6d71d751d575789310af01",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedUdpTest.xml",
+      "sha256": "3650a82ae3e99e71823eb4e16bc0cdf2f69c4b64ea26798caf62c2cfaf841d1e",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptBudgetTest.xml",
+      "sha256": "eaf470be13976525f280eaa722228f9c59a4b01190524a09d2588813fe0536ac",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.stdlib.StarlarkyStdlibTest.xml",
+      "sha256": "72efe92ad35f014ac302a1ff04ff2cf4daa17e1a3fd6bba945ee206b4e77d59d",
+      "tests": 444,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedBudgetTest.xml",
+      "sha256": "784ae64aaca48cef7154b4d063ef08af2e4e705c8aef9e2b5f6516d59010ba0d",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.ExtensionFlagsDocsTest.xml",
+      "sha256": "bcec3f4148930f9bf0c9e26eca58a47710e55e401614b5bbd50fa0c326257f7e",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedEarlyDataTest.xml",
+      "sha256": "a886b2e1e2455b048a1ac2239f906061fe0cb95d85053e9c7a9fa4bfa6cd3985",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedFailureTest.xml",
+      "sha256": "538c4b3530bcf7cf7f76829171d2e900e790409ebbfb9426406a3d72ac874b1f",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedForwardingTest.xml",
+      "sha256": "3fbee9ede8674605a2d7917b4f70b8e51d2e466d6f22fd388aaa3f44e0b3fae9",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-starlark/target/surefire-reports/TEST-org.microproxy.starlark.ScriptedTcpTest.xml",
+      "sha256": "2af86ea7147ef83e40e94049de09c6a1b1e0e9e0c84dac64880f1a662c046c97",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.OtlpEncodingTest.xml",
+      "sha256": "3be5adb296aabd05dfceeec1225546e1d062face537c89f03b15e085054555e0",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.SamplerTest.xml",
+      "sha256": "27ad93912d6690b35930b1b0f9c9ffb08406c88ae968694e0f87b3c7bab81640",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.TelemetryConfigTest.xml",
+      "sha256": "ce996934a1d4cf5784afbc6a2ef05e25a0a33b99a5f4082a58dd64e0295ef18f",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.OtlpExportTest.xml",
+      "sha256": "afbdfbb73e493d4311b571041cdb1bc9c4838ee7a83bf1972702420a99f07647",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.PropagatorsTest.xml",
+      "sha256": "52c3267ddbb246e45bcba2e6bb3da2ef07460eb6a58170eaeeb3b5f1b21298ea",
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.OtelEndToEndTest.xml",
+      "sha256": "7f3f533a1fc75b2839fbfa9d3f481e90be6c399f952816d7f8937229b79b8a8f",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.otel.OtlpInteropTest.xml",
+      "sha256": "04dadcf8923cd8505c470e1f58a5b6eaceef5269393e18dc22776584fb8735b7",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "path": "microproxy-otel/target/surefire-reports/TEST-org.microproxy.OtelLauncherTest.xml",
+      "sha256": "67d382f53e315e79cf98a84a509a1cead497ca3769bb9bf5d08df876e52db3a6",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Firefox159ProfileTest.xml",
+      "sha256": "5c3e9af17eaa87324b37e181b9abddf9f2d4f7979536c24de5ae9eea108fd640",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.MinMaxTest.xml",
+      "sha256": "8391a87bea658dc509e0437413b745ef2f4b590ba180a502c3e9422af9c2f0ff",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.TimerTableTest.xml",
+      "sha256": "b1287c1dc5c3d13e5a4f7eb35ddafefac7390f370343ee8e1eb6445cdef9b519",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Firefox159ConnectionTest.xml",
+      "sha256": "8734502d438d49b88d6b6d6a7b4176b08ad26d2e56af27f9497f914d7a82fc14",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.DecoderFuzzTest.xml",
+      "sha256": "cdb650e2f875802244053ea9162dfe58f2dddf03aeff79706572378c7b8a29b9",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.PacerTest.xml",
+      "sha256": "81ff1ff5bada4f70caee5588e6838dd2027646b862e896e0de72bbbbfdfe3060",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.TlsRecordLayerTest.xml",
+      "sha256": "29d0b7477574a013e40d77dd5351e03f8969f3019cdb5ff9b6d99ad1700baea7",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.ProfileExtensionsTest.xml",
+      "sha256": "b6bc032cc0542ae459b9541d92254ada149b5daf657c7024cec5d0d513faf6e8",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.EchClientTest.xml",
+      "sha256": "6bfe9d16cc5232c2b8167a6b77b88c775780a01bea1a8baedf70d2bcfdf4d2ce",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.EchConfigTest.xml",
+      "sha256": "fb85abb11082089acbaaaa8ad599a949c9de1714292ba799862168fd8482a0d3",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Tls12ClientTest.xml",
+      "sha256": "f8d57f8400c7303a1be1154d9a84363c2982fb8ba26fee59f53127fc64682bfe",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.HandshakeMatrixTest.xml",
+      "sha256": "beb0dd94cb1494441be96f180defa3af6776bba160073cc67e93108b4442c494",
+      "tests": 105,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.VarIntTest.xml",
+      "sha256": "6ca2d86edb8c741f0cdbbe1ed62e8e9025d10079e3adaafa556a3f4c92835ec6",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.StreamsStateTest.xml",
+      "sha256": "8092d60bb18ecc70d7d97c970554acb95ab783830f136c7f6f11789fd820c64c",
+      "tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.TlsAcceptancePolicyTest.xml",
+      "sha256": "aea3be9f07e2f670ab95b70c3d3716c0b260fd013486ec0073405f8737fc554d",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.ResumptionTest.xml",
+      "sha256": "7735bf6a526cd4826a0b20c7ac1e408a787987e98b93842cc46fc4dee7c8c5fd",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.packet.PacketNumberTest.xml",
+      "sha256": "f3e0d68eb438d63bd68d43c4d9eaaa7d80a97867e9a76cb433cee3ea354c1384",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.ChromeQuicClientTest.xml",
+      "sha256": "ae65e2a486a9ada1e54d9724baa8ea54d51052320d2f6392a0f1542c768fb0bf",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.frame.FrameTest.xml",
+      "sha256": "740ee415549efcac3f29059b1141c9dcc327787c379cf1178676d3c2af32e6e7",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.BbrTest.xml",
+      "sha256": "1a7d7a4af29090985d3f8ccf2423e25eeac4a9855738d05643f5a40eaf0882d8",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.CertificateIssuerPolicyTest.xml",
+      "sha256": "fc04ea511ea9a70488a926462aefd85d237bff259becd3ace4a30c2e143e346a",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.packet.HeaderProtectionTimingTest.xml",
+      "sha256": "d8b3d4307b3a4b2b0572c17c6978b87804e5fcbfca1e7e2d514a9e4a418ec4bf",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.AckFrequencyStateTest.xml",
+      "sha256": "d53c8783f2c36f7c4bdf6950f5422c3b6d3f40bb910248b08ff8775e67b7668b",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.MlKem768Test.xml",
+      "sha256": "7ff35d6063d7a0ea77fa5a13adca5589babeff861d375e711555d2f5c09216ff",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.ShakeTest.xml",
+      "sha256": "4cce4fbb5601ae76d7edc37d62330821828b5eedb6c09d715b5899442d03e7ec",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.HpkeTest.xml",
+      "sha256": "0b5cc20601bf2301a6e236ba5812ae449fb8c14c90ccd5db223c6b4c1d84f188",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.ConnectionTest.xml",
+      "sha256": "a09950c6b868a741ce5114e6cff73e6bdc09e6df937e285d5549e3233be55f9d",
+      "tests": 68,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.BbrConnectionTest.xml",
+      "sha256": "0f90317579b71eec7c1909b0b78d8b3fdaa40965ff39e50c862abba45653ccec",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.FormalRecordModelTest.xml",
+      "sha256": "d4ff857a0656a6d61d68eccb0b0977a7ee480e35befc781af9f19d691b3dad23",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.AioquicInteropTest.xml",
+      "sha256": "70a4013f0433c901d0c9fd27362965131c5bd604a8eab0cccea967dc2886dcd4",
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Rfc8448ResumptionTest.xml",
+      "sha256": "04c39577a035f59e6fceb9ccdbaf1b410de16917adde8d2efe8b08de77674874",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.CubicTest.xml",
+      "sha256": "2974b903f2e5d6c4e7742a2dc63288ab371e56f69301ca7e139106648ca36e01",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.DelegatedCredentialTest.xml",
+      "sha256": "789bdd78ed0b7703fb56ef051b7d6894f4c66922dc4701ece144ece1526a2368",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.MigrationTest.xml",
+      "sha256": "4381cace6983588f22cf65437f9b27b2e00bd0d97a1b6122cdedfe9dbc7d61a5",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Rfc8448Test.xml",
+      "sha256": "87ce5eb5f700874bb77d3b866afaa286d7061624fb8f14702030b73459aa52d4",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.DatagramFilterTest.xml",
+      "sha256": "c89dcb534c0508167f74afe58386f1dd28b90a0737439b7151e6704fd48fb78a",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.crypto.PacketKeyNonceTest.xml",
+      "sha256": "f87ec8af25d2459ebbe1b7f494dc823e00103cf994939fead583a1276a65d85e",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.HkdfTest.xml",
+      "sha256": "4f257cb5fd020d0cfeaf3d6ec55199efc045d4284d28bad77a0b08bbc7807579",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.StreamLifecycleTest.xml",
+      "sha256": "74823506c3ff9d2989fdc90670571759fc5af52460e3e5e2b8ce8552cb0879be",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.ClientHelloProfileTest.xml",
+      "sha256": "fbd0838060fb82cc70f7c605cb1cce851369553b46d069f0805b2af9d4df242d",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.HandshakeTest.xml",
+      "sha256": "9f0853e871064646fa800924133b2b04956ad9e2720f8acc372226cae1295f7c",
+      "tests": 51,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.BandwidthEstimationTest.xml",
+      "sha256": "d002372e2ea740e0b46af6d7dcd381933f9f3383d783795b451c356d6deec8d7",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.FirefoxInitialPacketsTest.xml",
+      "sha256": "90bdfa9e5ef730c445456258bcf637d3fbfb2da49e7675388093fcf4135ee71d",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.token.TokenTest.xml",
+      "sha256": "308bbb858855a6d68aceef42a4d0cd541e4014bd3072d71d01311703c117fe92",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.ZeroRttLoopbackTest.xml",
+      "sha256": "370d26452aa1c2390924f14666e424f07ca0c487becff03fafd96d33ff9833a4",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.ConnectionStatsTest.xml",
+      "sha256": "c5670d3b8f19049d576685da6d998870c31d796cfd9ba621a1d927c3501549ad",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.NewRenoTest.xml",
+      "sha256": "fb4f11299118a92264f983131f201fcad9932eb9d16e4bf72342f6e5356b66dc",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.RecoveryTest.xml",
+      "sha256": "1ab1ffb7f9d3e7b5722ed70969e919a36f66aa0c440e83291a971366ae60af41",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.FormalCryptoModelTest.xml",
+      "sha256": "e7fde45f769a076aca6dc941c44fcf581c38dcdf3e4666dbc170b20e7f6149d4",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.packet.PacketProtectionVectorsTest.xml",
+      "sha256": "d343e81b1bceccce45b84ccd45536a77c2353923b6942492a9f8df9ceec46184",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.AssemblerTest.xml",
+      "sha256": "816ba53bddecb2a5e99dbc42a1b3e343565627437886fe700dc91d879570fe4f",
+      "tests": 33,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.QuicProfileHandshakeTest.xml",
+      "sha256": "9af36cac5502dc69830b1a93263e336dc3d5dbc2c1cec90288f7267117ed9140",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.UnboundServerTest.xml",
+      "sha256": "692f0708d444a143a9e6ecc2c8a0ae7f0c088c85dd2cb9e817fb2488c2b0ecc1",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.DecoderFuzzTest.xml",
+      "sha256": "cdba928b472944a4a4555fe013e16d8f48e41e80c16f07a0ddd1b3746971398c",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.TlsKeyUsageTest.xml",
+      "sha256": "aa3f68144d3b5bc5a0cbf1b006f700ef9161f71067dae5b837f368a0412fe89e",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.TlsClientConnectionTest.xml",
+      "sha256": "c5875da7fa849d0034f12d0f36c4d1f95aecf9accd17dd0a1faa54bc3be7f9ab",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.LoopbackTest.xml",
+      "sha256": "ce6e481ddab44f587d7a501e48ea609fea9fc3a7743af539397aba2973bb60b7",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.params.TransportParameterProfileTest.xml",
+      "sha256": "ced563792c5511269b486341423d5ddc540f9d01e00c3b7e829f5e43d57bf872",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.params.TransportParametersTest.xml",
+      "sha256": "611e241e0eba99bff804645be4396572c3cb981b902b3a2a2041f7bde4ad638e",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.HybridKeyExchangeTest.xml",
+      "sha256": "ffed86f75f4c8d40475f5672f010686f74f866e9c5e60c0a4bd7eb606a1f80f3",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.MigrationLoopbackTest.xml",
+      "sha256": "c12803f4cbcef91a97298b889dbf5e19612bd0f24ffcd480205c797cedeafb08",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.EchInteropTest.xml",
+      "sha256": "24592ace0da72745accecea782428c187f38e0e7cc83fcaefe3839a5a092ff25",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.ConnectionFuzzTest.xml",
+      "sha256": "4a0bfc143fdaf3ac310e7b1f0cfe4db3ab6c3fd9fbbf138abc4d507d2aab12dd",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Firefox159QuicProfileTest.xml",
+      "sha256": "3dd72eccca36d84f548b0696008ca7bd2188217fec124d131b580356c93152b9",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.GreaseTest.xml",
+      "sha256": "4fd73869f60a6d7e50dafeb640b6b136f1a7383460ec5bd1597cbe13e07683df",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.Tls12RecordTest.xml",
+      "sha256": "1401871905629409ea0d9cc03e5f4409884ba9dea7fd89848756ca38503eccaa",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.DeliveryRateTest.xml",
+      "sha256": "31f4d5d5322cef891b2589ffc9622f39b955cd4ee24edbe80a0381978be9d884",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.ZeroRttTest.xml",
+      "sha256": "d251091801b25e20a97f23973d474eaa7b89250d44520061a33db1ab1f0254c8",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.PssCertificatePolicyTest.xml",
+      "sha256": "e82e21638cae26eb417e143a9ac5e0a2246326db49fd8b65c57da36dd13d659e",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.CertificateDecompressorTest.xml",
+      "sha256": "78fd777c3af44476d20bbed80362a9383191a3fdf290d2f3e97d5fcacb6fbd82",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.RangeSetTest.xml",
+      "sha256": "e841c8d6e28825bf29f46b2c5a81d983f41d19ea1ce17466c521459a096bdced",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.packet.PacketHeaderTest.xml",
+      "sha256": "c6fc736b6a9201af4682632f97b6482174013f876bb036cb3c042f2cfdf7a40c",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.FingerprintSslContextTest.xml",
+      "sha256": "b8dc628d518a80bf83e1cb5d8984cbfcec636bf2de0eb08cde412684ceae5aab",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.PacketSpaceTest.xml",
+      "sha256": "7f21e085744bdedc2608792ee6f662e2f020fb964702f92b6b8a027672b349c8",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.congestion.RttEstimatorTest.xml",
+      "sha256": "eb3fed18e121f829d8dfb9483cdc7df1de028037804f2dac0bf485819efb7d2e",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.SendBufferTest.xml",
+      "sha256": "9305bf9e7dcbda3960d7d00f0021a1ad823b6667e42d05de970c2548ca634150",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.ObserverTest.xml",
+      "sha256": "051b848b47d5ef989c412eefac7b17a25017cb6ba4ca7f22631e5447636e57ea",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.MtuDiscoveryTest.xml",
+      "sha256": "cd3a43e0911e4b0c4ccc1a3de1db08412e57c456a36706335ed765283a3e1bfb",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.OpenSslInteropTest.xml",
+      "sha256": "b99d18f4f5c961566e0ab51c314749ea28d2578401a62fe869de7652774bc925",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.connection.ConnectionIdTest.xml",
+      "sha256": "a17760a1abc7a9daca17f1c8368df604d76293552e44af7cd103026c38d72282",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.HkdfGeneratedAdoptionTest.xml",
+      "sha256": "73223c13060d959df9b6418caf32f21bb374e7cd577c0ea3efc884164989625c",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.CodecTest.xml",
+      "sha256": "a149073f5b7c4f22e2401d80f16bb84bf9cada45b786823bff36e271657c6384",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.ProtocolValidationTest.xml",
+      "sha256": "7346db458ae87fbf9bb704acead6ab6150f43466f51167aa5cc38503be5909f9",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.GeneratedCryptoFacadeTest.xml",
+      "sha256": "ad4983247d9ae800fe235998f404790ff926f1540d2aa28ae6350c7148bf45ac",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.tls.TlsRejectionAlertProtectionTest.xml",
+      "sha256": "ba772ff64cfaa8c636abad596851b5288dbe4b173335ba877af1b8f1b89a4012",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

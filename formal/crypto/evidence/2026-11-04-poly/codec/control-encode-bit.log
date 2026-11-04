@@ -1,0 +1,8 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/encode-bit/NativeCodec.dfy(434,16): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+    |
+434 |       invariant forall j: int :: 0 <= j < i as int ==> b[j] == S.EncodedByte(T.Ints(f),d as int,j)
+    |                 ^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

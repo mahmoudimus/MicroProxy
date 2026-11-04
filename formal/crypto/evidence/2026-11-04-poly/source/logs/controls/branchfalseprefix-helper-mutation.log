@@ -1,0 +1,6 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/crypto/NativePolynomial.dfy(17,17): Error: BranchFalsePrefix else is not two leaves
+   |
+17 |   ghost function BranchFalsePrefix(siteBase: int, k: int): seq<int>
+   |                  ^^^^^^^^^^^^^^^^^
+
+1 resolution/type errors detected in AllPolynomialTraceRoots.dfy

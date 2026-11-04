@@ -1,0 +1,8 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/crypto/NativePolynomial.dfy(838,16): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+    |
+838 |       invariant trace == ST.Ops(0,0,0,0,0,0,0) + ST.Alloc(101,128) + ST.LoopBound(201,128)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 998 verified, 1 error

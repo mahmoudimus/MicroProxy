@@ -97,6 +97,189 @@ timeout/resource/crash. The managed generated-file inventory covers the native
 delivery manifest, and concurrent HKDF-owned adapters are outside that component
 inventory.
 
+### Native crypto receipts after the polynomial adoption
+
+The V5/V6 native receipts were regenerated from complete actual replays over the
+adopted ghost-instrumented source, so the checker no longer accepts the earlier
+"unchanged proofs reused by identity" shortcut:
+
+- `NATIVE-CODEC-EVIDENCE.json` carries fresh top-level `proofs` (86 NativeField,
+  1503 NativeCodec, 281 NativeSampling, 8/4 domain harnesses), the 15 semantic
+  controls and the 8 payload bytecode controls, plus a pinned 16-key `inputs` map.
+  The pre-Poly proof-reuse, portability and strict-exit records are retained only
+  under `historical` and are not evidence for the current source hashes.
+- `NATIVE-KEM-EVIDENCE.json` carries the fresh full receipt: 2776 composition,
+  2695 reference-graph, 4097 native-kernel and 162 generation checks, 11 rejected
+  semantic controls, both JDK replays and a pinned 27-key `inputs` map. Its
+  reviewed generated-caller inventory digest is repinned because two generated
+  `NativePolynomial` call sites gained parentheses at platform-value (`.0`) sites;
+  the reviewed site set, methods, lines, counts and review text are unchanged.
+- `NATIVE-POLYNOMIAL-EVIDENCE.json` carries the fresh actual-A macOS/arm64
+  positive, 14-control and dual-JDK replay (`39a1bf11…`; 1092 native checks,
+  22865885 assertions on each JDK) and a pinned 13-key `inputs` map including the
+  shared `SourceTrace` wrapper and the canonical observation vocabulary. The
+  inverse control is now a legal witness rather than an out-of-resource attempt:
+  a stage-0 vector (coefficient 2 = 1, others 0) distinguishes the correct lane
+  2154 from the swapped 1175, asserted after the actual `F.MulSub` call and before
+  any ghost fact; the negative copy reports 9 assertions/1 real error and the
+  paired original body 10/0. The only source change is
+  `native_polynomial_checks.py` (`ab28bc18…`) plus its test helper
+  (`0e775ccc…`); production Dafny/Java, domains, budgets and the other thirteen
+  mutation hashes are unchanged. The earlier Linux inverse out-of-resource
+  attempts remain disclosed and are not counted, and the v1 macOS receipt is
+  retained only under `historical`.
+  The Linux sub-block is now the actual linux/amd64 `--phase controls` replay of
+  the same reviewed runner (`ab28bc18…`) over the same 13 source pins: exit 0,
+  14/14 controls, every per-control summary byte-identical to the mac fixture,
+  and the inverse witness again 9 assertions/1 error against a paired original
+  10/0. The generated mutant sources are path-relocation-normalized and hash to
+  the fixture's recorded templates for all 14 templates and four paired bodies
+  (`all_normalized_equal: true`). The authoritative run is exit 0; the two
+  observation replays and the failed `poly-out`/`poly-out2` attempts are
+  disclosed and are not cited as qualification, and no GitHub-hosted CI
+  qualification is claimed here.
+- `NATIVE-KEM-LINUX-EVIDENCE.json` now records the actual full-scope linux/amd64
+  replay (Ubuntu 24.04.5 under a WSL2-hosted Docker daemon, not a GitHub runner):
+  2776 composition obligations with 0 errors, the 21-file source graph, both JDK
+  replays, 11 rejected semantic controls and the 3 compiled selector controls.
+  The per-run maxima come from an equivalent same-source/same-flags replay that
+  adds CSV logging only (`max_resource_count` 10275514 deterministic rlimit
+  units; `max_obligation_seconds` 10.1399173 wall-clock). The previous
+  control-only composition run is preserved under
+  `historical_previous_control_only_run`; no old numbers were carried forward and
+  the GitHub-hosted CI replay is still required after push.
+
+The delivered source graph adds `formal/source/SourceTrace.dfy` and
+`formal/source/vocabulary/ObservationVocabulary.dfy`, so the stage-receipt source
+map and the native input maps are pinned at their new exact key counts (20/13/16/27
+and 21 for the Linux source graph). The V5 claim now requires the codec input map
+as well, so trimming any of these maps fails instead of quietly narrowing coverage.
+
+Any change to `formal/crypto/delivery.json` also invalidates the nonce functional
+receipt's `delivery.manifest_sha256` and the committed delivery stage's
+`manifest_sha256`; the coherent change therefore requires a fresh nonce functional
+replay and a fresh complete delivery stage in the same commit. Those receipts are
+produced by the pinned runners, not edited by hand.
+
+### Scoped poly source-trace claim (V7 contribution)
+
+`poly-source-trace-ni` is a new, explicitly scoped V7 claim for the adopted
+NativeField/NativePolynomial ghost-observation work. It is *not* an extension of
+the SHAKE/ML-KEM functional claim and it is not "all of V7": Keccak/Shake, full
+ML-KEM composition, adapters, invalid-input paths and the KeyGen rho-failure
+non-interference path remain open.
+
+Unlike a receipt-only claim, support requires the actual full portable-package
+report at `formal/source/polynomial/SOURCE-EVIDENCE.json`
+(`microproxy.native-polynomial-central-port/v1`) and the checker
+`_validate_poly_source_evidence` re-derives its load-bearing facts from
+repository bytes:
+
+- `inputs_before` and `inputs_after` are the same 45 guards (44 pinned files plus
+  `inputs.json`); every recorded hash must equal the current repository file, and
+  the receipt's map must equal `formal/source/polynomial/inputs.json`, including
+  its own manifest hash. Trimming or dropping a guard fails; the receipt cannot
+  be renewed without the files.
+- the eight proof targets and exact verified counts (86/1001/26/2767/14/17/29/19),
+  zero errors, the reviewed 30 s/50M/2-core budget with `O:smt.case_split=0` on
+  native targets and `3` only for the composition source, and eight audits with a
+  finding count of zero;
+- the checker source/project pins, SDK, deterministic/debug-free build, disabled
+  directory build imports, a `DafnyHome`-parameterised project with no embedded
+  absolute toolchain path, and the assembly/build-log identities as recorded;
+- the exact 20 resolved method-root identities and 19 pure function identities
+  (uniqueness, not a count), the two cleared ambient selectors
+  (`POLY_TRACE_ROOTS`, `POLY_TRACE_FUNCS`), and the four canonical, sixteen
+  mutation, decoy instance-class, N1b and repeated-root scope-probe controls.
+  The repeated-root probe is the load-bearing scope guard: the checker exits 0
+  while reporting twenty copies of one root, and the runner must reject it;
+- the ghost erasure result (one changed generated Java text, 66 generated files,
+  identical class bytes on both supported JDKs, 65/65 per JDK) with the approved
+  Maven runtime and the immutable pre-adoption baseline. The baseline template
+  must carry the four pre-adoption component hashes that are in the immutable
+  20-file main closure (the poly domain harness is package-owned and is not part
+  of that closure), so the adopted candidate (or mutable A after adoption) cannot
+  serve as its own baseline;
+- every receipt log is bound to a tracked copy by a log index whose hashes must
+  match the adopted report byte-for-byte.
+
+Support is additionally refused unless the claim cites every reviewed input path
+(including the baseline template/helper/test and the checker project) and both
+the V5 and V7 obligation statuses are as reviewed. The C# checker and the Dafny
+parser/compiler/verifier remain trusted; roles are method-local, not physical
+heap addresses; no JVM timing theorem is implied.
+
+Ingestion is content-bound, not hash-count-bound. Each of the 128 producer log
+paths is a reviewed literal; the index must contain exactly that set, each
+tracked file must hash to its index entry, and every record that cites a log must
+use the pinned producer-relative path (and its recorded digest where the producer
+captures one). The gate parses the tracked bytes:
+
+- positive Dafny runs must show exactly one `N verified, 0 errors` summary with
+  the claimed count, no `Warning:`/`Error:` diagnostic, no resolution errors and
+  no timeout/resource/crash text; audits must report the recorded zero findings;
+- negative Dafny controls must show the recorded verified/error counts plus a
+  real `(line,col): Error:` diagnostic containing the reviewed anchor, and are
+  rejected if the log is green, inconclusive or resource-exhausted (the single
+  intentionally `observed-not-used-as-proof` mutation must instead contain the
+  resource marker and is never counted as a semantic rejection);
+- checker positives must print exactly the recorded resolved-root list (20 unique
+  methods, or the reviewed single-root observed control) with the exact positive
+  marker; the repeated-root probe must show the checker succeeding while printing
+  twenty copies of one root, which the runner records as rejected;
+- checker rejections must contain the named coverage diagnostic, the resolution
+  summary and no success marker, and must not be a tool crash or resource event;
+- the N1b records additionally bind their body/harness/checker/generate logs, the
+  body must clear its recorded minimum and the generated-Java identity must hold.
+
+The `checks` list is validated as an exact identity multiset, not a length: every
+`proofs`/`audits`/canonical/decoy/mutation/N1b/scope-probe record must appear
+verbatim, and the remaining records must match the reviewed inventory of the
+default positive run, four observed method/function scopes, twelve named checker
+rejections, the LemmaOut green run and four Dafny assertion-failure controls,
+each with its exact key set, identity, counts and parsed log. The supplementary
+families are additionally required as exact identity *sets with no duplicates*:
+each scope selector, each `(selector, needle)` rejection, each Dafny-negative
+record and each green `(log, verified)` pair must appear exactly once and the
+reviewed set must be fully covered, so duplicating one control while dropping a
+sibling fails even when all shape counts and the 64-length are unchanged. Checker
+needles, rejection reasons and Dafny anchors are pinned literals rather than
+receipt text: a control whose `needle` is replaced by an arbitrary substring, or
+whose Dafny log is swapped for an unrelated error with matching counts, fails.
+Green records also require their pinned producer-relative log path and digest
+(not just matching text). Recorded `log_sha256` fields are mandatory for every
+record type that carries one; only the N1b body/harness/generate logs, which the
+producer intentionally records without a digest, use an explicit schema-specific
+exception while still being path- and index-bound. Dropping a log, relabelling a
+proof digest to another proof's log, erasing non-positive records, duplicating a
+control identity or rewriting a rejection into a success therefore fails closed;
+ROOT's three original probes and the reviewer's duplicate-identity probes are
+regression tests.
+
+The claim is now recorded as `supported` on the adopted actual-A report
+(`formal/source/polynomial/SOURCE-EVIDENCE.json`, schema
+`microproxy.native-polynomial-central-port/v1`, 8 proofs / 8 audits / 64 records,
+45 before/after guards over the 44 pinned inputs). The report and all 128 run
+logs are copied verbatim under
+`formal/crypto/evidence/2026-11-04-poly/source/` and bound by
+`log-index.json` (report digest, per-log digests, baseline manifest digest and
+its 20-file component map), so the gate can re-derive every receipt log from
+tracked bytes instead of trusting an absolute producer path.
+
+Support therefore requires, at validation time, the actual report bytes and all
+of: the 44 manifest pins and 45 guards matching the repository, the exact
+20 method-root / 19 pure-function identities, the named canonical/mutation/
+decoy/N1b controls and the repeated-root rejection, the ghost-erasure
+65/65 class identity on both JDKs, the pre-adoption baseline, and the tool and
+trust-boundary blocks. A deferred claim would bypass all of this, so demoting the
+claim is a gate removal, not a bookkeeping change; `check_crypto_release.py
+--require poly-source-trace-ni` makes that visible in CI.
+
+The claim is still subject to the V5 component checks (including the pending
+linux/amd64 14-control replay of the native polynomial wrapper) and to the
+separate V7 packet/timing gate; it is `supported` as a scoped source claim, not as
+a complete V7 result.
+
 ## Claims
 
 Claims have a fixed inventory. Every claim has a reviewed immutable policy that

@@ -1,0 +1,8 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/cbd-sign/NativeSampling.dfy(40,16): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+   |
+40 |       invariant forall k: int :: 0 <= k < i as int ==> f[k] as int == S.CbdWord(T.Bytes(b),k)
+   |                 ^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

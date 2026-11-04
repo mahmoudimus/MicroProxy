@@ -1,0 +1,16 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: mismatched Read observation for array read
+   |
+64 |     trace := trace + ST.Read(2,0,0);
+   |                         ^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: expected exact SourceTrace.Write for array write, found Read
+   |
+64 |     trace := trace + ST.Read(2,0,0);
+   |                         ^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: RoleShadow: stale observation Read
+   |
+64 |     trace := trace + ST.Read(2,0,0);
+   |                         ^^^^
+
+3 resolution/type errors detected in PolynomialControls.dfy

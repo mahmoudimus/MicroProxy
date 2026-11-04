@@ -1,0 +1,8 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-wrong-local-eag4q9mh/formal/crypto/NativePolynomial.dfy(1127,16): Error: this loop invariant could not be proved on entry
+ Related message: loop invariant violation
+     |
+1127 |       invariant trace == ST.Ops(0,0,0,0,0,0,0) + ST.Call(408,13,1) + CopyTrace()
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1000 verified, 1 error

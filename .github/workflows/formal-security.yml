@@ -23,7 +23,7 @@ jobs:
       - name: Require scoped production functional claims with current evidence
         run: |
           python scripts/security/check_crypto_obligations.py --output target/crypto-obligations.json
-          python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require packet-nonce-functional-production --output target/crypto-release-claims.json
+          python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require packet-nonce-functional-production --require poly-source-trace-ni --output target/crypto-release-claims.json
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
@@ -103,6 +103,7 @@ jobs:
           python -m unittest discover -s formal/crypto -p 'test_*.py' -v
           python formal/crypto/native_shake_checks.py --output "$NATIVE_CRYPTO_OUTPUT/shake" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
           python formal/crypto/native_polynomial_checks.py --phase all --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial" --java-home "$CRYPTO_JAVA_21" --runtime-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
+          python formal/crypto/native_polynomial_checks.py --phase controls --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial-controls"
           python formal/crypto/native_kem_checks.py --scope full --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/kem" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime "$CRYPTO_RUNTIME"
       - name: Verify a fresh full stage and exact Maven delivery
         run: |
@@ -150,6 +151,51 @@ jobs:
             target/dafny-hkdf-source/
             !target/dafny-hkdf-source/checker-build/nuget/**
             !target/dafny-hkdf-source/checker-build/dotnet-home/**
+          if-no-files-found: ignore
+
+  dafny-polynomial-source-traces:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Retain JDK 21 for the erasure comparison
+        run: echo "POLY_JAVA_21=$JAVA_HOME" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Materialize the authenticated immutable Git baseline
+        run: |
+          python -m unittest scripts.security.test_crypto_poly_baseline -v
+          python scripts/security/prepare_poly_baseline.py --output target/polynomial-main-baseline
+          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+      - name: Verify executable polynomial traces, exact scope and erasure
+        run: |
+          python -m unittest discover -s formal/source/polynomial -p 'test_*.py' -v
+          python formal/source/polynomial/replay.py --output target/dafny-polynomial-source --cache "$HOME/.cache/microproxy-formal" --baseline target/polynomial-main-baseline --git-repo . --javac21 "$POLY_JAVA_21/bin/javac" --javac25 "$JAVA_HOME/bin/javac" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-polynomial-source-traces-jdk-21-and-25
+          path: |
+            target/dafny-polynomial-source/
+            !target/dafny-polynomial-source/checker-build/nuget/**
+            !target/dafny-polynomial-source/checker-build/dotnet-home/**
           if-no-files-found: ignore
 
   dafny-source-ownership:

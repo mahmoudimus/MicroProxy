@@ -1,0 +1,12 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/SourceTrace.dfy(50,2): Error: a postcondition could not be proved on this return path
+   |
+50 |   {}
+   |   ^
+
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/SourceTrace.dfy(49,12): Related location: this is the postcondition that could not be proved
+   |
+49 |     ensures Branch(site,taken) == O.Encode(O.Branch(site,taken))
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 16 verified, 1 error

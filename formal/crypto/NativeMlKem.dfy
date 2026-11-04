@@ -394,7 +394,7 @@ module NativeMlKem {
     {
       var f := Noise(seed,start+i);
       if ntt {
-        var transformed := NP.Ntt(f);
+        var transformed, nttTrace := NP.Ntt(f);
         WipeInts(f);
         f := transformed;
       }
@@ -433,8 +433,9 @@ module NativeMlKem {
     ensures fresh(r) && T.Canonical(r)
     ensures T.Ints(r) == P.Add(T.Ints(accumulator),P.NttMul(T.Ints(a),T.Ints(b)))
   {
-    var term := NP.NttMul(a,b);
-    r := NP.Add(accumulator,term);
+    var term, nttMulTrace := NP.NttMul(a,b);
+    ghost var addTrace: seq<int>;
+    r, addTrace := NP.Add(accumulator,term);
     WipeInts(term);
   }
   method {:isolate_assertions} Dot(a: array<array<T.I>>, b: array<array<T.I>>) returns(r: array<T.I>)
@@ -474,10 +475,11 @@ module NativeMlKem {
     var row := Row(a,i,transposed);
     var product := Dot(row,b);
     if inverse {
-      var transformed := NP.InverseNtt(product);
+      var transformed, invNttTrace := NP.InverseNtt(product);
       WipeInts(product); product := transformed;
     }
-    r := NP.Add(product,e);
+    ghost var addTrace: seq<int>;
+    r, addTrace := NP.Add(product,e);
     WipeInts(product);
   }
   method {:isolate_assertions} MatrixProduct(a: array<array<T.I>>, b: array<array<T.I>>, e: array<array<T.I>>, transposed: bool, inverse: bool) returns(r: array<array<T.I>>)
@@ -810,9 +812,9 @@ module NativeMlKem {
     var e2 := Noise(coins,6);
     var mu := Expand(m,1);
     var product := Dot(t,y);
-    var inverse := NP.InverseNtt(product);
-    var noisy := NP.Add(inverse,e2);
-    var v := NP.Add(noisy,mu);
+    var inverse, invNttTrace := NP.InverseNtt(product);
+    var noisy, addTrace1 := NP.Add(inverse,e2);
+    var v, addTrace2 := NP.Add(noisy,mu);
     assert T.Ints(v) == S.V(Polys(t),m[..],coins[..]);
     c2 := NC.CompressAndEncode(v,4);
     assert c2[..] == model;
@@ -849,7 +851,8 @@ module NativeMlKem {
   {
     var part := Slice(c,320*i,320);
     var f := Expand(part,10);
-    r := NP.Ntt(f);
+    ghost var nttTrace: seq<int>;
+    r, nttTrace := NP.Ntt(f);
     assert T.Ints(r) == CipherU(c[..])[i as int];
     WipeBytes(part); WipeInts(f);
   }
@@ -883,7 +886,8 @@ module NativeMlKem {
     ghost var uObjects := PolyObjects(u);
     assert fresh(uObjects);
     var product := Dot(secret,u);
-    mask := NP.InverseNtt(product);
+    ghost var invNttTrace: seq<int>;
+    mask, invNttTrace := NP.InverseNtt(product);
     assert T.Ints(mask) == model;
     assert uObjects !! (PolyObjects(secret)+{ciphertext as object,mask});
     assert product !in PolyObjects(secret) && product as object != ciphertext as object && product != mask;
@@ -901,7 +905,7 @@ module NativeMlKem {
     var last := Slice(ciphertext,960,128);
     assert last[..] == cModel[960..];
     var v := Expand(last,4);
-    var w := NP.Sub(v,mask);
+    var w, subTrace := NP.Sub(v,mask);
     m := NC.CompressAndEncode(w,1);
     assert T.Ints(w) == P.Sub(S.Expanded(cModel[960..],4),P.InverseNtt(S.Dot(sModel,CipherU(cModel),3)));
     DecryptEquation(sModel,cModel,T.Ints(w),m[..]);

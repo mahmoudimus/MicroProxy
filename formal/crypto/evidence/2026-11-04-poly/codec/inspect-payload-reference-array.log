@@ -1,0 +1,1729 @@
+Compiled from "__default.java"
+public class NativeCodec.__default {
+  public NativeCodec.__default();
+    descriptor: ()V
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static void Wipe(int[]);
+    descriptor: ([I)V
+    Code:
+       0: aload_0
+       1: arraylength
+       2: istore_1
+       3: iload_1
+       4: istore_2
+       5: iconst_0
+       6: istore_3
+       7: iload_3
+       8: iload_2
+       9: if_icmpge     25
+      12: aload_0
+      13: iload_3
+      14: invokestatic  #7                  // Method dafny/Helpers.toInt:(I)I
+      17: iconst_0
+      18: iastore
+      19: iinc          3, 1
+      22: goto          7
+      25: return
+
+  public static boolean Width(int);
+    descriptor: (I)Z
+    Code:
+       0: iload_0
+       1: iconst_1
+       2: if_icmpeq     22
+       5: iload_0
+       6: iconst_4
+       7: if_icmpeq     22
+      10: iload_0
+      11: bipush        10
+      13: if_icmpeq     22
+      16: iload_0
+      17: bipush        12
+      19: if_icmpne     26
+      22: iconst_1
+      23: goto          27
+      26: iconst_0
+      27: ireturn
+
+  public static int Pow2(int);
+    descriptor: (I)I
+    Code:
+       0: iload_0
+       1: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       4: ifne          9
+       7: iconst_1
+       8: ireturn
+       9: iload_0
+      10: iconst_1
+      11: if_icmpne     16
+      14: iconst_2
+      15: ireturn
+      16: iload_0
+      17: iconst_2
+      18: if_icmpne     23
+      21: iconst_4
+      22: ireturn
+      23: iload_0
+      24: iconst_3
+      25: if_icmpne     31
+      28: bipush        8
+      30: ireturn
+      31: iload_0
+      32: iconst_4
+      33: if_icmpne     39
+      36: bipush        16
+      38: ireturn
+      39: iload_0
+      40: iconst_5
+      41: if_icmpne     47
+      44: bipush        32
+      46: ireturn
+      47: iload_0
+      48: bipush        6
+      50: if_icmpne     56
+      53: bipush        64
+      55: ireturn
+      56: iload_0
+      57: bipush        7
+      59: if_icmpne     66
+      62: sipush        128
+      65: ireturn
+      66: iload_0
+      67: bipush        8
+      69: if_icmpne     76
+      72: sipush        256
+      75: ireturn
+      76: iload_0
+      77: bipush        9
+      79: if_icmpne     86
+      82: sipush        512
+      85: ireturn
+      86: iload_0
+      87: bipush        10
+      89: if_icmpne     96
+      92: sipush        1024
+      95: ireturn
+      96: iload_0
+      97: bipush        11
+      99: if_icmpne     106
+     102: sipush        2048
+     105: ireturn
+     106: sipush        4096
+     109: ireturn
+
+  public static int GroupWords(int);
+    descriptor: (I)I
+    Code:
+       0: iload_0
+       1: iconst_1
+       2: if_icmpne     8
+       5: bipush        8
+       7: ireturn
+       8: iload_0
+       9: bipush        10
+      11: if_icmpne     16
+      14: iconst_4
+      15: ireturn
+      16: iconst_2
+      17: ireturn
+
+  public static int GroupBytes(int);
+    descriptor: (I)I
+    Code:
+       0: iload_0
+       1: bipush        10
+       3: if_icmpne     8
+       6: iconst_5
+       7: ireturn
+       8: iload_0
+       9: bipush        12
+      11: if_icmpne     16
+      14: iconst_3
+      15: ireturn
+      16: iconst_1
+      17: ireturn
+
+  public static long BytePower(int);
+    descriptor: (I)J
+    Code:
+       0: iload_0
+       1: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       4: ifne          9
+       7: lconst_1
+       8: lreturn
+       9: iload_0
+      10: iconst_1
+      11: if_icmpne     18
+      14: ldc2_w        #18                 // long 256l
+      17: lreturn
+      18: iload_0
+      19: iconst_2
+      20: if_icmpne     27
+      23: ldc2_w        #20                 // long 65536l
+      26: lreturn
+      27: iload_0
+      28: iconst_3
+      29: if_icmpne     36
+      32: ldc2_w        #22                 // long 16777216l
+      35: lreturn
+      36: ldc2_w        #24                 // long 4294967296l
+      39: lreturn
+
+  public static long WordPower(int, int);
+    descriptor: (II)J
+    Code:
+       0: iload_0
+       1: iconst_1
+       2: if_icmpne     11
+       5: iload_1
+       6: invokestatic  #26                 // Method Pow2:(I)I
+       9: i2l
+      10: lreturn
+      11: iload_0
+      12: iconst_4
+      13: if_icmpne     29
+      16: iload_1
+      17: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+      20: ifne          25
+      23: lconst_1
+      24: lreturn
+      25: ldc2_w        #31                 // long 16l
+      28: lreturn
+      29: iload_0
+      30: bipush        10
+      32: if_icmpne     66
+      35: iload_1
+      36: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+      39: ifne          44
+      42: lconst_1
+      43: lreturn
+      44: iload_1
+      45: iconst_1
+      46: if_icmpne     53
+      49: ldc2_w        #33                 // long 1024l
+      52: lreturn
+      53: iload_1
+      54: iconst_2
+      55: if_icmpne     62
+      58: ldc2_w        #35                 // long 1048576l
+      61: lreturn
+      62: ldc2_w        #37                 // long 1073741824l
+      65: lreturn
+      66: iload_1
+      67: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+      70: ifne          75
+      73: lconst_1
+      74: lreturn
+      75: ldc2_w        #39                 // long 4096l
+      78: lreturn
+
+  public static int Extract(long, int, int);
+    descriptor: (JII)I
+    Code:
+       0: lload_0
+       1: lstore        4
+       3: lload         4
+       5: iload_2
+       6: i2b
+       7: invokestatic  #41                 // Method dafny/Helpers.bv64ShiftRight:(JB)J
+      10: lstore        6
+      12: lload         6
+      14: iload_3
+      15: invokestatic  #26                 // Method Pow2:(I)I
+      18: iconst_1
+      19: isub
+      20: i2l
+      21: land
+      22: lstore        8
+      24: lload         8
+      26: l2i
+      27: ireturn
+
+  public static int Shift(long, int);
+    descriptor: (JI)I
+    Code:
+       0: lload_0
+       1: lstore_3
+       2: lload_3
+       3: iload_2
+       4: i2b
+       5: invokestatic  #41                 // Method dafny/Helpers.bv64ShiftRight:(JB)J
+       8: l2i
+       9: ireturn
+
+  public static int PublicDiv(int, int);
+    descriptor: (II)I
+    Code:
+       0: iload_0
+       1: iload_1
+       2: invokestatic  #45                 // Method dafny/DafnyEuclidean.EuclideanDivision:(II)I
+       5: ireturn
+
+  public static int PublicMod(int, int);
+    descriptor: (II)I
+    Code:
+       0: iload_0
+       1: iload_1
+       2: invokestatic  #51                 // Method dafny/DafnyEuclidean.EuclideanModulus:(II)I
+       5: ireturn
+
+  public static int Compress(int, int);
+    descriptor: (II)I
+    Code:
+       0: iload_0
+       1: anewarray     #2                  // class java/lang/Object
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: iconst_2
+       8: invokestatic  #54                 // Method PublicDiv:(II)I
+      11: ireturn
+
+  public static long DecompressionScale(int);
+    descriptor: (I)J
+    Code:
+       0: iload_0
+       1: iconst_1
+       2: if_icmpne     9
+       5: ldc2_w        #57                 // long 8388608l
+       8: lreturn
+       9: iload_0
+      10: iconst_2
+      11: if_icmpne     18
+      14: ldc2_w        #59                 // long 4194304l
+      17: lreturn
+      18: iload_0
+      19: iconst_3
+      20: if_icmpne     27
+      23: ldc2_w        #61                 // long 2097152l
+      26: lreturn
+      27: iload_0
+      28: iconst_4
+      29: if_icmpne     36
+      32: ldc2_w        #35                 // long 1048576l
+      35: lreturn
+      36: iload_0
+      37: iconst_5
+      38: if_icmpne     45
+      41: ldc2_w        #63                 // long 524288l
+      44: lreturn
+      45: iload_0
+      46: bipush        6
+      48: if_icmpne     55
+      51: ldc2_w        #65                 // long 262144l
+      54: lreturn
+      55: iload_0
+      56: bipush        7
+      58: if_icmpne     65
+      61: ldc2_w        #67                 // long 131072l
+      64: lreturn
+      65: iload_0
+      66: bipush        8
+      68: if_icmpne     75
+      71: ldc2_w        #20                 // long 65536l
+      74: lreturn
+      75: iload_0
+      76: bipush        9
+      78: if_icmpne     85
+      81: ldc2_w        #69                 // long 32768l
+      84: lreturn
+      85: iload_0
+      86: bipush        10
+      88: if_icmpne     95
+      91: ldc2_w        #71                 // long 16384l
+      94: lreturn
+      95: ldc2_w        #73                 // long 8192l
+      98: lreturn
+
+  public static int Decompress(int, int);
+    descriptor: (II)I
+    Code:
+       0: getstatic     #75                 // Field NativeTypes/I.Witness:I
+       3: istore_2
+       4: iload_1
+       5: invokestatic  #26                 // Method Pow2:(I)I
+       8: istore_3
+       9: sipush        3329
+      12: iload_0
+      13: imul
+      14: iload_3
+      15: iconst_2
+      16: invokestatic  #54                 // Method PublicDiv:(II)I
+      19: iadd
+      20: istore        4
+      22: iload_1
+      23: invokestatic  #81                 // Method DecompressionScale:(I)J
+      26: lstore        5
+      28: iload         4
+      30: i2l
+      31: lload         5
+      33: lmul
+      34: lstore        7
+      36: lload         7
+      38: bipush        24
+      40: invokestatic  #41                 // Method dafny/Helpers.bv64ShiftRight:(JB)J
+      43: l2i
+      44: istore_2
+      45: iload_2
+      46: ireturn
+
+  public static long GroupValue(int[], int, int);
+    descriptor: ([III)J
+    Code:
+       0: iload_2
+       1: iload_1
+       2: invokestatic  #85                 // Method GroupWords:(I)I
+       5: imul
+       6: istore_3
+       7: iload_1
+       8: iconst_1
+       9: if_icmpne     96
+      12: aload_0
+      13: iload_3
+      14: iaload
+      15: i2l
+      16: ldc2_w        #88                 // long 2l
+      19: aload_0
+      20: iload_3
+      21: iconst_1
+      22: iadd
+      23: iaload
+      24: i2l
+      25: lmul
+      26: ladd
+      27: ldc2_w        #90                 // long 4l
+      30: aload_0
+      31: iload_3
+      32: iconst_2
+      33: iadd
+      34: iaload
+      35: i2l
+      36: lmul
+      37: ladd
+      38: ldc2_w        #92                 // long 8l
+      41: aload_0
+      42: iload_3
+      43: iconst_3
+      44: iadd
+      45: iaload
+      46: i2l
+      47: lmul
+      48: ladd
+      49: ldc2_w        #31                 // long 16l
+      52: aload_0
+      53: iload_3
+      54: iconst_4
+      55: iadd
+      56: iaload
+      57: i2l
+      58: lmul
+      59: ladd
+      60: ldc2_w        #94                 // long 32l
+      63: aload_0
+      64: iload_3
+      65: iconst_5
+      66: iadd
+      67: iaload
+      68: i2l
+      69: lmul
+      70: ladd
+      71: ldc2_w        #96                 // long 64l
+      74: aload_0
+      75: iload_3
+      76: bipush        6
+      78: iadd
+      79: iaload
+      80: i2l
+      81: lmul
+      82: ladd
+      83: ldc2_w        #98                 // long 128l
+      86: aload_0
+      87: iload_3
+      88: bipush        7
+      90: iadd
+      91: iaload
+      92: i2l
+      93: lmul
+      94: ladd
+      95: lreturn
+      96: iload_1
+      97: iconst_4
+      98: if_icmpne     117
+     101: aload_0
+     102: iload_3
+     103: iaload
+     104: i2l
+     105: ldc2_w        #31                 // long 16l
+     108: aload_0
+     109: iload_3
+     110: iconst_1
+     111: iadd
+     112: iaload
+     113: i2l
+     114: lmul
+     115: ladd
+     116: lreturn
+     117: iload_1
+     118: bipush        10
+     120: if_icmpne     161
+     123: aload_0
+     124: iload_3
+     125: iaload
+     126: i2l
+     127: ldc2_w        #33                 // long 1024l
+     130: aload_0
+     131: iload_3
+     132: iconst_1
+     133: iadd
+     134: iaload
+     135: i2l
+     136: lmul
+     137: ladd
+     138: ldc2_w        #35                 // long 1048576l
+     141: aload_0
+     142: iload_3
+     143: iconst_2
+     144: iadd
+     145: iaload
+     146: i2l
+     147: lmul
+     148: ladd
+     149: ldc2_w        #37                 // long 1073741824l
+     152: aload_0
+     153: iload_3
+     154: iconst_3
+     155: iadd
+     156: iaload
+     157: i2l
+     158: lmul
+     159: ladd
+     160: lreturn
+     161: aload_0
+     162: iload_3
+     163: iaload
+     164: i2l
+     165: ldc2_w        #39                 // long 4096l
+     168: aload_0
+     169: iload_3
+     170: iconst_1
+     171: iadd
+     172: iaload
+     173: i2l
+     174: lmul
+     175: ladd
+     176: lreturn
+
+  public static byte EncodeTenByte(int, int, int, int, int);
+    descriptor: (IIIII)B
+    Code:
+       0: iload         4
+       2: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       5: ifne          19
+       8: iload_0
+       9: i2l
+      10: iconst_0
+      11: bipush        8
+      13: invokestatic  #100                // Method Extract:(JII)I
+      16: goto          105
+      19: iload         4
+      21: iconst_1
+      22: if_icmpne     46
+      25: iload_0
+      26: i2l
+      27: bipush        8
+      29: invokestatic  #104                // Method Shift:(JI)I
+      32: iconst_4
+      33: iload_1
+      34: i2l
+      35: iconst_0
+      36: bipush        6
+      38: invokestatic  #100                // Method Extract:(JII)I
+      41: imul
+      42: iadd
+      43: goto          105
+      46: iload         4
+      48: iconst_2
+      49: if_icmpne     73
+      52: iload_1
+      53: i2l
+      54: bipush        6
+      56: invokestatic  #104                // Method Shift:(JI)I
+      59: bipush        16
+      61: iload_2
+      62: i2l
+      63: iconst_0
+      64: iconst_4
+      65: invokestatic  #100                // Method Extract:(JII)I
+      68: imul
+      69: iadd
+      70: goto          105
+      73: iload         4
+      75: iconst_3
+      76: if_icmpne     99
+      79: iload_2
+      80: i2l
+      81: iconst_4
+      82: invokestatic  #104                // Method Shift:(JI)I
+      85: bipush        64
+      87: iload_3
+      88: i2l
+      89: iconst_0
+      90: iconst_2
+      91: invokestatic  #100                // Method Extract:(JII)I
+      94: imul
+      95: iadd
+      96: goto          105
+      99: iload_3
+     100: i2l
+     101: iconst_2
+     102: invokestatic  #104                // Method Shift:(JI)I
+     105: i2b
+     106: ireturn
+
+  public static byte EncodeTwelveByte(int, int, int);
+    descriptor: (III)B
+    Code:
+       0: iload_2
+       1: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       4: ifne          18
+       7: iload_0
+       8: i2l
+       9: iconst_0
+      10: bipush        8
+      12: invokestatic  #100                // Method Extract:(JII)I
+      15: goto          50
+      18: iload_2
+      19: iconst_1
+      20: if_icmpne     44
+      23: iload_0
+      24: i2l
+      25: bipush        8
+      27: invokestatic  #104                // Method Shift:(JI)I
+      30: bipush        16
+      32: iload_1
+      33: i2l
+      34: iconst_0
+      35: iconst_4
+      36: invokestatic  #100                // Method Extract:(JII)I
+      39: imul
+      40: iadd
+      41: goto          50
+      44: iload_1
+      45: i2l
+      46: iconst_4
+      47: invokestatic  #104                // Method Shift:(JI)I
+      50: i2b
+      51: ireturn
+
+  public static int DecodeTenWord(int, int, int, int, int, int);
+    descriptor: (IIIIII)I
+    Code:
+       0: iload         5
+       2: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       5: ifne          22
+       8: iload_0
+       9: sipush        256
+      12: iload_1
+      13: i2l
+      14: iconst_0
+      15: iconst_2
+      16: invokestatic  #100                // Method Extract:(JII)I
+      19: imul
+      20: iadd
+      21: ireturn
+      22: iload         5
+      24: iconst_1
+      25: if_icmpne     46
+      28: iload_1
+      29: i2l
+      30: iconst_2
+      31: invokestatic  #104                // Method Shift:(JI)I
+      34: bipush        64
+      36: iload_2
+      37: i2l
+      38: iconst_0
+      39: iconst_4
+      40: invokestatic  #100                // Method Extract:(JII)I
+      43: imul
+      44: iadd
+      45: ireturn
+      46: iload         5
+      48: iconst_2
+      49: if_icmpne     71
+      52: iload_2
+      53: i2l
+      54: iconst_4
+      55: invokestatic  #104                // Method Shift:(JI)I
+      58: bipush        16
+      60: iload_3
+      61: i2l
+      62: iconst_0
+      63: bipush        6
+      65: invokestatic  #100                // Method Extract:(JII)I
+      68: imul
+      69: iadd
+      70: ireturn
+      71: iload_3
+      72: i2l
+      73: bipush        6
+      75: invokestatic  #104                // Method Shift:(JI)I
+      78: iconst_4
+      79: iload         4
+      81: imul
+      82: iadd
+      83: ireturn
+
+  public static int DecodeTwelveWord(int, int, int, int);
+    descriptor: (IIII)I
+    Code:
+       0: iload_3
+       1: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+       4: ifne          21
+       7: iload_0
+       8: sipush        256
+      11: iload_1
+      12: i2l
+      13: iconst_0
+      14: iconst_4
+      15: invokestatic  #100                // Method Extract:(JII)I
+      18: imul
+      19: iadd
+      20: ireturn
+      21: iload_1
+      22: i2l
+      23: iconst_4
+      24: invokestatic  #104                // Method Shift:(JI)I
+      27: bipush        16
+      29: iload_2
+      30: imul
+      31: iadd
+      32: ireturn
+
+  public static byte EncodedByte(int[], int, int);
+    descriptor: ([III)B
+    Code:
+       0: iload_2
+       1: iload_1
+       2: invokestatic  #108                // Method GroupBytes:(I)I
+       5: invokestatic  #54                 // Method PublicDiv:(II)I
+       8: istore_3
+       9: iload_2
+      10: iload_1
+      11: invokestatic  #108                // Method GroupBytes:(I)I
+      14: invokestatic  #111                // Method PublicMod:(II)I
+      17: istore        4
+      19: iload_3
+      20: iload_1
+      21: invokestatic  #85                 // Method GroupWords:(I)I
+      24: imul
+      25: istore        5
+      27: iload_1
+      28: iconst_1
+      29: if_icmpeq     37
+      32: iload_1
+      33: iconst_4
+      34: if_icmpne     46
+      37: aload_0
+      38: iload_1
+      39: iload_3
+      40: invokestatic  #114                // Method GroupValue:([III)J
+      43: l2i
+      44: i2b
+      45: ireturn
+      46: iload_1
+      47: bipush        10
+      49: if_icmpne     80
+      52: aload_0
+      53: iload         5
+      55: iaload
+      56: aload_0
+      57: iload         5
+      59: iconst_1
+      60: iadd
+      61: iaload
+      62: aload_0
+      63: iload         5
+      65: iconst_2
+      66: iadd
+      67: iaload
+      68: aload_0
+      69: iload         5
+      71: iconst_3
+      72: iadd
+      73: iaload
+      74: iload         4
+      76: invokestatic  #118                // Method EncodeTenByte:(IIIII)B
+      79: ireturn
+      80: aload_0
+      81: iload         5
+      83: iaload
+      84: aload_0
+      85: iload         5
+      87: iconst_1
+      88: iadd
+      89: iaload
+      90: iload         4
+      92: invokestatic  #122                // Method EncodeTwelveByte:(III)B
+      95: ireturn
+
+  public static byte[] Encode(int[], int);
+    descriptor: ([II)[B
+    Code:
+       0: iconst_0
+       1: newarray       byte
+       3: astore_2
+       4: getstatic     #126                // Field dafny/TypeDescriptor.BYTE:Ldafny/TypeDescriptor;
+       7: getstatic     #126                // Field dafny/TypeDescriptor.BYTE:Ldafny/TypeDescriptor;
+      10: bipush        32
+      12: iload_1
+      13: imul
+      14: i2l
+      15: ldc           #132                // String Java arrays may be no larger than the maximum 32-bit signed int
+      17: invokestatic  #134                // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      20: invokevirtual #138                // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      23: iconst_0
+      24: invokestatic  #142                // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;
+      27: invokevirtual #148                // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      30: checkcast     #152                // class "[B"
+      33: astore_3
+      34: aload_3
+      35: astore_2
+      36: bipush        32
+      38: iload_1
+      39: imul
+      40: istore        4
+      42: iconst_0
+      43: istore        5
+      45: iload         5
+      47: iload         4
+      49: if_icmpge     72
+      52: aload_2
+      53: iload         5
+      55: invokestatic  #7                  // Method dafny/Helpers.toInt:(I)I
+      58: aload_0
+      59: iload_1
+      60: iload         5
+      62: invokestatic  #154                // Method EncodedByte:([III)B
+      65: bastore
+      66: iinc          5, 1
+      69: goto          45
+      72: aload_2
+      73: areturn
+
+  public static long ByteGroup(byte[], int, int);
+    descriptor: ([BII)J
+    Code:
+       0: iload_2
+       1: iload_1
+       2: invokestatic  #108                // Method GroupBytes:(I)I
+       5: imul
+       6: istore_3
+       7: iload_1
+       8: bipush        10
+      10: if_icmpne     72
+      13: aload_0
+      14: iload_3
+      15: baload
+      16: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      19: ldc2_w        #18                 // long 256l
+      22: aload_0
+      23: iload_3
+      24: iconst_1
+      25: iadd
+      26: baload
+      27: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      30: lmul
+      31: ladd
+      32: ldc2_w        #20                 // long 65536l
+      35: aload_0
+      36: iload_3
+      37: iconst_2
+      38: iadd
+      39: baload
+      40: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      43: lmul
+      44: ladd
+      45: ldc2_w        #22                 // long 16777216l
+      48: aload_0
+      49: iload_3
+      50: iconst_3
+      51: iadd
+      52: baload
+      53: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      56: lmul
+      57: ladd
+      58: ldc2_w        #24                 // long 4294967296l
+      61: aload_0
+      62: iload_3
+      63: iconst_4
+      64: iadd
+      65: baload
+      66: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      69: lmul
+      70: ladd
+      71: lreturn
+      72: iload_1
+      73: bipush        12
+      75: if_icmpne     111
+      78: aload_0
+      79: iload_3
+      80: baload
+      81: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      84: ldc2_w        #18                 // long 256l
+      87: aload_0
+      88: iload_3
+      89: iconst_1
+      90: iadd
+      91: baload
+      92: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      95: lmul
+      96: ladd
+      97: ldc2_w        #20                 // long 65536l
+     100: aload_0
+     101: iload_3
+     102: iconst_2
+     103: iadd
+     104: baload
+     105: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+     108: lmul
+     109: ladd
+     110: lreturn
+     111: aload_0
+     112: iload_3
+     113: baload
+     114: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+     117: lreturn
+
+  public static int DecodedWord(byte[], int, int);
+    descriptor: ([BII)I
+    Code:
+       0: iload_2
+       1: iload_1
+       2: invokestatic  #85                 // Method GroupWords:(I)I
+       5: invokestatic  #54                 // Method PublicDiv:(II)I
+       8: istore_3
+       9: iload_2
+      10: iload_1
+      11: invokestatic  #85                 // Method GroupWords:(I)I
+      14: invokestatic  #111                // Method PublicMod:(II)I
+      17: istore        4
+      19: iload_3
+      20: iload_1
+      21: invokestatic  #108                // Method GroupBytes:(I)I
+      24: imul
+      25: istore        5
+      27: iload_1
+      28: iconst_1
+      29: if_icmpeq     37
+      32: iload_1
+      33: iconst_4
+      34: if_icmpne     53
+      37: aload_0
+      38: iload         5
+      40: baload
+      41: invokestatic  #158                // Method java/lang/Byte.toUnsignedLong:(B)J
+      44: iload_1
+      45: iload         4
+      47: imul
+      48: iload_1
+      49: invokestatic  #100                // Method Extract:(JII)I
+      52: ireturn
+      53: iload_1
+      54: bipush        10
+      56: if_icmpne     108
+      59: aload_0
+      60: iload         5
+      62: baload
+      63: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+      66: aload_0
+      67: iload         5
+      69: iconst_1
+      70: iadd
+      71: baload
+      72: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+      75: aload_0
+      76: iload         5
+      78: iconst_2
+      79: iadd
+      80: baload
+      81: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+      84: aload_0
+      85: iload         5
+      87: iconst_3
+      88: iadd
+      89: baload
+      90: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+      93: aload_0
+      94: iload         5
+      96: iconst_4
+      97: iadd
+      98: baload
+      99: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+     102: iload         4
+     104: invokestatic  #166                // Method DecodeTenWord:(IIIIII)I
+     107: ireturn
+     108: aload_0
+     109: iload         5
+     111: baload
+     112: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+     115: aload_0
+     116: iload         5
+     118: iconst_1
+     119: iadd
+     120: baload
+     121: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+     124: aload_0
+     125: iload         5
+     127: iconst_2
+     128: iadd
+     129: baload
+     130: invokestatic  #162                // Method java/lang/Byte.toUnsignedInt:(B)I
+     133: iload         4
+     135: invokestatic  #170                // Method DecodeTwelveWord:(IIII)I
+     138: ireturn
+
+  public static boolean IsCanonical(int[]);
+    descriptor: ([I)Z
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: sipush        256
+       5: istore_2
+       6: iconst_0
+       7: istore_3
+       8: iload_3
+       9: iload_2
+      10: if_icmpge     42
+      13: aload_0
+      14: iload_3
+      15: iaload
+      16: invokestatic  #13                 // Method java/lang/Integer.signum:(I)I
+      19: iconst_m1
+      20: if_icmpeq     32
+      23: aload_0
+      24: iload_3
+      25: iaload
+      26: sipush        3329
+      29: if_icmplt     36
+      32: iconst_0
+      33: istore_1
+      34: iload_1
+      35: ireturn
+      36: iinc          3, 1
+      39: goto          8
+      42: iconst_1
+      43: istore_1
+      44: iload_1
+      45: ireturn
+
+  public static NativeCodec.DecodeResult Decode(byte[], int);
+    descriptor: ([BI)LNativeCodec/DecodeResult;
+    Code:
+       0: invokestatic  #174                // Method NativeCodec/DecodeResult.Default:()LNativeCodec/DecodeResult;
+       3: astore_2
+       4: iload_1
+       5: invokestatic  #180                // Method Width:(I)Z
+       8: ifne          17
+      11: invokestatic  #184                // Method NativeCodec/DecodeResult.create_InvalidWidth:()LNativeCodec/DecodeResult;
+      14: astore_2
+      15: aload_2
+      16: areturn
+      17: aload_0
+      18: arraylength
+      19: bipush        32
+      21: iload_1
+      22: imul
+      23: if_icmpeq     32
+      26: invokestatic  #187                // Method NativeCodec/DecodeResult.create_InvalidLength:()LNativeCodec/DecodeResult;
+      29: astore_2
+      30: aload_2
+      31: areturn
+      32: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      35: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      38: ldc2_w        #18                 // long 256l
+      41: ldc           #132                // String Java arrays may be no larger than the maximum 32-bit signed int
+      43: invokestatic  #134                // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      46: invokevirtual #138                // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      49: getstatic     #75                 // Field NativeTypes/I.Witness:I
+      52: invokestatic  #194                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      55: invokevirtual #148                // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      58: checkcast     #197                // class "[I"
+      61: astore        4
+      63: aload         4
+      65: astore_3
+      66: sipush        256
+      69: istore        5
+      71: iconst_0
+      72: istore        6
+      74: iload         6
+      76: iload         5
+      78: if_icmpge     101
+      81: aload_3
+      82: iload         6
+      84: invokestatic  #7                  // Method dafny/Helpers.toInt:(I)I
+      87: aload_0
+      88: iload_1
+      89: iload         6
+      91: invokestatic  #199                // Method DecodedWord:([BII)I
+      94: iastore
+      95: iinc          6, 1
+      98: goto          74
+     101: aload_3
+     102: invokestatic  #203                // Method IsCanonical:([I)Z
+     105: istore        7
+     107: iload         7
+     109: istore        6
+     111: iload_1
+     112: bipush        12
+     114: if_icmpne     132
+     117: iload         6
+     119: ifne          132
+     122: aload_3
+     123: invokestatic  #207                // Method Wipe:([I)V
+     126: invokestatic  #211                // Method NativeCodec/DecodeResult.create_ModulusError:()LNativeCodec/DecodeResult;
+     129: astore_2
+     130: aload_2
+     131: areturn
+     132: aload_3
+     133: invokestatic  #214                // Method NativeCodec/DecodeResult.create_Decoded:([I)LNativeCodec/DecodeResult;
+     136: astore_2
+     137: aload_2
+     138: areturn
+
+  public static byte[] CompressAndEncode(int[], int);
+    descriptor: ([II)[B
+    Code:
+       0: iconst_0
+       1: newarray       byte
+       3: astore_2
+       4: iload_1
+       5: bipush        12
+       7: if_icmpne     20
+      10: aload_0
+      11: iload_1
+      12: invokestatic  #218                // Method Encode:([II)[B
+      15: astore_3
+      16: aload_3
+      17: astore_2
+      18: aload_2
+      19: areturn
+      20: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      23: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      26: ldc2_w        #18                 // long 256l
+      29: ldc           #132                // String Java arrays may be no larger than the maximum 32-bit signed int
+      31: invokestatic  #134                // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      34: invokevirtual #138                // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      37: getstatic     #75                 // Field NativeTypes/I.Witness:I
+      40: invokestatic  #194                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      43: invokevirtual #148                // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      46: checkcast     #197                // class "[I"
+      49: astore        4
+      51: aload         4
+      53: astore_3
+      54: sipush        256
+      57: istore        5
+      59: iconst_0
+      60: istore        6
+      62: iload         6
+      64: iload         5
+      66: if_icmpge     94
+      69: aload_0
+      70: iload         6
+      72: iaload
+      73: iload_1
+      74: invokestatic  #222                // Method Compress:(II)I
+      77: istore        7
+      79: aload_3
+      80: iload         6
+      82: invokestatic  #7                  // Method dafny/Helpers.toInt:(I)I
+      85: iload         7
+      87: iastore
+      88: iinc          6, 1
+      91: goto          62
+      94: aload_3
+      95: iload_1
+      96: invokestatic  #218                // Method Encode:([II)[B
+      99: astore        6
+     101: aload         6
+     103: astore_2
+     104: aload_3
+     105: invokestatic  #207                // Method Wipe:([I)V
+     108: aload_2
+     109: areturn
+
+  public static NativeCodec.DecodeResult DecodeAndDecompress(byte[], int);
+    descriptor: ([BI)LNativeCodec/DecodeResult;
+    Code:
+       0: invokestatic  #174                // Method NativeCodec/DecodeResult.Default:()LNativeCodec/DecodeResult;
+       3: astore_2
+       4: aload_0
+       5: iload_1
+       6: invokestatic  #225                // Method Decode:([BI)LNativeCodec/DecodeResult;
+       9: astore        4
+      11: aload         4
+      13: astore_3
+      14: aload_3
+      15: invokevirtual #229                // Method NativeCodec/DecodeResult.is_Decoded:()Z
+      18: ifne          25
+      21: aload_3
+      22: astore_2
+      23: aload_2
+      24: areturn
+      25: iload_1
+      26: bipush        12
+      28: if_icmpne     35
+      31: aload_3
+      32: astore_2
+      33: aload_2
+      34: areturn
+      35: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      38: invokestatic  #190                // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      41: ldc2_w        #18                 // long 256l
+      44: ldc           #132                // String Java arrays may be no larger than the maximum 32-bit signed int
+      46: invokestatic  #134                // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      49: invokevirtual #138                // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      52: getstatic     #75                 // Field NativeTypes/I.Witness:I
+      55: invokestatic  #194                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      58: invokevirtual #148                // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      61: checkcast     #197                // class "[I"
+      64: astore        6
+      66: aload         6
+      68: astore        5
+      70: sipush        256
+      73: istore        7
+      75: iconst_0
+      76: istore        8
+      78: iload         8
+      80: iload         7
+      82: if_icmpge     114
+      85: aload_3
+      86: invokevirtual #233                // Method NativeCodec/DecodeResult.dtor_words:()[I
+      89: iload         8
+      91: iaload
+      92: iload_1
+      93: invokestatic  #237                // Method Decompress:(II)I
+      96: istore        9
+      98: aload         5
+     100: iload         8
+     102: invokestatic  #7                  // Method dafny/Helpers.toInt:(I)I
+     105: iload         9
+     107: iastore
+     108: iinc          8, 1
+     111: goto          78
+     114: aload_3
+     115: invokevirtual #233                // Method NativeCodec/DecodeResult.dtor_words:()[I
+     118: invokestatic  #207                // Method Wipe:([I)V
+     121: aload         5
+     123: invokestatic  #214                // Method NativeCodec/DecodeResult.create_Decoded:([I)LNativeCodec/DecodeResult;
+     126: astore_2
+     127: aload_2
+     128: areturn
+
+  public java.lang.String toString();
+    descriptor: ()Ljava/lang/String;
+    Code:
+       0: ldc           #240                // String NativeCodec._default
+       2: areturn
+}
+Compiled from "__default.java"
+public class NativeSampling.__default {
+  public NativeSampling.__default();
+    descriptor: ()V
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static boolean IsPrefix(int[]);
+    descriptor: ([I)Z
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: aload_0
+       3: arraylength
+       4: istore_2
+       5: iload_2
+       6: sipush        256
+       9: if_icmple     16
+      12: iconst_0
+      13: istore_1
+      14: iload_1
+      15: ireturn
+      16: iload_2
+      17: istore_3
+      18: iconst_0
+      19: istore        4
+      21: iload         4
+      23: iload_3
+      24: if_icmpge     58
+      27: aload_0
+      28: iload         4
+      30: iaload
+      31: invokestatic  #7                  // Method java/lang/Integer.signum:(I)I
+      34: iconst_m1
+      35: if_icmpeq     48
+      38: aload_0
+      39: iload         4
+      41: iaload
+      42: sipush        3329
+      45: if_icmplt     52
+      48: iconst_0
+      49: istore_1
+      50: iload_1
+      51: ireturn
+      52: iinc          4, 1
+      55: goto          21
+      58: iconst_1
+      59: istore_1
+      60: iload_1
+      61: ireturn
+
+  public static int[] Cbd2(byte[]);
+    descriptor: ([B)[I
+    Code:
+       0: iconst_0
+       1: newarray       int
+       3: astore_1
+       4: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+       7: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      10: ldc2_w        #19                 // long 256l
+      13: ldc           #21                 // String Java arrays may be no larger than the maximum 32-bit signed int
+      15: invokestatic  #23                 // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      18: invokevirtual #29                 // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      21: getstatic     #35                 // Field NativeTypes/I.Witness:I
+      24: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      27: invokevirtual #43                 // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      30: checkcast     #47                 // class "[I"
+      33: astore_2
+      34: aload_2
+      35: astore_1
+      36: sipush        256
+      39: istore_3
+      40: iconst_0
+      41: istore        4
+      43: iload         4
+      45: iload_3
+      46: if_icmpge     145
+      49: aload_0
+      50: iload         4
+      52: iconst_2
+      53: invokestatic  #49                 // Method NativeCodec/__default.PublicDiv:(II)I
+      56: baload
+      57: invokestatic  #55                 // Method java/lang/Byte.toUnsignedLong:(B)J
+      60: lstore        5
+      62: iconst_4
+      63: iload         4
+      65: iconst_2
+      66: invokestatic  #61                 // Method NativeCodec/__default.PublicMod:(II)I
+      69: imul
+      70: istore        7
+      72: lload         5
+      74: iload         7
+      76: iconst_1
+      77: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+      80: lload         5
+      82: iload         7
+      84: iconst_1
+      85: iadd
+      86: iconst_1
+      87: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+      90: iadd
+      91: istore        8
+      93: lload         5
+      95: iload         7
+      97: iconst_2
+      98: iadd
+      99: iconst_1
+     100: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+     103: lload         5
+     105: iload         7
+     107: iconst_3
+     108: iadd
+     109: iconst_1
+     110: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+     113: iadd
+     114: istore        9
+     116: sipush        3329
+     119: iload         8
+     121: iadd
+     122: iload         9
+     124: isub
+     125: invokestatic  #68                 // Method NativeField/__default.ReduceOnce:(I)I
+     128: istore        10
+     130: aload_1
+     131: iload         4
+     133: invokestatic  #73                 // Method dafny/Helpers.toInt:(I)I
+     136: iload         10
+     138: iastore
+     139: iinc          4, 1
+     142: goto          43
+     145: aload_1
+     146: areturn
+
+  public static NativeSampling.FeedResult Feed(int[], byte[]);
+    descriptor: ([I[B)LNativeSampling/FeedResult;
+    Code:
+       0: invokestatic  #76                 // Method NativeSampling/FeedResult.Default:()LNativeSampling/FeedResult;
+       3: astore_2
+       4: aload_0
+       5: invokestatic  #82                 // Method IsPrefix:([I)Z
+       8: istore        4
+      10: iload         4
+      12: istore_3
+      13: iload_3
+      14: ifne          23
+      17: invokestatic  #88                 // Method NativeSampling/FeedResult.create_InvalidPrefix:()LNativeSampling/FeedResult;
+      20: astore_2
+      21: aload_2
+      22: areturn
+      23: aload_1
+      24: arraylength
+      25: istore        5
+      27: iload         5
+      29: iconst_3
+      30: invokestatic  #61                 // Method NativeCodec/__default.PublicMod:(II)I
+      33: invokestatic  #7                  // Method java/lang/Integer.signum:(I)I
+      36: ifeq          45
+      39: invokestatic  #91                 // Method NativeSampling/FeedResult.create_InvalidBlockLength:()LNativeSampling/FeedResult;
+      42: astore_2
+      43: aload_2
+      44: areturn
+      45: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      48: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+      51: ldc2_w        #19                 // long 256l
+      54: ldc           #21                 // String Java arrays may be no larger than the maximum 32-bit signed int
+      56: invokestatic  #23                 // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+      59: invokevirtual #29                 // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+      62: getstatic     #35                 // Field NativeTypes/I.Witness:I
+      65: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      68: invokevirtual #43                 // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      71: checkcast     #47                 // class "[I"
+      74: astore        7
+      76: aload         7
+      78: astore        6
+      80: aload_0
+      81: arraylength
+      82: istore        8
+      84: iload         8
+      86: istore        9
+      88: iconst_0
+      89: istore        10
+      91: iload         10
+      93: iload         9
+      95: if_icmpge     116
+      98: aload         6
+     100: iload         10
+     102: invokestatic  #73                 // Method dafny/Helpers.toInt:(I)I
+     105: aload_0
+     106: iload         10
+     108: iaload
+     109: iastore
+     110: iinc          10, 1
+     113: goto          91
+     116: iconst_0
+     117: istore        10
+     119: iload         8
+     121: sipush        256
+     124: if_icmpge     256
+     127: iload         10
+     129: iload         5
+     131: if_icmpge     256
+     134: aload_1
+     135: iload         10
+     137: baload
+     138: invokestatic  #94                 // Method java/lang/Byte.toUnsignedInt:(B)I
+     141: sipush        256
+     144: aload_1
+     145: iload         10
+     147: iconst_1
+     148: iadd
+     149: baload
+     150: invokestatic  #55                 // Method java/lang/Byte.toUnsignedLong:(B)J
+     153: iconst_0
+     154: iconst_4
+     155: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+     158: imul
+     159: iadd
+     160: istore        11
+     162: aload_1
+     163: iload         10
+     165: iconst_1
+     166: iadd
+     167: baload
+     168: invokestatic  #55                 // Method java/lang/Byte.toUnsignedLong:(B)J
+     171: iconst_4
+     172: iconst_4
+     173: invokestatic  #64                 // Method NativeCodec/__default.Extract:(JII)I
+     176: bipush        16
+     178: aload_1
+     179: iload         10
+     181: iconst_2
+     182: iadd
+     183: baload
+     184: invokestatic  #94                 // Method java/lang/Byte.toUnsignedInt:(B)I
+     187: imul
+     188: iadd
+     189: istore        12
+     191: iload         11
+     193: sipush        3329
+     196: if_icmpge     215
+     199: aload         6
+     201: iload         8
+     203: invokestatic  #73                 // Method dafny/Helpers.toInt:(I)I
+     206: iload         11
+     208: iastore
+     209: iload         8
+     211: iconst_1
+     212: iadd
+     213: istore        8
+     215: iload         8
+     217: sipush        256
+     220: if_icmpge     247
+     223: iload         12
+     225: sipush        3329
+     228: if_icmpge     247
+     231: aload         6
+     233: iload         8
+     235: invokestatic  #73                 // Method dafny/Helpers.toInt:(I)I
+     238: iload         12
+     240: iastore
+     241: iload         8
+     243: iconst_1
+     244: iadd
+     245: istore        8
+     247: iload         10
+     249: iconst_3
+     250: iadd
+     251: istore        10
+     253: goto          119
+     256: iload         8
+     258: sipush        256
+     261: if_icmpne     274
+     264: aload         6
+     266: iload         10
+     268: invokestatic  #98                 // Method NativeSampling/FeedResult.create_Full:([II)LNativeSampling/FeedResult;
+     271: astore_2
+     272: aload_2
+     273: areturn
+     274: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+     277: invokestatic  #13                 // Method NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;
+     280: iload         8
+     282: i2l
+     283: ldc           #21                 // String Java arrays may be no larger than the maximum 32-bit signed int
+     285: invokestatic  #23                 // Method dafny/Helpers.toIntChecked:(JLjava/lang/String;)I
+     288: invokevirtual #29                 // Method dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;
+     291: getstatic     #35                 // Field NativeTypes/I.Witness:I
+     294: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     297: invokevirtual #43                 // Method dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     300: checkcast     #47                 // class "[I"
+     303: astore        12
+     305: aload         12
+     307: astore        11
+     309: iload         8
+     311: istore        13
+     313: iconst_0
+     314: istore        14
+     316: iload         14
+     318: iload         13
+     320: if_icmpge     342
+     323: aload         11
+     325: iload         14
+     327: invokestatic  #73                 // Method dafny/Helpers.toInt:(I)I
+     330: aload         6
+     332: iload         14
+     334: iaload
+     335: iastore
+     336: iinc          14, 1
+     339: goto          316
+     342: aload         6
+     344: invokestatic  #102                // Method NativeCodec/__default.Wipe:([I)V
+     347: aload         11
+     349: iload         10
+     351: invokestatic  #106                // Method NativeSampling/FeedResult.create_NeedMore:([II)LNativeSampling/FeedResult;
+     354: astore_2
+     355: aload_2
+     356: areturn
+
+  public java.lang.String toString();
+    descriptor: ()Ljava/lang/String;
+    Code:
+       0: ldc           #109                // String NativeSampling._default
+       2: areturn
+}
+Compiled from "__default.java"
+public class NativeField.__default {
+  public NativeField.__default();
+    descriptor: ()V
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static int ReduceOnce(int);
+    descriptor: (I)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_1
+       4: iload_0
+       5: ldc           #13                 // int 32768
+       7: iadd
+       8: invokestatic  #14                 // Method Q:()I
+      11: isub
+      12: istore_2
+      13: iload_2
+      14: i2l
+      15: bipush        15
+      17: invokestatic  #20                 // Method dafny/Helpers.bv64ShiftRight:(JB)J
+      20: lconst_1
+      21: land
+      22: lstore_3
+      23: iload_0
+      24: lload_3
+      25: l2i
+      26: invokestatic  #14                 // Method Q:()I
+      29: imul
+      30: isub
+      31: istore_1
+      32: iload_1
+      33: ireturn
+
+  public static int Reduce(int);
+    descriptor: (I)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_1
+       4: iload_0
+       5: i2l
+       6: ldc2_w        #26                 // long 5039l
+       9: lmul
+      10: lstore_2
+      11: lload_2
+      12: bipush        24
+      14: invokestatic  #20                 // Method dafny/Helpers.bv64ShiftRight:(JB)J
+      17: lstore        4
+      19: lload         4
+      21: l2i
+      22: istore        6
+      24: iload_0
+      25: iload         6
+      27: invokestatic  #14                 // Method Q:()I
+      30: imul
+      31: isub
+      32: istore        7
+      34: iload         7
+      36: invokestatic  #28                 // Method ReduceOnce:(I)I
+      39: istore        8
+      41: iload         8
+      43: istore_1
+      44: iload_1
+      45: ireturn
+
+  public static int Add(int, int);
+    descriptor: (II)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_2
+       4: iload_0
+       5: iload_1
+       6: iadd
+       7: invokestatic  #28                 // Method ReduceOnce:(I)I
+      10: istore_3
+      11: iload_3
+      12: istore_2
+      13: iload_2
+      14: ireturn
+
+  public static int Sub(int, int);
+    descriptor: (II)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_2
+       4: iload_0
+       5: invokestatic  #14                 // Method Q:()I
+       8: iadd
+       9: iload_1
+      10: isub
+      11: invokestatic  #28                 // Method ReduceOnce:(I)I
+      14: istore_3
+      15: iload_3
+      16: istore_2
+      17: iload_2
+      18: ireturn
+
+  public static int Mul(int, int);
+    descriptor: (II)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_2
+       4: iload_0
+       5: iload_1
+       6: imul
+       7: invokestatic  #32                 // Method Reduce:(I)I
+      10: istore_3
+      11: iload_3
+      12: istore_2
+      13: iload_2
+      14: ireturn
+
+  public static int MulSub(int, int, int);
+    descriptor: (III)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore_3
+       4: iload_1
+       5: invokestatic  #14                 // Method Q:()I
+       8: iadd
+       9: iload_2
+      10: isub
+      11: istore        4
+      13: iload_0
+      14: iload         4
+      16: imul
+      17: invokestatic  #32                 // Method Reduce:(I)I
+      20: istore        5
+      22: iload         5
+      24: istore_3
+      25: iload_3
+      26: ireturn
+
+  public static int AddMul(int, int, int, int);
+    descriptor: (IIII)I
+    Code:
+       0: getstatic     #7                  // Field NativeTypes/I.Witness:I
+       3: istore        4
+       5: iload_0
+       6: iload_1
+       7: imul
+       8: iload_2
+       9: iload_3
+      10: imul
+      11: iadd
+      12: invokestatic  #32                 // Method Reduce:(I)I
+      15: istore        5
+      17: iload         5
+      19: istore        4
+      21: iload         4
+      23: ireturn
+
+  public static int Q();
+    descriptor: ()I
+    Code:
+       0: sipush        3329
+       3: ireturn
+
+  public static int MaxReduce();
+    descriptor: ()I
+    Code:
+       0: ldc           #35                 // int 22154496
+       2: ireturn
+
+  public java.lang.String toString();
+    descriptor: ()Ljava/lang/String;
+    Code:
+       0: ldc           #36                 // String NativeField._default
+       2: areturn
+}

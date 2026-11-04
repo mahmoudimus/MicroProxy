@@ -1,0 +1,12 @@
+/out/linux-full/native-kem-xh1s0sah/reused-nonce.dfy(285,2): Error: a postcondition could not be proved on this return path
+    |
+285 |   {
+    |   ^
+
+/out/linux-full/native-kem-xh1s0sah/reused-nonce.dfy(284,42): Related location: this is the postcondition that could not be proved
+    |
+284 |     ensures fresh(r) && T.Canonical(r) && T.Ints(r) == S.Noise(seed[..],nonce as int)
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/matrix-axis.dfy(312,11): Error: assertion might not hold
+    |
+312 |     assert input[..] == rho[..]+[j as bv8,i as bv8];
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

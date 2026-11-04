@@ -1,0 +1,235 @@
+{
+  "schema": "microproxy.issue117.native-kem-linux-static-projection/1",
+  "generated_at_utc": "2026-11-04T07:35:38.085348+00:00",
+  "purpose": "Actual measured Linux static (non-JVM) proof cost for the existing NATIVE-KEM-LINUX-EVIDENCE ledger gate. Independent from, and does not retroactively alter, the unchanged full KEM runner receipt.",
+  "platform": {
+    "qualification": "linux/amd64 container on a WSL2-hosted Docker 29.9.1 daemon; not a GitHub-hosted runner",
+    "machine": "x86_64",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"",
+    "uname": "Linux 60887718952b 5.15.153.1-microsoft-standard-WSL2 #1 SMP Fri Mar 29 23:14:13 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux",
+    "python": "3.12.3"
+  },
+  "dafny": {
+    "version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+    "binary_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+    "asset": {
+      "archive": "dafny-4.9.1-x64-ubuntu-20.04.zip",
+      "directory": "dafny-4.9.1-linux-x64",
+      "sha256": "697ee703b39414b3904dc8c132e51481982f52205c1658f3374d313a284d43eb",
+      "runtime_sha256": "96c597ae2341be477e539f78547d4c0abb1b0daf1192d8b6e2ee43673fab66ed"
+    }
+  },
+  "solver": {
+    "version": "Z3 version 4.12.1 - 64 bit",
+    "binary_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a"
+  },
+  "source_graph21": {
+    "entry": "formal/crypto/native_kem_domain.dfy",
+    "includes": {
+      "formal/crypto/native_kem_domain.dfy": [
+        "formal/crypto/NativeMlKem.dfy"
+      ],
+      "formal/crypto/NativeMlKem.dfy": [
+        "formal/crypto/KemSpec.dfy",
+        "formal/crypto/NativeJdkHash.dfy",
+        "formal/crypto/NativePolynomial.dfy",
+        "formal/crypto/NativeSampling.dfy",
+        "formal/crypto/NativeShake.dfy"
+      ],
+      "formal/crypto/KemSpec.dfy": [
+        "formal/crypto/JdkHash.dfy",
+        "formal/crypto/Polynomial.dfy",
+        "formal/crypto/Sampling.dfy",
+        "formal/crypto/Shake.dfy"
+      ],
+      "formal/crypto/JdkHash.dfy": [],
+      "formal/crypto/Polynomial.dfy": [
+        "formal/primitives/Field.dfy"
+      ],
+      "formal/primitives/Field.dfy": [],
+      "formal/crypto/Sampling.dfy": [
+        "formal/crypto/Codec.dfy"
+      ],
+      "formal/crypto/Codec.dfy": [],
+      "formal/crypto/Shake.dfy": [
+        "formal/crypto/SpongeSpec.dfy"
+      ],
+      "formal/crypto/SpongeSpec.dfy": [
+        "formal/primitives/Keccak.dfy"
+      ],
+      "formal/primitives/Keccak.dfy": [],
+      "formal/crypto/NativeJdkHash.dfy": [
+        "formal/crypto/JdkHash.dfy",
+        "formal/crypto/NativeTypes.dfy"
+      ],
+      "formal/crypto/NativeTypes.dfy": [],
+      "formal/crypto/NativePolynomial.dfy": [
+        "formal/crypto/NativeField.dfy",
+        "formal/crypto/Polynomial.dfy",
+        "formal/source/SourceTrace.dfy"
+      ],
+      "formal/crypto/NativeField.dfy": [
+        "formal/crypto/NativeTypes.dfy",
+        "formal/primitives/Field.dfy",
+        "formal/source/SourceTrace.dfy"
+      ],
+      "formal/source/SourceTrace.dfy": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy"
+      ],
+      "formal/source/vocabulary/ObservationVocabulary.dfy": [],
+      "formal/crypto/NativeSampling.dfy": [
+        "formal/crypto/NativeCodec.dfy",
+        "formal/crypto/Sampling.dfy"
+      ],
+      "formal/crypto/NativeCodec.dfy": [
+        "formal/crypto/Codec.dfy",
+        "formal/crypto/NativeField.dfy",
+        "formal/crypto/NativeTypes.dfy"
+      ],
+      "formal/crypto/NativeShake.dfy": [
+        "formal/crypto/NativeKeccak.dfy",
+        "formal/crypto/SpongeSpec.dfy"
+      ],
+      "formal/crypto/NativeKeccak.dfy": [
+        "formal/crypto/NativeTypes.dfy",
+        "formal/primitives/Keccak.dfy"
+      ]
+    },
+    "files": {
+      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+      "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+      "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+      "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+      "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+      "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+      "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+      "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+      "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "identical_to_original_full_kem_receipt_inputs": true,
+    "unchanged_before_and_after_replay": true
+  },
+  "command": "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny verify /repo/formal/crypto/NativeMlKem.dfy /repo/formal/crypto/NativeJdkHash.dfy /repo/formal/crypto/native_kem_domain.dfy --cores 2 --verification-time-limit 30 --resource-limit 50000000 --solver-path /opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1 --log-format 'csv;LogFileName=/out/composition-profile.csv'",
+  "command_equivalence": {
+    "original_argv": [
+      "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
+      "verify",
+      "/repo/formal/crypto/NativeMlKem.dfy",
+      "/repo/formal/crypto/NativeJdkHash.dfy",
+      "/repo/formal/crypto/native_kem_domain.dfy",
+      "--cores",
+      "2",
+      "--verification-time-limit",
+      "30",
+      "--resource-limit",
+      "50000000",
+      "--solver-path",
+      "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
+    ],
+    "replay_argv": [
+      "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
+      "verify",
+      "/repo/formal/crypto/NativeMlKem.dfy",
+      "/repo/formal/crypto/NativeJdkHash.dfy",
+      "/repo/formal/crypto/native_kem_domain.dfy",
+      "--cores",
+      "2",
+      "--verification-time-limit",
+      "30",
+      "--resource-limit",
+      "50000000",
+      "--solver-path",
+      "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1",
+      "--log-format",
+      "csv;LogFileName=/out/composition-profile.csv"
+    ],
+    "added_arguments": [
+      "--log-format",
+      "csv;LogFileName=/out/composition-profile.csv"
+    ],
+    "identical_prefix": true,
+    "note": "argv is token-identical to the unchanged runner composition command, including absolute source paths and the pinned solver path"
+  },
+  "flags": [
+    "--cores 2",
+    "--verification-time-limit 30",
+    "--resource-limit 50000000",
+    "--solver-path <bundled z3 4.12.1>",
+    "--log-format 'csv;LogFileName=/out/composition-profile.csv'"
+  ],
+  "diagnostic_addition_only": "--log-format CSV; no filter, no skip, no budget change, no extra axiom or assume, no proof-only mode",
+  "exit": 0,
+  "proof": {
+    "verified": 2776,
+    "errors": 0,
+    "summary": "2776",
+    "warnings_or_resource_errors": 0
+  },
+  "profile": {
+    "csv_log_file": "/out/composition-profile.csv",
+    "csv_sha256": "3367336f2bbff9b0e2caf547c6623cd4fa905ef941ca8d2d4246a4e8267c003f",
+    "csv_bytes": 250741,
+    "columns": [
+      "TestResult.DisplayName",
+      "TestResult.Outcome",
+      "TestResult.Duration",
+      "TestResult.ResourceCount",
+      "RandomSeed"
+    ],
+    "row_count": 2776,
+    "row_semantics": "one row per Dafny proof-obligation batch for this verification run (TestResult.DisplayName identifies the procedure/batch)",
+    "outcomes": {
+      "Passed": 2776
+    },
+    "max_resource_count": {
+      "value": 10275514,
+      "display_name": "NativeMlKem.SerializeSecret (correctness) (assertion batch 129)",
+      "column": "TestResult.ResourceCount",
+      "unit": "Z3 resource units counted against --resource-limit 50000000 (deterministic rlimit accounting, not CPU time)",
+      "rows_counted": 2776
+    },
+    "max_obligation_seconds": {
+      "value": 10.1399173,
+      "display_name": "NativeMlKem.Decaps (correctness) (assertion batch 220)",
+      "column": "TestResult.Duration",
+      "unit": "seconds, parsed from the CSV TimeSpan HH:MM:SS.fffffff field; wall-clock duration of that obligation batch on this host",
+      "rows_counted": 2776
+    },
+    "sum_resource_count": 1044772480,
+    "sum_obligation_seconds": 438.431724
+  },
+  "raw_paths": {
+    "stdout": "profile-out2/profile.run.stdout",
+    "stderr": "profile-out2/profile.run.stderr",
+    "exit": "profile-out2/profile.exit",
+    "csv": "profile-out2/composition-profile.csv",
+    "pins_before": "profile-out2/pin-profile-before.json",
+    "pins_after": "profile-out2/pin-profile-after.json",
+    "sha256sums": "profile-out2/SHA256SUMS"
+  },
+  "attestation": {
+    "original_full_kem_receipt": "linux-out/linux-full/*/receipt.json",
+    "original_receipt_sha256": "fac869b12e09245c9ec7bf02bac69a59b8b2eb65ce96673f94c080cd265e9e9b",
+    "original_receipt_recorded_csv": false,
+    "note": "The original unchanged native_kem_checks.py run did not request CSV logging. These costs are measured by a separate replay with the same sources, same proof command and same flags plus CSV logging only."
+  },
+  "not_proved": [
+    "JVM/JIT timing or constant-time behavior",
+    "physical memory erasure",
+    "cryptographic hardness or security",
+    "compiler/runtime/provider correctness",
+    "GitHub-hosted CI reproduction (still required after push)"
+  ]
+}

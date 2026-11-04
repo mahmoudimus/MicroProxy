@@ -12,6 +12,7 @@ import copy
 import hashlib
 import io
 import json
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -59,6 +60,7 @@ CLAIM_OBLIGATION = {
     "whole-proxy-security": "V8",
     "aws-full-upstream-hkdf-replay": "V1",
     "packet-nonce-functional-production": "V3",
+    "poly-source-trace-ni": "V5",
     "all-v0-v8-complete": "V8",
 }
 
@@ -1069,6 +1071,76 @@ class ObligationLedgerTests(unittest.TestCase):
             self.fixture._set_evidence(oid, stage_path, "delivery-receipt")
         self.assert_invalid("pinned map key inventory changed")
 
+    def test_trimmed_native_polynomial_input_map_cannot_be_blessed_by_repin(self):
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        first = next(iter(receipt["mac_full"]["receipt"]["inputs"]))
+        receipt["mac_full"]["receipt"]["inputs"] = {
+            first: receipt["mac_full"]["receipt"]["inputs"][first]}
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V5", path, "component-receipt")
+        self.assert_invalid("pinned map key inventory changed")
+
+    def test_trimmed_native_codec_input_map_cannot_be_blessed_by_repin(self):
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-CODEC-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        first = next(iter(receipt["inputs"]))
+        receipt["inputs"] = {first: receipt["inputs"][first]}
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V5", path, "component-receipt")
+        self.assert_invalid("pinned map key inventory changed")
+
+    def test_native_codec_proofs_cannot_be_relabelled_as_older_reuse(self):
+        # The wrapper's fresh top-level proofs are the reviewed contract; a
+        # receipt that keeps only the historical reused_evidence map and pins a
+        # smaller proof count there must not be accepted as current evidence.
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-CODEC-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        receipt["reused_evidence"] = {"proofs": {
+            "proof-NativeField": 86, "proof-NativeCodec": 1503,
+            "proof-NativeSampling": 281, "native_codec_domain": 8,
+            "native_sampling_domain": 4}}
+        receipt["proofs"] = {"proof-NativeField": 84, "proof-NativeCodec": 1493,
+                             "proof-NativeSampling": 281,
+                             "native_codec_domain": 8, "native_sampling_domain": 4}
+        self.fixture._write_json(path, receipt)
+        self._set_receipt_expected("V5", path, {
+            "proofs.proof-NativeField": 84, "proofs.proof-NativeCodec": 1493})
+        self.fixture._set_evidence("V5", path, "component-receipt")
+        self.assert_invalid("required receipt value changed")
+
+    def test_native_codec_control_cannot_be_removed_after_repinning(self):
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-CODEC-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        del receipt["controls"]["cbd-sign"]
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V5", path, "component-receipt")
+        self.assert_invalid("control inventory changed")
+
+    def test_native_polynomial_linux_control_cannot_be_emptied_after_repinning(self):
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        receipt["linux_controls"]["receipt"]["controls"] = {}
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V5", path, "component-receipt")
+        self.assert_invalid("control inventory changed")
+
+    def test_pending_linux_kem_cannot_be_promoted_by_metadata(self):
+        # A missing fresh source graph must fail even when the wrapper's other
+        # scalar fields and hashes are renewed: platform metadata is not evidence.
+        self.fixture.make_production_supported()
+        path = "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json"
+        receipt = self.fixture._load_json(path)
+        del receipt["source_graph"]
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V6", path, "component-receipt")
+        self.assert_invalid("missing field 'source_graph'")
+
     def test_trimmed_delivered_inventory_cannot_be_blessed_by_repin(self):
         self.fixture.make_production_supported()
         stage_path = "formal/crypto/adoption/stage-receipt.json"
@@ -1993,6 +2065,450 @@ class KeccakTraceGateTests(unittest.TestCase):
                 self.reject("Keccak .*oracle comparison" if name == "oracle_kats"
                             else "Keccak .*component identity")
                 self.component[name] = saved
+
+
+class PolySourceGateTests(unittest.TestCase):
+    """Ingestion gate regressions over the real adopted report and logs.
+
+    ROOT's independent probe (P/poly-source-log-binding-root-probe.json) showed
+    three false greens in the first version of this gate: dropping every
+    non-proof/audit indexed log, relabelling a proof log digest to another proof
+    log with the same shape, and erasing the non-positive `checks` records.  Each
+    test below mutates a real copy of the adopted report/index/log tree and
+    requires the gate to reject it; the positive test requires the unmodified
+    adopted bytes to pass.
+    """
+
+    REAL_ROOT = Path(__file__).resolve().parents[2]
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self._install_real_tree()
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    # ---- fixture helpers -------------------------------------------------
+    def _install_real_tree(self):
+        source = obligations.POLY_SOURCE_RECEIPT
+        if not (self.REAL_ROOT / source).is_file():
+            self.fail("adopted poly source report is required for these regressions")
+        for relative in obligations.POLY_SOURCE_INPUT_KEYS:
+            destination = self.root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.REAL_ROOT / relative, destination)
+        for relative in (obligations.POLY_SOURCE_BASELINE_TEMPLATE,
+                         obligations.POLY_SOURCE_BASELINE_HELPER,
+                         obligations.POLY_SOURCE_BASELINE_TEST):
+            destination = self.root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.REAL_ROOT / relative, destination)
+        tracked = self.REAL_ROOT / obligations.POLY_SOURCE_TRACKED_PREFIX
+        shutil.copytree(tracked, self.root / obligations.POLY_SOURCE_TRACKED_PREFIX)
+        self.receipt_path = self.root / source
+        self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(self.REAL_ROOT / source, self.receipt_path)
+        self.index_path = self.root / obligations.POLY_SOURCE_TRACKED_INDEX
+        self.receipt = json.loads(self.receipt_path.read_text())
+        self.index = json.loads(self.index_path.read_text())
+
+    def tracked(self, relative: str) -> Path:
+        return self.root / obligations.POLY_SOURCE_TRACKED_PREFIX / relative
+
+    def write_log(self, relative: str, text: str) -> str:
+        path = self.tracked(relative)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        value = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.index["logs"][relative] = value
+        return value
+
+    def commit(self):
+        """Write the mutated report and keep the index's report digest honest."""
+        self.receipt_path.write_text(json.dumps(self.receipt, indent=2))
+        report = self.root / obligations.POLY_SOURCE_TRACKED_REPORT
+        report.write_text(json.dumps(self.receipt, indent=2))
+        self.index["report"]["sha256"] = hashlib.sha256(report.read_bytes()).hexdigest()
+        self.index_path.write_text(json.dumps(self.index, indent=2))
+
+    def validate(self) -> int:
+        self.commit()
+        return obligations._validate_poly_source_evidence(self.root, "poly-source")
+
+    def reject(self, pattern: str) -> None:
+        self.commit()
+        with self.assertRaisesRegex(obligations.LedgerError, pattern):
+            obligations._validate_poly_source_evidence(self.root, "poly-source")
+
+    def proof(self, label: str) -> dict:
+        return next(item for item in self.receipt["proofs"] if item["label"] == label)
+
+    def mutation(self, name: str) -> dict:
+        return next(item for item in self.receipt["controls"]["mutations"]
+                    if item["control"] == name)
+
+    def check_record(self, predicate):
+        return next(item for item in self.receipt["checks"] if predicate(item))
+
+    # ---- positive --------------------------------------------------------
+    def test_adopted_real_report_and_logs_pass_the_semantic_gate(self):
+        self.assertGreater(self.validate(), 600)
+
+    # ---- ROOT probe (1): every mandatory log must stay indexed -----------
+    def test_control_build_and_closure_logs_cannot_be_dropped(self):
+        keep = set()
+        for item in self.receipt["proofs"] + self.receipt["audits"]:
+            relative = item["log"].split(self.index["producer_root"] + "/", 1)[1]
+            keep.add(relative)
+        self.index["logs"] = {k: v for k, v in self.index["logs"].items() if k in keep}
+        self.reject("tracked log inventory changed")
+
+    def test_single_mandatory_log_cannot_be_unindexed(self):
+        del self.index["logs"]["logs/checker-positive.log"]
+        self.reject("tracked log inventory changed")
+
+    # ---- ROOT probe (2): per-path binding + parsed content ---------------
+    def _swap_proof_log_content(self, label: str, donor_label: str) -> None:
+        """ROOT probe (2): same pinned path/digest pair, donor log content."""
+        donor_rel = obligations.POLY_SOURCE_PROOF_LOGS[donor_label]
+        target_rel = obligations.POLY_SOURCE_PROOF_LOGS[label]
+        self.write_log(target_rel, self.tracked(donor_rel).read_text())
+        sha = self.index["logs"][target_rel]
+        for item in (self.proof(label),
+                     self.check_record(lambda x: x.get("label") == label)):
+            item["log_sha256"] = sha
+
+    def test_proof_log_content_must_match_the_claimed_count(self):
+        self._swap_proof_log_content("polynomial", "field")
+        self.reject("verified 86, expected 1001")
+
+    def test_consistent_forgery_of_both_proof_copies_is_still_rejected(self):
+        # Update the tracked report, the index report digest and both proof
+        # records consistently: the parsed log content must still fail.
+        self._swap_proof_log_content("polynomial", "field")
+        self.commit()
+        self.reject("verified 86, expected 1001")
+
+    def test_proof_log_path_must_be_the_pinned_producer_path(self):
+        self.proof("polynomial")["log"] = "/tmp/verify-polynomial.log"
+        self.reject("not the pinned producer path")
+
+    def test_positive_proof_log_with_a_warning_is_rejected(self):
+        relative = "logs/verify-polynomial.log"
+        text = self.tracked(relative).read_text()
+        self.write_log(relative, text + "\nNativePolynomial.dfy(1,1): Warning: something\n")
+        for item in (self.proof("polynomial"),
+                     self.check_record(lambda x: x.get("label") == "polynomial")):
+            item["log_sha256"] = self.index["logs"][relative]
+        self.reject("contains a verifier diagnostic")
+
+    def test_positive_proof_log_with_resource_exhaustion_is_rejected(self):
+        relative = "logs/verify-field.log"
+        self.write_log(relative, "\nDafny program verifier finished with 86 verified, "
+                                 "0 errors, 1 out of resource\n")
+        for item in (self.proof("field"), self.check_record(lambda x: x.get("label") == "field")):
+            item["log_sha256"] = self.index["logs"][relative]
+        self.reject("inconclusive diagnostic")
+
+    def test_audit_log_must_report_zero_findings(self):
+        relative = "logs/audit-formal-crypto-NativeField.dfy.log"
+        self.write_log(relative, "Dafny auditor completed with 3 findings\n")
+        audit = next(a for a in self.receipt["audits"]
+                     if a["file"] == "formal/crypto/NativeField.dfy")
+        audit["log_sha256"] = self.index["logs"][relative]
+        self.reject("auditor findings do not match")
+
+    # ---- ROOT probe (3): the exact 64-record inventory -------------------
+    def test_non_positive_check_records_cannot_be_erased(self):
+        keep = []
+        for item in self.receipt["checks"]:
+            is_positive_proof = "label" in item and "target" in item
+            keep.append(item if is_positive_proof else {})
+        self.receipt["checks"] = keep
+        self.reject("checks inventory dropped the reviewed record")
+
+    def test_check_record_inventory_cannot_shrink(self):
+        tagged = [item for item in self.receipt["checks"]
+                  if isinstance(item.get("selector"), dict)
+                  and "ByMethodProbe.Identity" in (item["selector"].get("POLY_TRACE_FUNCS") or "")]
+        self.assertEqual(len(tagged), 1)
+        self.receipt["checks"].remove(tagged[0])
+        self.assertEqual(len(self.receipt["checks"]), 63)
+        self.reject("check-record count changed")
+
+    def test_checker_rejection_inventory_cannot_drop_by_method(self):
+        before = len(self.receipt["checks"])
+        keep = [item for item in self.receipt["checks"]
+                if not (isinstance(item.get("selector"), dict)
+                        and "ByMethodProbe.Identity" in (
+                            item["selector"].get("POLY_TRACE_FUNCS") or ""))]
+        self.assertEqual(len(keep), before - 1)
+        # keep the length at 64 with a duplicate so the count check cannot mask it
+        self.receipt["checks"] = keep + [dict(keep[0])]
+        self.reject("checks inventory dropped the reviewed record|unexpected check record shape")
+
+    def test_tampered_rejection_text_is_rejected(self):
+        record = self.check_record(
+            lambda x: x.get("needle") == "function-by-method is unsupported")
+        record["text"] = record["text"].replace("unsupported", "also unsupported")
+        self.reject("checker rejection diagnostic changed|not its tracked log")
+
+    def test_positive_rewrite_of_a_rejection_log_is_rejected(self):
+        relative = "logs/controls/checker-ByMethodProbe-Identity.log"
+        first = self.tracked(relative).read_text().split("\n", 1)[0]
+        self.write_log(relative, first + "\n\n" + obligations.POLY_SOURCE_DEFAULT_FIRST_LINE
+                       + "\n\nDafny program verifier did not attempt verification\n")
+        record = self.check_record(
+            lambda x: x.get("needle") == "function-by-method is unsupported")
+        record["log_sha256"] = self.index["logs"][relative]
+        record["text"] = self.tracked(relative).read_text()
+        self.reject("is a success, not a rejection")
+
+    def test_dafny_negative_log_must_show_a_real_failure(self):
+        relative = obligations.POLY_SOURCE_DAFNY_NEGATIVES[0][0]
+        text = self.tracked(relative).read_text()
+        first = text.split("\n", 1)[0]
+        # keep the pinned diagnostic line and the named anchor, forge the summary
+        forged = first + "\n\nDafny program verifier finished with 3 verified, 0 errors\n"
+        self.write_log(relative, forged)
+        record = self.check_record(lambda x: x.get("classification") == "dafny-assertion-failure")
+        record["log_sha256"] = self.index["logs"][relative]
+        record["text"] = forged
+        self.reject("does not match")
+
+    def test_unusable_mutation_log_must_stay_inconclusive(self):
+        relative = "logs/controls/leaf-branch-mutation-dafny.log"
+        self.write_log(relative, "\nDafny program verifier finished with 1001 verified, 0 errors\n")
+        record = self.mutation("leaf-branch-mutation")
+        record["dafny_log_sha256"] = self.index["logs"][relative]
+        self.reject("not an inconclusive resource diagnostic")
+
+    def test_default_checker_roots_cannot_change(self):
+        record = self.check_record(
+            lambda x: x.get("selector") == obligations.POLY_SOURCE_DEFAULT_SELECTOR)
+        record["roots"] = list(reversed(record["roots"]))
+        self.reject("default checker roots changed")
+
+    def test_default_pure_function_inventory_cannot_shrink(self):
+        record = self.check_record(
+            lambda x: x.get("selector") == obligations.POLY_SOURCE_DEFAULT_SELECTOR)
+        record["expected_pure_functions"] = record["expected_pure_functions"][:-1]
+        self.reject("pure-function identities changed")
+
+    def test_root_set_digest_must_match_the_roots(self):
+        record = self.check_record(
+            lambda x: x.get("selector") == obligations.POLY_SOURCE_DEFAULT_SELECTOR)
+        record["root_set_sha256"] = "a" * 64
+        self.reject("root-set digest changed")
+
+    def test_checker_positive_log_roots_must_match_the_record(self):
+        relative = "logs/checker-positive.log"
+        first = self.tracked(relative).read_text().split("\n", 1)[0]
+        tampered = first.replace("NativePolynomial.NewZetas", "NativePolynomial.Forged", 1)
+        self.write_log(relative, tampered + "\n")
+        record = self.check_record(
+            lambda x: x.get("selector") == obligations.POLY_SOURCE_DEFAULT_SELECTOR)
+        record["log_sha256"] = self.index["logs"][relative]
+        record["text"] = self.tracked(relative).read_text()
+        self.reject("printed roots changed|printed roots differ")
+
+    def test_repeated_root_probe_log_must_print_the_repeated_selector(self):
+        relative = "logs/checker-scope-probe-repeated.log"
+        text = self.tracked(relative).read_text().split("\n", 1)[0]
+        forged = text.replace("NativePolynomial.NewZetas", "NativePolynomial.Add", 1)
+        self.write_log(relative, forged + "\n")
+        probe = self.receipt["controls"]["scope_probe"]
+        probe["log_sha256"] = self.index["logs"][relative]
+        duplicate = self.check_record(lambda x: x.get("probe") == "repeated-single-root")
+        duplicate["log_sha256"] = self.index["logs"][relative]
+        self.reject("does not print the repeated selector roots")
+
+    def test_n1b_body_log_must_clear_the_minimum(self):
+        relative = "logs/controls/rebind-and-model-swap-body.log"
+        self.write_log(relative, "\nDafny program verifier finished with 10 verified, 0 errors\n")
+        self.reject("did not clear the minimum")
+
+    def test_n1b_generated_java_identity_must_hold(self):
+        self.receipt["controls"]["n1b"][0]["java_files"] = 65
+        self.reject("generated-Java identity changed")
+
+    def test_tracked_log_bytes_must_match_the_index(self):
+        path = self.tracked("logs/verify-field.log")
+        path.write_text(path.read_text() + "\n")
+        with self.assertRaisesRegex(obligations.LedgerError, "tracked log differs from the index"):
+            obligations._validate_poly_source_evidence(self.root, "poly-source")
+
+    def test_tracked_report_must_equal_the_adopted_receipt(self):
+        (self.root / obligations.POLY_SOURCE_TRACKED_REPORT).write_text("{}\n")
+        with self.assertRaisesRegex(obligations.LedgerError, "tracked report"):
+            obligations._validate_poly_source_evidence(self.root, "poly-source")
+
+    def test_baseline_must_be_the_pre_adoption_tree(self):
+        self.index["baseline"]["components"]["formal/crypto/NativeField.dfy"] = (
+            self.receipt["inputs_before"]["formal/crypto/NativeField.dfy"])
+        self.reject("candidate-as-own-baseline")
+
+    # ---- F-A: exact identity multisets for the supplementary records ----
+    def _extra(self, predicate):
+        return next(item for item in self.receipt["checks"] if predicate(item))
+
+    def _duplicate_and_drop(self, drop, duplicate) -> None:
+        before = len(self.receipt["checks"])
+        self.receipt["checks"].remove(drop)
+        self.receipt["checks"].append(dict(duplicate))
+        self.assertEqual(len(self.receipt["checks"]), before)
+
+    def test_positive_scope_identity_cannot_be_duplicated(self):
+        branch = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.SecretBranchObserved"})
+        index_scope = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.SecretIndexObserved"})
+        self._duplicate_and_drop(index_scope, branch)
+        self.reject("positive-scope identities are duplicated or incomplete")
+
+    def test_checker_rejection_identity_cannot_be_duplicated(self):
+        branch = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.SecretBranchUnmarked"})
+        index_rej = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.SecretIndexUnmarked"})
+        self._duplicate_and_drop(index_rej, branch)
+        self.reject("checker-rejection identities are duplicated or incomplete")
+
+    def test_shadow_callee_rejection_cannot_be_replaced_by_a_duplicate(self):
+        role = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.RoleShadow"})
+        shadow = self._extra(lambda x: x.get("selector") == {
+            "POLY_TRACE_FUNCS": None, "POLY_TRACE_ROOTS": "Control.ShadowCallee"})
+        self._duplicate_and_drop(shadow, role)
+        self.reject("checker-rejection identities are duplicated or incomplete")
+
+    def test_dafny_negative_identity_cannot_be_duplicated(self):
+        branch = self._extra(lambda x: x.get("classification") == "dafny-assertion-failure"
+                             and "BranchObservedHarness" in x.get("text", ""))
+        index_neg = self._extra(lambda x: x.get("classification") == "dafny-assertion-failure"
+                                and "IndexObservedHarness" in x.get("text", ""))
+        self._duplicate_and_drop(index_neg, branch)
+        self.reject("Dafny-negative identities are duplicated or incomplete")
+
+    def test_green_control_identity_cannot_be_duplicated(self):
+        unmarked = self._extra(lambda x: x.get("log", "").endswith(
+            "logs/controls-UnmarkedHarnesses.dfy.log"))
+        function_unmarked = self._extra(lambda x: x.get("log", "").endswith(
+            "logs/controls-FunctionUnmarkedHarnesses.dfy.log"))
+        self._duplicate_and_drop(function_unmarked, unmarked)
+        self.reject("green-control identities are duplicated or incomplete")
+
+    # ---- F-B: green records must bind a real producer path and digest ----
+    def test_green_record_cannot_use_a_temporary_path(self):
+        record = self._extra(lambda x: x.get("log", "").endswith(
+            "logs/controls-UnmarkedHarnesses.dfy.log"))
+        record["log"] = "/tmp/not-a-producer.log"
+        record["log_sha256"] = "z" * 64
+        self.reject("green check log is not a producer path|log_sha256 for")
+
+    def test_green_record_digest_must_match_the_index(self):
+        record = self._extra(lambda x: x.get("log", "").endswith(
+            "logs/controls-UnmarkedHarnesses.dfy.log"))
+        record["log_sha256"] = "0" * 64
+        self.reject("log digest does not match the index")
+
+    # ---- F-C: recorded digests are mandatory; N1b schema is explicit ----
+    def test_proof_record_must_carry_its_log_digest(self):
+        for item in (self.proof("field"),
+                     self.check_record(lambda x: x.get("label") == "field")):
+            del item["log_sha256"]
+        self.reject("lacks its log_sha256")
+
+    def test_canonical_record_must_carry_its_checker_digest(self):
+        del self.receipt["controls"]["canonical"][0]["checker_log_sha256"]
+        duplicate = self.check_record(lambda x: x.get("control") == "canonical-branch-flip")
+        del duplicate["checker_log_sha256"]
+        self.reject("lacks its checker_log_sha256")
+
+    def test_n1b_schema_without_digests_still_passes(self):
+        # body/harness/generate logs intentionally carry no digest field; the
+        # explicit schema option must accept them while checker stays mandatory.
+        n1b = self.receipt["controls"]["n1b"][0]
+        self.assertNotIn("body_log_sha256", n1b)
+        self.assertIn("checker_log_sha256", n1b)
+        self.assertGreater(self.validate(), 700)
+
+    # ---- F-D: exactly one reviewed validator definition ----
+    def test_single_validate_checks_definition(self):
+        import inspect
+        source = inspect.getsource(obligations)
+        self.assertEqual(source.count("def _poly_validate_checks("), 1)
+        self.assertEqual(obligations._poly_validate_checks.__code__.co_firstlineno,
+                         source[:source.index("def _poly_validate_checks(")].count("\n") + 1)
+
+    # ---- F-E: reviewed needles/reasons, not free receipt text ----
+    def test_mutation_needle_cannot_be_replaced_by_arbitrary_text(self):
+        for item in (self.mutation("synthetic-callee"),
+                     self.check_record(lambda x: x.get("control") == "synthetic-callee")):
+            item["checker"]["needle"] = "x"
+        self.reject("mutation checker needle changed")
+
+    def test_canonical_needle_cannot_be_replaced(self):
+        self.receipt["controls"]["canonical"][0]["checker"]["needle"] = "x"
+        duplicate = self.check_record(lambda x: x.get("control") == "canonical-branch-flip")
+        duplicate["checker"]["needle"] = "x"
+        self.reject("canonical checker needle changed")
+
+    def test_decoy_rejection_is_the_reviewed_string(self):
+        self.receipt["controls"]["decoy"]["rejection"] = "some rejection"
+        duplicate = self.check_record(lambda x: x.get("schema", "").startswith(
+            "microproxy.native-polynomial-decoy"))
+        duplicate["rejection"] = "some rejection"
+        self.reject("decoy rejection is not the reviewed")
+
+    def test_probe_reason_is_the_reviewed_string(self):
+        self.receipt["controls"]["scope_probe"]["reason"] = "duplicate roots"
+        duplicate = self.check_record(lambda x: x.get("probe") == "repeated-single-root")
+        duplicate["reason"] = "duplicate roots"
+        self.reject("repeated-root rejection reason changed")
+
+    # ---- F-F: mutation negatives must carry the reviewed diagnostics ----
+    def test_mutation_dafny_diagnostics_must_match_the_reviewed_ones(self):
+        relative = obligations.POLY_SOURCE_MUTATION_LOGS["real-path-mutation"][1]
+        text = self.tracked(relative).read_text()
+        forged = text.replace("a postcondition could not be proved on this return path",
+                              "an unrelated postcondition failure", 1)
+        self.write_log(relative, forged)
+        record = self.mutation("real-path-mutation")
+        record["dafny_log_sha256"] = self.index["logs"][relative]
+        self.reject("mutation Dafny diagnostics changed")
+
+    def test_mutation_negative_without_its_anchor_is_rejected(self):
+        relative = obligations.POLY_SOURCE_MUTATION_LOGS["real-path-mutation"][1]
+        text = self.tracked(relative).read_text()
+        summary = [line for line in text.split("\n") if line.startswith("Dafny program verifier")][0]
+        self.write_log(relative, "\n" + summary + "\n")
+        record = self.mutation("real-path-mutation")
+        record["dafny_log_sha256"] = self.index["logs"][relative]
+        self.reject("does not match|diagnostics changed|has no named error diagnostic")
+
+    def test_canonical_anchor_is_pinned(self):
+        self.receipt["controls"]["canonical"][0]["dafny"]["named"] = "x"
+        duplicate = self.check_record(lambda x: x.get("control") == "canonical-branch-flip")
+        duplicate["dafny"]["named"] = "x"
+        self.reject("canonical Dafny anchor changed")
+
+    def test_observe_only_mutation_stays_nonsemantic(self):
+        record = self.mutation("leaf-branch-mutation")
+        self.assertIs(record["dafny_evidence_usable"], False)
+        relative = obligations.POLY_SOURCE_MUTATION_LOGS["leaf-branch-mutation"][1]
+        green = "\nDafny program verifier finished with 1001 verified, 0 errors\n"
+        self.write_log(relative, green)
+        record["dafny_log_sha256"] = self.index["logs"][relative]
+        self.reject("not an inconclusive resource diagnostic")
+
+    def test_supported_claim_must_cite_every_reviewed_input(self):
+        claim = {"id": obligations.POLY_SOURCE_CLAIM,
+                 "evidence": ["formal/crypto/NativeField.dfy"]}
+        with self.assertRaisesRegex(obligations.LedgerError, "does not cite"):
+            obligations._validate_poly_source_claim(self.root, claim, "claim")
+
 
 
 if __name__ == "__main__":

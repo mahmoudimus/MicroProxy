@@ -60,20 +60,25 @@ Files: actual target `.dfy` bodies; a new `formal/source/` component for the
 observer, replay, controls and documentation. The component's design experiment
 must settle its concrete instrumentation interface before production changes.
 
-- [ ] Execute a source-level proof for a real native crypto operation and a
+- [x] Execute a source-level proof for a real native crypto operation and a
   secret-dependent branch/index negative, with an explicit coverage argument.
-- [ ] Check ghost erasure, omission detection and method/callee coverage. Record
+- [x] Check ghost erasure, omission detection and method/callee coverage. Record
   any remaining instrumentation checker as trusted rather than formally proved.
 - [ ] Extend the same mechanism through SHAKE/Keccak, polynomial/NTT, ML-KEM,
   HKDF and retained adapters/comparison paths. Preserve actual heap/call effects.
 - [ ] Prove paired observations over the complete stated public/secret domains,
   including permitted output declassifications and invalid-input behavior.
 
-The HKDF component now implements this same-body route for its four methods:
+The HKDF component implements this same-body route for its four methods:
 248 body checks, 259 included paired/domain checks, actual event-helper contracts,
 reviewed coverage/order checks and Java erasure checks. The coverage adapter remains
-trusted C#. This scoped delivery leaves the native SHAKE/Keccak/NTT/KEM and
-Java-adapter/comparison composition items above open.
+trusted C#. The polynomial component adds 13 native polynomial methods, seven
+field dependencies and 19 executable pure helpers: 1,001 polynomial-body checks,
+86 field-body checks, 26 paired-harness checks and 14 field compatibility checks.
+Its paired callers preserve original frames and alias domains, including
+permitted shared buffers. The runner must enforce exact scope, in addition to
+the reviewed coverage checker and proof counts. These scoped results leave
+complete SHAKE/Keccak/KEM and Java-adapter/comparison composition open.
 
 ## Task 3: Actual published artifact validation
 

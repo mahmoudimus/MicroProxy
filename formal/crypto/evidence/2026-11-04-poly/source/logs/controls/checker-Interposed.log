@@ -1,0 +1,21 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: expected exact SourceTrace.Branch for branch guard, found Read
+   |
+82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);
+   |                                         ^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: marker is outside the executable block of array read
+   |
+82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);
+   |                                         ^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: marker is outside the executable block of array read
+   |
+82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);
+   |                                         ^^^^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: Interposed: stale observation Read
+   |
+82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);
+   |                                         ^^^^
+
+4 resolution/type errors detected in PolynomialControls.dfy

@@ -1,0 +1,48 @@
+{
+  "schema": "microproxy.nonce-evidence-revalidation/v1",
+  "status": "complete",
+  "scope": "Fresh nonce component proof/control/generation/identity and actual PacketKey Maven tests bind unchanged nonce implementation to the current central delivery configuration. Current complete-library/bundle identity and loaded-origin smokes remain separate required gates. No timing or new benchmark claim.",
+  "component_report": {
+    "path": "formal/crypto/adoption/source-trace-revalidation/nonce-report.json",
+    "sha256": "130d82c0c3960447557ff255dae13739e322ca54bf8169370f685c9641d2f148"
+  },
+  "previous_production_receipt": {
+    "path": "formal/crypto/adoption/source-trace-revalidation/nonce-production-before.json",
+    "sha256": "41d85be74bfaf61427722196ea5260da4bf2c89d53dcfc249c904699852d0947"
+  },
+  "current_production_receipt": {
+    "path": "formal/nonce/PRODUCTION-EVIDENCE.json",
+    "sha256": "27a6e470284d7cd99ec8d4b325697950f4ad4662b8a3793966d800c006f9bdb4"
+  },
+  "changed_fields": [
+    "delivery.manifest_sha256",
+    "generation.external_replay_report_sha256"
+  ],
+  "kernel_checks": 337,
+  "domain_checks": 343,
+  "all_five_controls_rejected": true,
+  "all_13_core_input_hashes_rechecked": true,
+  "unchanged_generated_class_sha256": "64ba6bbcccba2bc0f519b60ba090e11cf164544e98e24e73cd4699f9481c7069",
+  "actual_maven_nonce_tests": [
+    {
+      "jdk": 21,
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.crypto.PacketKeyNonceTest.xml",
+      "sha256": "f87ec8af25d2459ebbe1b7f494dc823e00103cf994939fead583a1276a65d85e",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "jdk": 25,
+      "path": "quic/target/surefire-reports/TEST-io.github.mahmoudimus.quic.crypto.PacketKeyNonceTest.xml",
+      "sha256": "c39bb71e74a3604bca46bd952d21e00f69a9cb743f734d8c6c8a42d27991b48a",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "delivery_manifest_sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+  "note": "Old receipt is archived verbatim. The external report checksum records provenance; the typed nonce validator still independently checks sources, contracts, controls, adapter and delivery inventory. No gate weakened."
+}

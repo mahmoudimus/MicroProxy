@@ -1,0 +1,12 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/modulus-error-kind.dfy(759,24): Error: a postcondition could not be proved on this return path
+    |
+759 |     if words.Failure? { return S.Failure(S.InvalidKeyLength); }
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/modulus-error-kind.dfy(753,12): Related location: this is the postcondition that could not be proved
+    |
+753 |     ensures ModelPublic(r) == S.Parse(bytes[..])
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 137 verified, 1 error

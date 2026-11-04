@@ -1,0 +1,16 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(91,20): Error: Unsupported: Ops arg 0=0, source executable count=1
+   |
+91 |     trace := ST.Ops(0,0,0,0,0,0,0);
+   |                     ^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(91,22): Error: Unsupported: Ops arg 1=0, source executable count=1
+   |
+91 |     trace := ST.Ops(0,0,0,0,0,0,0);
+   |                       ^
+
+formal/source/polynomial/controls/PolynomialControls.dfy(93,4): Error: unimplemented executable loop observation: WhileStmt
+   |
+93 |     while i < n
+   |     ^^^^^^^^^^^
+
+3 resolution/type errors detected in PolynomialControls.dfy

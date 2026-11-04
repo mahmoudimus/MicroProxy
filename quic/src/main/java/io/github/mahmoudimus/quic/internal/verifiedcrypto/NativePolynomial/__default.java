@@ -322,21 +322,21 @@ public class __default {
   }
   public static int ZetasValue(int i) {
     if ((i) < (16)) {
-      return __default.ZetasChunk0((int) ((i) - (0)));
+      return (__default.ZetasChunk0((int) ((i) - (0))));
     } else if ((i) < (32)) {
-      return __default.ZetasChunk1((int) ((i) - (16)));
+      return (__default.ZetasChunk1((int) ((i) - (16))));
     } else if ((i) < (48)) {
-      return __default.ZetasChunk2((int) ((i) - (32)));
+      return (__default.ZetasChunk2((int) ((i) - (32))));
     } else if ((i) < (64)) {
-      return __default.ZetasChunk3((int) ((i) - (48)));
+      return (__default.ZetasChunk3((int) ((i) - (48))));
     } else if ((i) < (80)) {
-      return __default.ZetasChunk4((int) ((i) - (64)));
+      return (__default.ZetasChunk4((int) ((i) - (64))));
     } else if ((i) < (96)) {
-      return __default.ZetasChunk5((int) ((i) - (80)));
+      return (__default.ZetasChunk5((int) ((i) - (80))));
     } else if ((i) < (112)) {
-      return __default.ZetasChunk6((int) ((i) - (96)));
+      return (__default.ZetasChunk6((int) ((i) - (96))));
     } else {
-      return __default.ZetasChunk7((int) ((i) - (112)));
+      return (__default.ZetasChunk7((int) ((i) - (112))));
     }
   }
   public static int[] NewZetas()
@@ -347,7 +347,7 @@ public class __default {
       r = _nw0;
       int _hi0 = 128;
       for (int _0_i = 0; _0_i < _hi0; _0_i++) {
-        (r)[dafny.Helpers.toInt((_0_i))] = __default.ZetasValue(_0_i);
+        (r)[dafny.Helpers.toInt((_0_i))] = (__default.ZetasValue(_0_i));
       }
     }
     return r;
@@ -634,21 +634,21 @@ public class __default {
   }
   public static int GammasValue(int i) {
     if ((i) < (16)) {
-      return __default.GammasChunk0((int) ((i) - (0)));
+      return (__default.GammasChunk0((int) ((i) - (0))));
     } else if ((i) < (32)) {
-      return __default.GammasChunk1((int) ((i) - (16)));
+      return (__default.GammasChunk1((int) ((i) - (16))));
     } else if ((i) < (48)) {
-      return __default.GammasChunk2((int) ((i) - (32)));
+      return (__default.GammasChunk2((int) ((i) - (32))));
     } else if ((i) < (64)) {
-      return __default.GammasChunk3((int) ((i) - (48)));
+      return (__default.GammasChunk3((int) ((i) - (48))));
     } else if ((i) < (80)) {
-      return __default.GammasChunk4((int) ((i) - (64)));
+      return (__default.GammasChunk4((int) ((i) - (64))));
     } else if ((i) < (96)) {
-      return __default.GammasChunk5((int) ((i) - (80)));
+      return (__default.GammasChunk5((int) ((i) - (80))));
     } else if ((i) < (112)) {
-      return __default.GammasChunk6((int) ((i) - (96)));
+      return (__default.GammasChunk6((int) ((i) - (96))));
     } else {
-      return __default.GammasChunk7((int) ((i) - (112)));
+      return (__default.GammasChunk7((int) ((i) - (112))));
     }
   }
   public static int[] NewGammas()
@@ -659,7 +659,7 @@ public class __default {
       r = _nw0;
       int _hi0 = 128;
       for (int _0_i = 0; _0_i < _hi0; _0_i++) {
-        (r)[dafny.Helpers.toInt((_0_i))] = __default.GammasValue(_0_i);
+        (r)[dafny.Helpers.toInt((_0_i))] = (__default.GammasValue(_0_i));
       }
     }
     return r;
@@ -710,7 +710,7 @@ public class __default {
   public static void ForwardStage(int[] f, int[] r, int[] roots, int s)
   {
     int _0_l;
-    _0_l = __default.Len(s);
+    _0_l = (__default.Len(s));
     int _1_blocks;
     _1_blocks = dafny.DafnyEuclidean.EuclideanDivision(128, _0_l);
     int _hi0 = _1_blocks;
@@ -742,7 +742,7 @@ public class __default {
   public static void InverseStage(int[] f, int[] r, int[] roots, int s)
   {
     int _0_l;
-    _0_l = __default.Len((int) ((6) - (s)));
+    _0_l = (__default.Len((int) ((6) - (s))));
     int _1_blocks;
     _1_blocks = dafny.DafnyEuclidean.EuclideanDivision(128, _0_l);
     int _hi0 = _1_blocks;

@@ -1,0 +1,3 @@
+POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed
+
+Dafny program verifier did not attempt verification

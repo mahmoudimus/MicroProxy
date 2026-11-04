@@ -1,0 +1,12 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/decode-modulus/NativeCodec.dfy(497,4): Error: a postcondition could not be proved on this return path
+    |
+497 |     return Decoded(a);
+    |     ^^^^^^^^^^^^^^^^^^
+
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/decode-modulus/NativeCodec.dfy(480,12): Related location: this is the postcondition that could not be proved
+    |
+480 |     ensures Model(r) == S.Decode(T.Bytes(b),d as int)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

@@ -1,0 +1,59 @@
+{
+  "schema": "microproxy.polynomial-source-adoption-artifacts/v1",
+  "status": "complete",
+  "scope": "Fresh canonical source-to-Java and actual JDK21 Maven library/minimized-bundle acceptance for the polynomial ghost-source integration. This record covers delivered artifacts; the separately gated full source-observation replay, Linux receipts and exact-head CI remain independent obligations. No full issue117, JVM timing, whole-crypto or expert-review claim.",
+  "stage_receipt": {
+    "path": "formal/crypto/adoption/stage-receipt.json",
+    "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
+    "source_roots": 20,
+    "verified_checks": 9561,
+    "inputs": 34,
+    "native_replay_inputs": 27
+  },
+  "class_identity": {
+    "path": "formal/crypto/adoption/source-trace-revalidation/canonical-class-identity.json",
+    "sha256": "ff6d75670a6c4634c61d9cce6e2cc3b547af2feb4c493f15fa722ca19686696d",
+    "all66_prior_canonical_classes_identical": true,
+    "generated_text_delta": "One Java file; parentheses at20expression sites. Two native caller-inventory source strings change; actual193sitepolicyunchanged."
+  },
+  "actual_artifact_report": {
+    "path": "formal/crypto/adoption/source-trace-revalidation/current-release/report.json",
+    "sha256": "d99bd02328ec9b043f1ad7aef48115d507d7544e65f9e4c66e841970f46599d2",
+    "producer": "crypto_current_release.validate_current_release called directly over actual final JDK21 artifacts; same audited function used by the release gate. No static-ledger status promotion in this record."
+  },
+  "actual_counts": {
+    "library_classes": 468,
+    "crypto_classes": 84,
+    "retained_library_classes": 468,
+    "runtime_classes": 37,
+    "full_handshakes_by_jdk": {
+      "21": 9,
+      "25": 9
+    },
+    "nonce_smokes_by_jdk": {
+      "21": 9,
+      "25": 9
+    }
+  },
+  "jars": {
+    "library_sha256": "3313a569c625105334c978f89f98b9acd18c52e41ed5c7145e75360b475ec54e",
+    "bundle_sha256": "1b7dff82a843061a90c1e636ec1c6ea09d271a179025232ebdc4a8734526c07f",
+    "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+  },
+  "maven_verify": {
+    "21": {
+      "tests": 4109,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23
+    },
+    "25": {
+      "tests": 4109,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23
+    }
+  },
+  "preserved_hkdf": "Fresh delivery check matched9generatedsources and12pinnedJARclasses; nonceandbrowserprofiletests passed as partofbothMaven suites.",
+  "performance": "No new timing/performance measurement. All66native/providercanonicalclassbytes matchpriorstage. Original21-22% CPUhandshake adoptionmeasurements remainhistorical, not newresults."
+}

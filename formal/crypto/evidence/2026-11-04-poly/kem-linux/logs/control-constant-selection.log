@@ -1,0 +1,7 @@
+/out/linux-full/native-kem-xh1s0sah/constant-selection.dfy(241,11): Error: assertion might not hold
+    |
+241 |     assert mask == (if diff == 0 then 255 else 0);
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

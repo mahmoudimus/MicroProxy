@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/native-int-overflow/NativeCodec.dfy(283,96): Error: result of operation might violate newtype constraint for 'I'
+    |
+283 |     else if d == 10 then (f[k] as T.L)+1024*(f[k+1] as T.L)+1048576*(f[k+2] as T.L)+((1073741824*f[k+3]) as T.L)
+    |                                                                                                 ^
+
+
+Dafny program verifier finished with 205 verified, 1 error

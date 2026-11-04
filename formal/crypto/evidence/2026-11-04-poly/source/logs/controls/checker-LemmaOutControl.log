@@ -1,0 +1,6 @@
+formal/source/polynomial/controls/LemmaOutControl.dfy(11,6): Error: Use: ghost lemma-out binding is unsupported
+   |
+11 |     x := Produce();
+   |       ^^
+
+1 resolution/type errors detected in LemmaOutControl.dfy

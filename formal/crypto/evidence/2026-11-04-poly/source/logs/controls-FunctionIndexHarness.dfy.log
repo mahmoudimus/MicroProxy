@@ -1,0 +1,7 @@
+formal/source/polynomial/controls/FunctionIndexHarness.dfy(11,11): Error: assertion might not hold
+   |
+11 |     assert t1 == t2;
+   |            ^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

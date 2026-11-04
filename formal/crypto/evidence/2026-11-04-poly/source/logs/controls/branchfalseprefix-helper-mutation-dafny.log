@@ -1,0 +1,12 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/crypto/NativePolynomial.dfy(22,27): Error: a postcondition could not be proved on this return path
+   |
+22 |   { if k <= 0 then [] else BranchFalsePrefix(siteBase,k-1) }
+   |                            ^^^^^^^^^^^^^^^^^
+
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/crypto/NativePolynomial.dfy(20,12): Related location: this is the postcondition that could not be proved
+   |
+20 |     ensures |BranchFalsePrefix(siteBase,k)| == 4*k
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1000 verified, 1 error

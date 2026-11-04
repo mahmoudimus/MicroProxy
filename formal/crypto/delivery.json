@@ -224,7 +224,7 @@
     },
     "drift_policy": "Runner schema and inventory changes require explicit contract review/version or pin update. Every current domain dependency, runner, harness, provider and reference Java hash must match; partial controls or matching partial inventories cannot qualify. Full staging replays proofs but relies on these complete pinned controls and supported-JDK replays.",
     "required_source_pins": {
-      "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8"
+      "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f"
     },
     "bytecode_control_rejections": {
       "selector-narrow-helper": "Unreviewed or payload-sensitive runtime helper",
@@ -295,7 +295,7 @@
       },
       "caller_inventory": {
         "count": 193,
-        "sha256": "3c3d69c2ac37fe3e21b47c12712cede42bc975e62a34c446c02ca66f98ec8f8e",
+        "sha256": "7dbe4d9f78df2f27a03dde97d3d28c4240f9547983decd61fcb5edb68695562a",
         "files": [
           "NativeCodec/DecodeResult_Decoded.java",
           "NativeCodec/__default.java",

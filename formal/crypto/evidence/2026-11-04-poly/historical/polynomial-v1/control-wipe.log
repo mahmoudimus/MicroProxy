@@ -1,0 +1,8 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-fwprnnpd/native_polynomial_wipe.dfy(1283,16): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+     |
+1283 |       invariant forall k: int :: 0 <= k < i as int ==> a[k] == 0
+     |                 ^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

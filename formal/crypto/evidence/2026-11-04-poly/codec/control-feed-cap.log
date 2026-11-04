@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-cap/NativeSampling.dfy(102,8): Error: index out of range
+    |
+102 |         a[used] := y; used := used+1;
+    |         ^^^^^^^
+
+
+Dafny program verifier finished with 4 assertions verified, 1 error

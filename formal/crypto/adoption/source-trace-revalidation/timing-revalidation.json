@@ -1,0 +1,26 @@
+{
+  "schema": "microproxy.supplementary-trace-replay-revalidation/v1",
+  "status": "complete",
+  "scope": "Fresh replay of the existing bytecode observer and certificates after a parentheses-only generated-Java text migration. No extractor/model/scope expansion or residual closure.",
+  "producer": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-timing-v1/report.json",
+  "exit": 0,
+  "report_sha256": "07be9330dc2dc183a726f52f255c5895e3f485dab3746c304fe4fe7f367a44c5",
+  "previous_report_sha256": "a4a6d0b4ab5d2bc4124672bb40e6d2468a7a5b388b79d16250a1d1e115161886",
+  "input_count": 139,
+  "manifest_sha256": "0835c4efb3759eb1e0f81f39614c31056e70e7d0ff06e0d4ab823b749a72ffb4",
+  "all_current_input_hashes_rechecked": true,
+  "unchanged": [
+    "open_roots",
+    "unchecked_owned_callees",
+    "assumed_owned_callees",
+    "composition_not_a_closure",
+    "jvm_timing",
+    "trusted",
+    "excluded",
+    "class_binding",
+    "model_obligations",
+    "hkdf_shape_obligations",
+    "runtime_classification"
+  ],
+  "non_claim": "No JVM timing or physical/global-heap or whole-crypto source-trace theorem. Existing13/19/31residuals remain."
+}

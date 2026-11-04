@@ -1,0 +1,12 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-fwprnnpd/native_polynomial_product.dfy(8,2): Error: a postcondition could not be proved on this return path
+  |
+8 |   { ghost var ft: seq<int>; r, ft := F.Mul(a0,b1); }
+  |   ^
+
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-fwprnnpd/native_polynomial_product.dfy(7,12): Related location: this is the postcondition that could not be proved
+  |
+7 |     ensures r as int == ((a0 as int)*(b1 as int)+(a1 as int)*(b0 as int))%3329
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

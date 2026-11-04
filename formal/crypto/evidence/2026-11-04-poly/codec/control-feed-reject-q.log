@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-reject-q/NativeSampling.dfy(95,15): Error: assertion might not hold
+   |
+95 |         assert x < 3329;
+   |                ^^^^^^^^
+
+
+Dafny program verifier finished with 1 assertions verified, 1 error

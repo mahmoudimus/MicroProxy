@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/compress-reciprocal/NativeCodec.dfy(214,11): Error: assertion might not hold
+    |
+214 |     assert product as int == (dividend as int)*5039;
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 0 assertions verified, 1 error
