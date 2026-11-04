@@ -121,6 +121,37 @@ jobs:
           path: target/dafny-native-crypto/
           if-no-files-found: ignore
 
+  dafny-hkdf-source-traces:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Verify executable HKDF traces, coverage controls and Java identity
+        run: |
+          python -m unittest discover -s formal/source/hkdf -p 'test_*.py' -v
+          python formal/source/hkdf/run.py --output target/dafny-hkdf-source
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-hkdf-source-traces
+          path: |
+            target/dafny-hkdf-source/
+            !target/dafny-hkdf-source/checker-build/nuget/**
+            !target/dafny-hkdf-source/checker-build/dotnet-home/**
+          if-no-files-found: ignore
+
   dafny-source-ownership:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

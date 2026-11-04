@@ -1,0 +1,66 @@
+HKDF-DECL VerifiedHkdf datatype BytesResult ctors=Success,Failure
+HKDF-DECL VerifiedHkdf datatype FailureKind ctors=InvalidHash,InvalidKey,InvalidLength,InvalidLabel
+HKDF-DECL VerifiedHkdf function _default.Ascii ins=1
+HKDF-DECL VerifiedHkdf function _default.AsciiBytes ins=1
+HKDF-DECL VerifiedHkdf function _default.Block ins=4
+HKDF-DECL VerifiedHkdf function _default.Blocks ins=4
+HKDF-DECL VerifiedHkdf function _default.EvAlloc ins=2
+HKDF-DECL VerifiedHkdf function _default.EvBranch ins=2
+HKDF-DECL VerifiedHkdf function _default.EvCall ins=3
+HKDF-DECL VerifiedHkdf function _default.EvConcat ins=3
+HKDF-DECL VerifiedHkdf function _default.EvCreate ins=3
+HKDF-DECL VerifiedHkdf function _default.EvLoop ins=3
+HKDF-DECL VerifiedHkdf function _default.EvLoopExit ins=3
+HKDF-DECL VerifiedHkdf function _default.EvMac ins=6
+HKDF-DECL VerifiedHkdf function _default.EvOps ins=7
+HKDF-DECL VerifiedHkdf function _default.EvRead ins=2
+HKDF-DECL VerifiedHkdf function _default.EvSlice ins=4
+HKDF-DECL VerifiedHkdf function _default.EvWrite ins=2
+HKDF-DECL VerifiedHkdf function _default.ExpandIters ins=5
+HKDF-DECL VerifiedHkdf function _default.ExpandLabelSpec ins=5
+HKDF-DECL VerifiedHkdf function _default.ExpandLabelTrace ins=5
+HKDF-DECL VerifiedHkdf function _default.ExpandPrefix ins=5
+HKDF-DECL VerifiedHkdf function _default.ExpandSpec ins=4
+HKDF-DECL VerifiedHkdf function _default.ExpandStep ins=5
+HKDF-DECL VerifiedHkdf function _default.ExpandTrace ins=4
+HKDF-DECL VerifiedHkdf function _default.ExpandedBytes ins=4
+HKDF-DECL VerifiedHkdf function _default.ExtractSpec ins=3
+HKDF-DECL VerifiedHkdf function _default.ExtractTrace ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelBytesSpec ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelInfoSpec ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelInfoTrace ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelLead ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelLengthsValid ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelPrefixFrom ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelScanFrom ins=2
+HKDF-DECL VerifiedHkdf function _default.LabelShapeOk ins=3
+HKDF-DECL VerifiedHkdf function _default.LabelStepOk ins=2
+HKDF-DECL VerifiedHkdf function _default.Mac ins=3
+HKDF-DECL VerifiedHkdf function _default.NormalizedSalt ins=2
+HKDF-DECL VerifiedHkdf function _default.ValidHash ins=1
+HKDF-DECL VerifiedHkdf lemma _default.AsciiBytesAppend ins=2 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvAllocInjective ins=4 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvBranchInjective ins=4 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvCallInjective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvConcatInjective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvCreateInjective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvKindTagsDistinct ins=0 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvLoopExitInjective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvLoopInjective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvMacInjective ins=12 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvOpsInjective ins=14 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvReadInjective ins=4 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvSliceInjective ins=8 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.EvWriteInjective ins=4 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.LabelInfoShape ins=3 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.LabelPrefixFromCons ins=3 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.LabelScanFromSplit ins=3 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.List3Injective ins=6 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.List4Injective ins=8 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.List5Injective ins=10 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.List7Injective ins=14 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf lemma _default.List8Injective ins=16 outs=0 ghostouts=0
+HKDF-DECL VerifiedHkdf method _default.Expand ins=4 outs=2 ghostouts=1
+HKDF-DECL VerifiedHkdf method _default.ExpandLabel ins=5 outs=2 ghostouts=1
+HKDF-DECL VerifiedHkdf method _default.Extract ins=3 outs=2 ghostouts=1
+HKDF-DECL VerifiedHkdf method _default.LabelInfo ins=3 outs=2 ghostouts=1

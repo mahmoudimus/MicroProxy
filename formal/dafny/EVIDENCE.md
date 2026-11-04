@@ -79,3 +79,37 @@ complete-handshake benchmark. No constant-time, secret-erasure, provider-correct
 JVM-timing theorem follows. The coordinator still needs to update the
 `formal/crypto` delivery classification/acceptance inventories for the new
 generated prefix and the enlarged main class/JAR set.
+
+
+## Executable-source trace integration (2026-11-03)
+
+The actual HKDF implementation now carries ghost trace outputs, erased from
+its generated Java. A fresh functional replay verifies **248 kernel checks**
+and **249 unrestricted-domain checks** at the original 30-second/10-million-
+resource functional budget. All ten functional/assumption/adapter controls
+reject as intended. The same newly generated classes pass **45 cases and
+2,766 assertions** on each Homebrew JDK 21.0.12.1 and Temurin JDK 25.0.5.
+`PRODUCTION-EVIDENCE.json` records this replay and its exact inputs.
+
+Every generated Java file, delivered package file, compiled class, aggregator,
+translation record and runtime digest is identical to the previous production
+receipt. The functional feedback mutant now targets the actual Mac invocation
+because its argument expression also occurs in ghost observations; it must
+still fail a real proof obligation. The unrestricted harness captures the new
+ghost outputs and retains the original general input domain.
+
+The separate [same-body source-trace component](../source/hkdf/README.md) verifies
+248 body and 259 paired/domain checks, with an explicitly trusted resolved-AST
+coverage adapter. This functional receipt does not prove that adapter correct,
+Java/JCE refinement, cryptographic hardness or physical JVM timing. The earlier
+21/22 and 43-case records above are preserved as historical evidence.
+
+
+The shared functional runner is also pinned by the packet and primitive proof
+components. After its HKDF-specific domain/control changes, both dependent
+manifests were renewed only for that helper and fully replayed: primitive Keccak
+122 / Field 15 / domain 139 checks, all nine controls and 40,586 assertions on
+each JDK 21/25; packet kernel/trace/extracted proofs and all seven controls on
+each JDK 21/25. Their source algorithms, generated Java and proof policies are
+unchanged. This closes the two stale-input CI failures; it does not expand the
+source-trace or timing claims.

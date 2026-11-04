@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// Source-level SHAPE lemma for the unchanged verified HKDF kernel.
+// Source-level SHAPE lemma for the production verified HKDF kernel.
 //
 // This file imports formal/dafny/hkdf/Hkdf.dfy without modification. It does
 // NOT prove compiler/JVM trace preservation, constant-time execution, or that
