@@ -33,13 +33,19 @@ python3 formal/source/replay.py --output /fresh/source-ownership-replay
 ```
 
 The output directory must not exist. The runner checks the complete source and
-replay/tool input inventories, freezes the source graph, uses the checksum-pinned
-Dafny 4.9.1 distribution and Z3, verifies included bodies with the existing
-30-second / 50,000,000-resource / `O:smt.case_split=0` policy, audits assumptions,
-and rejects three intentionally false alias/freshness assertions. It explicitly
-audits every included source file, since Dafny's auditor does not automatically
-traverse includes. A separate control injects `assume {:axiom} false` into the
-included production `Xof` body and requires that audit to report the assumption.
+replay/tool input inventories, freezes the source graph, uses the checksum-
+pinned Dafny 4.9.1 distribution and Z3, verifies included bodies with the
+existing 30-second / 50,000,000-resource / `O:smt.case_split=0` policy, audits
+assumptions, and rejects three intentionally false alias/freshness assertions.
+Include discovery uses the pinned Dafny parser, including BOMs, comments and
+multiline directives; it does not infer the graph with a source-text regex. It
+explicitly audits every included source file, since Dafny's auditor does not
+automatically traverse includes. A separate control injects `assume {:axiom}
+false` into the included production `Xof` body and requires that audit to report
+the assumption. Separate BOM/comment include controls demonstrate that entry
+proofs and entry-only audits can pass with a hidden assumption; parser discovery
+must expose it and the complete audit must report it.
+
 A failed
 control must be a named assertion failure; CLI, parser, timeout, resource and
 internal errors do not count. Source and tool checks run again before success.
@@ -53,6 +59,19 @@ These are universal proofs under the
 preconditions, not twenty sampled inputs. Negative controls are regression
 evidence for the replay and its proof dependencies, not discovered runtime
 vulnerabilities. The Python inventory/diagnostic gate remains trusted code.
+
+## Observation encoding
+
+The [ghost vocabulary](vocabulary/README.md) proves that event encodings retain
+branch outcomes, memory roles/addresses, loop checks and call/provider metadata.
+It proves event and arbitrary-list injectivity and decoding of emitted encodings;
+29 kernel checks and six defective-encoding controls replay under the same
+pinned tool policy. Same-basename clients generate identical complete file
+inventories, with no Java observer classes.
+
+This is a vocabulary theorem. It does not establish that an operation emits the
+right events or that every source operation is covered. Actual source-connected
+crypto trace composition remains unfinished.
 
 ## Source traces and delivery
 

@@ -129,17 +129,26 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
       - name: Install Dafny's Linux globalization dependency
         run: sudo apt-get update && sudo apt-get install --yes libicu74
       - name: Verify actual Dafny bodies, ownership domains and negative controls
         run: |
           python -m unittest discover -s formal/source -p 'test_*.py' -v
           python formal/source/replay.py --output target/dafny-source-ownership
+      - name: Prove ghost observation encoding and reject defective encoders
+        run: |
+          python -m unittest discover -s formal/source/vocabulary -p 'test_*.py' -v
+          python formal/source/vocabulary/replay.py --output target/dafny-source-vocabulary
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: dafny-source-ownership
-          path: target/dafny-source-ownership/
+          path: |
+            target/dafny-source-ownership/
+            target/dafny-source-vocabulary/
           if-no-files-found: ignore
 
   dafny-nonce-functional:

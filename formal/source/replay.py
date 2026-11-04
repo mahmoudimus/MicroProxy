@@ -23,7 +23,7 @@ ROOT = HERE.parent.parent
 ENTRY = 'formal/source/ShakeOwnership.dfy'
 DOMAIN = 'formal/crypto/native_shake_domain.dfy'
 REPLAY_FILES = {'formal/source/replay.py', 'formal/source/test_replay.py',
-                'formal/source/README.md', 'formal/dafny/toolchain.py',
+                'formal/source/README.md', 'formal/crypto/delivery.py', 'formal/dafny/toolchain.py',
                 'formal/dafny/tools.json'}
 FLAGS = ['--verification-time-limit', '30', '--resource-limit', '50000000',
          '--solver-option', 'O:smt.case_split=0', '--cores', '2']
@@ -91,31 +91,17 @@ def check_inventory(sources, pins):
         raise ValueError('Source-assurance input inventory omitted or added files')
 
 
-def closure(root, entries):
-    found = set()
-
-    def visit(path):
-        original = path
-        path = path.resolve(strict=True)
-        path.relative_to(root)
-        if original.absolute() != path:
-            # Parent-directory includes are normal; symlink redirects are not.
-            normalized = Path(os.path.abspath(original))
-            if normalized != path:
-                raise ValueError('Redirected Dafny source: ' + str(original))
-        if path in found:
-            return
-        found.add(path)
-        source = path.read_text()
-        includes = re.findall(r'^\s*include\s+"([^"\n]+)"\s*$', source, re.M)
-        if len(includes) != len(re.findall(r'^\s*include\b', source, re.M)):
-            raise ValueError('Unsupported include syntax: ' + str(path))
-        for name in includes:
-            visit(path.parent / name)
-
-    for entry in entries:
-        visit(root / entry)
-    return {str(path.relative_to(root)): digest(path) for path in sorted(found)}
+def closure(root, entries, dafny, discover, call=None):
+    """Use the pinned compiler's actual parser, including BOM/comment syntax."""
+    found = {}
+    for index, entry in enumerate(entries):
+        record = (lambda label, command, i=index: call(f'graph-{i}-{label}', command)) if call else None
+        graph = discover(root, root / entry, dafny, call=record)
+        for name, value in graph.items():
+            if name in found and found[name] != value:
+                raise ValueError('Source changed between parser traversals: ' + name)
+            found[name] = value
+    return dict(sorted(found.items()))
 
 
 def execute(command, log, cwd, timeout=600):
@@ -162,10 +148,8 @@ def main():
         report['manifest_sha256'] = hashlib.sha256(manifest_bytes).hexdigest()
         pins = manifest['inputs']
         check_pins(ROOT, pins)
-        sources = closure(ROOT, (ENTRY, DOMAIN))
+        sources = manifest['sources']
         check_inventory(sources, pins)
-        if sources != manifest['sources']:
-            raise ValueError('Complete Dafny source inventory changed or omitted')
         frozen = out / 'frozen'
         for name in pins:
             target = frozen / name
@@ -176,13 +160,17 @@ def main():
                                                      frozen / 'formal/dafny/toolchain.py')
         tools = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(tools)
+        spec = importlib.util.spec_from_file_location('source_pinned_discovery',
+                                                     frozen / 'formal/crypto/delivery.py')
+        discovery = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(discovery)
         dafny, _, tool_manifest, asset = tools.install(args.cache)
         if tool_manifest['version'] != '4.9.1':
             raise ValueError('Expected checksum-pinned Dafny 4.9.1')
         solver = dafny.parent / 'z3/bin/z3-4.12.1'
         tool_before = {'dafny': digest(dafny), 'solver': digest(solver),
                        'archive': asset['sha256']}
-        report.update(inputs_before=pins, source_graph=sources, tools=tool_before)
+        report.update(inputs_before=pins, tools=tool_before)
 
         def call(label, arguments):
             log = out / (label + '.log')
@@ -191,6 +179,18 @@ def main():
             report['commands'].append({'label': label, 'command': list(map(str, command)),
                                        'exit': status, 'log_sha256': digest(log)})
             return status, text
+
+        def parser_call(label, command):
+            if Path(command[0]) != dafny:
+                raise ValueError('Unexpected dependency parser executable')
+            return call(label, command[1:])
+
+        sources = closure(frozen, (ENTRY, DOMAIN), dafny,
+                          discovery.source_closure, call=parser_call)
+        check_inventory(sources, pins)
+        if sources != manifest['sources']:
+            raise ValueError('Complete Dafny source inventory changed or omitted')
+        report['source_graph'] = sources
 
         status, text = call('actual-bodies-and-domain',
                             ['verify', ENTRY, DOMAIN, '--verify-included-files',
@@ -227,6 +227,38 @@ def main():
         status, text = call('control-included-assumption',
                             ['audit', *(assumption_root / name for name in sorted(sources))])
         report['assumption_control_findings'] = audit_result(status, text, negative=True)
+
+        # Real syntax controls: a regex missed these includes while the entry
+        # proof and entry-only audit both passed through a hidden assumption.
+        graph_root = out / 'graph-control'
+        graph_root.mkdir()
+        (graph_root / 'Hidden.dfy').write_text(
+            'module Hidden { lemma Impossible() ensures false { assume {:axiom} false; } }\n')
+        graph_entries = []
+        for name, prefix in (('Bom', '\ufeff'), ('Inline', '/* header */ ')):
+            target = graph_root / (name + '.dfy')
+            target.write_text(prefix + 'include "Hidden.dfy"\nmodule ' + name +
+                              ' { import H = Hidden method Claim() { H.Impossible(); assert false; } }\n')
+            graph_entries.append(target.name)
+        graph = closure(graph_root, graph_entries, dafny, discovery.source_closure,
+                        call=lambda label, command: parser_call('control-' + label, command))
+        if set(graph) != {'Hidden.dfy', 'Bom.dfy', 'Inline.dfy'}:
+            raise ValueError('Compiler parser failed the BOM/comment include controls')
+        status, text = call('control-graph-entry-proofs',
+                            ['verify', *(graph_root / name for name in graph_entries),
+                             *FLAGS, '--solver-path', solver])
+        graph_proof = proof_result(status, text, expected=2)
+        status, text = call('control-graph-entry-audit',
+                            ['audit', *(graph_root / name for name in graph_entries)])
+        audit_result(status, text)
+        status, text = call('control-graph-complete-audit',
+                            ['audit', *(graph_root / name for name in sorted(graph))])
+        if (status or not re.search(r'^Dafny auditor completed with 1 findings?\s*$', text, re.M)
+                or 'Impossible: Definition has `assume {:axiom}` statement in body' not in text
+                or BAD.search(text.replace('Warning:', ''))):
+            raise ValueError('Expected the parser-discovered hidden assumption audit finding')
+        report['source_graph_control'] = {'sources': graph, 'entry_proof': graph_proof,
+                                          'entry_audit_findings': 0, 'complete_audit_findings': 1}
         check_pins(frozen, pins)
         check_pins(ROOT, pins)
         if manifest_path.read_bytes() != manifest_bytes:
