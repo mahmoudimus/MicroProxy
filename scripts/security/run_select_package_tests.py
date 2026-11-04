@@ -7,6 +7,7 @@ test orchestration, not a substitute for the source evidence validator.
 from __future__ import annotations
 
 import argparse
+from functools import wraps
 import hashlib
 import importlib.util
 import json
@@ -16,12 +17,16 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_SHA256 = "b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f"
 REQUIRED_TESTS = {
     "test_outer_output_mutations_do_not_change_admission_or_signature",
     "test_actual_clean_retained_record_and_raw_log_admit",
+    "test_provider_drift_fails_before_translator",
+    "test_missing_dafny_writes_typed_failed_report",
+    "test_profile_must_match_declared_host",
 }
 
 
@@ -56,6 +61,38 @@ class RecordingResult(unittest.TextTestResult):
         super().startTest(test)
 
 
+def configure_cli_fixtures(module, selector: str, profile_sha: str) -> list[str]:
+    """Supply the host profile to two frozen Mac-specific negative CLI fixtures."""
+    invoked = []
+    fixtures = (
+        (module.InputDomainTests, "test_provider_drift_fails_before_translator"),
+        (module.MissingToolReportTests, "test_missing_dafny_writes_typed_failed_report"),
+    )
+    for test_class, name in fixtures:
+        original_test = getattr(test_class, name)
+
+        @wraps(original_test)
+        def configured(test_self, original=original_test, fixture_name=name):
+            original_main = module.R.main
+
+            def fixture_main(argv):
+                argv = list(argv)
+                position = argv.index("--tool-profile") + 1
+                if argv[position] != "macos-sdk10.0.400":
+                    raise ValueError("frozen negative CLI fixture profile changed")
+                argv[position] = selector
+                if "--expected-profile-sha256" in argv:
+                    argv[argv.index("--expected-profile-sha256") + 1] = profile_sha
+                invoked.append(fixture_name)
+                return original_main(argv)
+
+            with mock.patch.object(module.R, "main", fixture_main):
+                return original(test_self)
+
+        setattr(test_class, name, configured)
+    return invoked
+
+
 def run(args) -> dict:
     root = args.root.resolve()
     pkg = root / "formal/source/select"
@@ -88,6 +125,11 @@ def run(args) -> dict:
     replay.verify_retained_report(json.loads(retained_path.read_text()), package,
                                   json.loads(profile_path.read_text()), baseline_log.read_text())
 
+    host = replay.host_platform()
+    host_selector = {"macos-arm64": "macos-sdk10.0.400",
+                     "linux-x64": "linux-sdk10.0.400"}[host]
+    _, host_identity = replay.load_profile(pkg, host_selector, None, host)
+
     if args.work_root.resolve().is_relative_to(root / "formal"):
         raise ValueError("unit fixture workspace must be outside immutable formal inputs")
     args.work_root.mkdir(parents=True, exist_ok=True)
@@ -117,15 +159,22 @@ def run(args) -> dict:
         module = load_module("select_package_test_replay",
                              candidate / "formal/source/select/test_replay.py")
         module.InputDomainTests.OUTER_POLY = poly_fixture
+        cli_fixtures = configure_cli_fixtures(module, host_selector, host_identity["sha256"])
         suite = unittest.defaultTestLoader.loadTestsFromModule(module)
         result = unittest.TextTestRunner(verbosity=2, resultclass=RecordingResult).run(suite)
         executed_names = {name.rsplit(".", 1)[-1] for name in result.executed}
         success = (result.wasSuccessful() and result.testsRun == 61
                    and not result.skipped and not result.expectedFailures
                    and not result.unexpectedSuccesses
-                   and REQUIRED_TESTS <= executed_names)
+                   and REQUIRED_TESTS <= executed_names
+                   and sorted(cli_fixtures) == sorted([
+                       "test_provider_drift_fails_before_translator",
+                       "test_missing_dafny_writes_typed_failed_report"]))
         return {"ok": success, "tests": result.testsRun, "skipped": len(result.skipped),
                 "expected_failures": len(result.expectedFailures),
+                "negative_cli_fixture_profile": host_selector,
+                "negative_cli_fixture_profile_sha256": host_identity["sha256"],
+                "negative_cli_fixtures_executed": sorted(cli_fixtures),
                 "required_tests_executed": sorted(REQUIRED_TESTS & executed_names),
                 "package_sha256": PACKAGE_SHA256, "full_report_sha256": sha(full_path),
                 "retained_report_sha256": sha(retained_path),

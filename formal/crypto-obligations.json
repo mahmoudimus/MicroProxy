@@ -2974,7 +2974,7 @@
         },
         {
           "path": "scripts/security/run_select_package_tests.py",
-          "sha256": "b03d8f4747bb69c9ca5b36a542922be87e39dcc523ae31fb782b7a2fc19e43f9",
+          "sha256": "ce63f6bab77bef371d131caf67573e1c3d7605bf16bfc9176689e48bc7d01830",
           "kind": "test-source",
           "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
         },
