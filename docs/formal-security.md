@@ -380,6 +380,21 @@ does not remove compiler/runtime assumptions or establish physical JVM timing.
 The existing bytecode results below remain supplementary evidence for their
 stated scopes; they are not the primary route for proving Dafny ownership.
 
+
+The [HKDF source-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/hkdf)
+uses the actual production Extract, Expand, LabelInfo and ExpandLabel bodies with
+ghost trace outputs. It proves equal source observations for arbitrary private
+byte contents when public lengths/hash choice/TLS labels agree, including
+invalid-input and boundary outcomes. The body has 248 verified checks; the
+paired/domain harness has 259. A separately trusted C# adapter over Dafny's
+resolved AST checks that observations cover the accepted executable operations
+and remain in order. Its adversarial controls reject omitted/reordered events,
+trace resets, shadow declarations and lost callee outputs. The checker is
+reviewed code, not a formally verified execution semantics. Site IDs are opaque
+method-local labels, not JVM program counters. Java erasure/delivery checks and
+JDK HMAC/compiler/runtime assumptions remain explicit; this does not establish
+physical constant-time execution or whole-crypto trace independence.
+
 The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
 adds a SHAKE ownership harness that calls the actual constructor and methods.
 It proves fresh outputs, a disjoint six-object factory footprint, preserved

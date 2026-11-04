@@ -190,13 +190,13 @@ def domain_harness(source):
 module PublicDomain {
   import VerifiedHkdf
   method AllInputs(h: int, a: seq<bv8>, b: seq<bv8>, u: seq<bv16>, length: int) {
-    var x := VerifiedHkdf.Extract(h, a, b);
+    var x, {:ghost} tracex := VerifiedHkdf.Extract(h, a, b);
     assert x == VerifiedHkdf.ExtractSpec(h, a, b);
-    var y := VerifiedHkdf.Expand(h, a, b, length);
+    var y, {:ghost} tracey := VerifiedHkdf.Expand(h, a, b, length);
     assert y == VerifiedHkdf.ExpandSpec(h, a, b, length);
-    var z := VerifiedHkdf.LabelInfo(u, b, length);
+    var z, {:ghost} tracez := VerifiedHkdf.LabelInfo(u, b, length);
     assert z == VerifiedHkdf.LabelInfoSpec(u, b, length);
-    var w := VerifiedHkdf.ExpandLabel(h, a, u, b, length);
+    var w, {:ghost} tracew := VerifiedHkdf.ExpandLabel(h, a, u, b, length);
     assert w == VerifiedHkdf.ExpandLabelSpec(h, a, u, b, length);
   }
 }
@@ -206,11 +206,12 @@ module PublicDomain {
 def mutations(source):
     replacements = {
         'counter': ('var counter := i + 1;', 'var counter := i;'),
-        'feedback': ('previous + info + [counter as bv8]', 'info + [counter as bv8]'),
+        'feedback': ('var next := Mac(hashLen, prk, previous + info + [counter as bv8]);',
+                     'var next := Mac(hashLen, prk, info + [counter as bv8]);'),
         'truncation': ('r := Success(output[..length]);', 'r := Success(output);'),
         'prefix': ('var prefix: seq<bv8> := [116,', 'var prefix: seq<bv8> := [117,'),
-        'public-domain': ('method Extract(hashLen: int, salt: seq<bv8>, ikm: seq<bv8>) returns (r: BytesResult)',
-                          'method Extract(hashLen: int, salt: seq<bv8>, ikm: seq<bv8>) returns (r: BytesResult)\n    requires false')
+        'public-domain': ('method Extract(hashLen: int, salt: seq<bv8>, ikm: seq<bv8>) returns (r: BytesResult, ghost trace: seq<int>)',
+                          'method Extract(hashLen: int, salt: seq<bv8>, ikm: seq<bv8>) returns (r: BytesResult, ghost trace: seq<int>)\n    requires false')
     }
     results = {}
     for name, (old, new) in replacements.items():

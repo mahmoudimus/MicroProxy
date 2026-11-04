@@ -69,6 +69,12 @@ must settle its concrete instrumentation interface before production changes.
 - [ ] Prove paired observations over the complete stated public/secret domains,
   including permitted output declassifications and invalid-input behavior.
 
+The HKDF component now implements this same-body route for its four methods:
+248 body checks, 259 included paired/domain checks, actual event-helper contracts,
+reviewed coverage/order checks and Java erasure checks. The coverage adapter remains
+trusted C#. This scoped delivery leaves the native SHAKE/Keccak/NTT/KEM and
+Java-adapter/comparison composition items above open.
+
 ## Task 3: Actual published artifact validation
 
 Files: existing supplied-artifact validator and new scoped release receipt.

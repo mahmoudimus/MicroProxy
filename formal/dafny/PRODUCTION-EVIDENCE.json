@@ -21,13 +21,13 @@
     "formal/dafny/bench_hkdf.py": "05355e6be77f950cd661b02fd0f537b6ae54b9e6269bc5d72a84dc4e9a4d337e",
     "formal/dafny/check_adapter_discipline.py": "74da9dd8527f6e68dfb6936c8064f04cb4e8549922d679c1fd0d38a4855a0891",
     "formal/dafny/deliver_hkdf.py": "a52660080d2dfaeb86295c4b0cde90559e7650a2079299059c27763b1e813a69",
-    "formal/dafny/hkdf/GENERATED.json": "e14fe0cb87177bfa14eac422b33b4c8ad1c2ba7ba667d11bb19351174f1ae9b2",
-    "formal/dafny/hkdf/Hkdf.dfy": "44987c1d1a91ec785017f416a5340603851e571381117349750d54adb406b34e",
+    "formal/dafny/hkdf/GENERATED.json": "b8881f4b2fefac57847cd0f30a9769f909662bda098454b235f326882ac3ee6a",
+    "formal/dafny/hkdf/Hkdf.dfy": "caea4393f1e85e77f717dbf47f635bc1851b4182b7b4f9d011eb66fddfaf3ddb",
     "formal/dafny/java/dafny/BulkOnlySequence.java": "a4b1fad6f71e77e95a9e1e1080f6bef137b72ccba9e9eb85e4d8ff42193f3788",
     "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java": "4ee3b334a2c67158ec9ac202701e49f89445b47b90d6d08a0fd920e5618f11a9",
     "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java": "f6e7e29b4dd6691fcc926e01edc1f8be9ab6ab223ba530de8d4ae9739cfd0e1e",
     "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java": "01d29531f84eaf1c3584cfcee3d741f6c637f26c6e67e51799bea674d3875b67",
-    "formal/dafny/run.py": "f5b09da075366bd564d7249f790d56a20b738007c0a095dc3e03e779edd64978",
+    "formal/dafny/run.py": "7fc888463d25b0e1f8a1652f060953223e67aacd113c446e57d1312bb5284d1a",
     "formal/dafny/test_run.py": "d128e53704f53c61b0ce7509bbc784d3d3532189149b559c97a28eeae1099ed4",
     "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
     "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
@@ -51,8 +51,8 @@
     "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
     "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
   },
-  "verified": 21,
-  "public_domain_verified": 22,
+  "verified": 248,
+  "public_domain_verified": 249,
   "assumptions": [
     "VerifiedHkdf.Mac: deterministic external HMAC with fixed output length"
   ],
@@ -144,38 +144,38 @@
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "--version"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/dafny-version.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/dafny-version.log"
     },
     {
       "step": "assumption-audit",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "audit",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/hkdf/Hkdf.dfy",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/hkdf/Hkdf.dfy",
         "--allow-external-contracts"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/assumption-audit.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/assumption-audit.log"
     },
     {
       "step": "kernel-proof",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/hkdf/Hkdf.dfy",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/hkdf/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/kernel-proof.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/kernel-proof.log"
     },
     {
       "step": "public-domain",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/PublicDomain.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/PublicDomain.dfy",
         "--verify-included-files",
         "--allow-external-contracts",
         "--verification-time-limit",
@@ -183,70 +183,70 @@
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/public-domain.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/public-domain.log"
     },
     {
       "step": "control-counter",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/counter/Hkdf.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/counter/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-counter.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-counter.log"
     },
     {
       "step": "control-feedback",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/feedback/Hkdf.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/feedback/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-feedback.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-feedback.log"
     },
     {
       "step": "control-truncation",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/truncation/Hkdf.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/truncation/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-truncation.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-truncation.log"
     },
     {
       "step": "control-prefix",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/prefix/Hkdf.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/prefix/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-prefix.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-prefix.log"
     },
     {
       "step": "control-public-domain",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/public-domain/PublicDomain.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/public-domain/PublicDomain.dfy",
         "--verify-included-files",
         "--allow-external-contracts",
         "--verification-time-limit",
@@ -254,27 +254,27 @@
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-public-domain.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-public-domain.log"
     },
     {
       "step": "control-assumption",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "audit",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/ExtraAssumption.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/ExtraAssumption.dfy",
         "--allow-external-contracts"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-assumption.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-assumption.log"
     },
     {
       "step": "control-skipped-proof",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "audit",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/SkippedProof.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/SkippedProof.dfy",
         "--allow-external-contracts"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/control-skipped-proof.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/control-skipped-proof.log"
     },
     {
       "step": "generate-java",
@@ -285,15 +285,15 @@
         "--outer-module",
         "io.github.mahmoudimus.quic.internal.verifiedhkdf",
         "--output",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/hkdf/Hkdf.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/hkdf/Hkdf.dfy",
         "--allow-external-contracts",
         "--verification-time-limit",
         "30",
         "--resource-limit",
         "10000000"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/generate-java.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/generate-java.log"
     },
     {
       "step": "javac-version",
@@ -301,7 +301,7 @@
         "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
         "-version"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/javac-version.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/javac-version.log"
     },
     {
       "step": "javac",
@@ -317,54 +317,54 @@
         "-cp",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
         "-d",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/java/dafny/BulkOnlySequence.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/HkdfCrypto-java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/java/dafny/BulkOnlySequence.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/javac.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/javac.log"
     },
     {
       "step": "adapter-discipline",
       "command": [
-        "/Users/mahmoud/.pyenv/versions/3.13.9/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/check_adapter_discipline.py",
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/check_adapter_discipline.py",
         "--java-home",
         "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
         "--classes",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes",
         "--runtime",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/adapter-discipline.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/adapter-discipline.log"
     },
     {
       "step": "adapter-control",
       "command": [
-        "/Users/mahmoud/.pyenv/versions/3.13.9/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/dafny/check_adapter_discipline.py",
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/check_adapter_discipline.py",
         "--java-home",
         "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
         "--classes",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes",
         "--runtime",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
         "--self-test"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/adapter-control.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/adapter-control.log"
     },
     {
       "step": "handwritten-javac",
@@ -378,14 +378,14 @@
         "-Xpkginfo:always",
         "-Xlint:all,-serial",
         "-cp",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
         "-d",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/strict-handwritten",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
-        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/strict-handwritten",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/handwritten-javac.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/handwritten-javac.log"
     },
     {
       "step": "java-0-version",
@@ -393,7 +393,7 @@
         "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
         "-version"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/java-0-version.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/java-0-version.log"
     },
     {
       "step": "java-0-tests",
@@ -401,30 +401,30 @@
         "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
         "-ea",
         "-cp",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
         "io.github.mahmoudimus.verifiedcrypto.GeneratedHkdfTest"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/java-0-tests.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/java-0-tests.log"
     },
     {
       "step": "java-1-version",
       "command": [
-        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
         "-version"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/java-1-version.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/java-1-version.log"
     },
     {
       "step": "java-1-tests",
       "command": [
-        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
         "-ea",
         "-cp",
-        "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/classes:/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
         "io.github.mahmoudimus.verifiedcrypto.GeneratedHkdfTest"
       ],
-      "log": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk/java-1-tests.log"
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx/java-1-tests.log"
     }
   ],
-  "workspace": "/private/tmp/microproxy-117-hkdf/replay-gate-final2/replay-bxjjr4nk"
+  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/hkdf-functional-canonical-v1/replay-2_7ya1rx"
 }

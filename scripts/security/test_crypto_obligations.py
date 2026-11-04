@@ -321,6 +321,11 @@ class Fixture:
             self._write_json(required["receipt"], receipt)
 
     def install_required_component(self, oid: str) -> None:
+        if oid == "V7":
+            assumption = "trusted-source-observation-coverage"
+            if assumption not in self.obligation(oid)["assumptions"]:
+                self.obligation(oid)["assumptions"].append(assumption)
+
         """Install the mandatory evidence/check contract for a supported component."""
         # Seed every required file before receipts are mutated.
         for relative, kind in obligations.REQUIRED_COMPONENT_EVIDENCE[oid]:
@@ -1074,6 +1079,53 @@ class ObligationLedgerTests(unittest.TestCase):
         for oid in ("V4", "V5", "V6"):
             self.fixture._set_evidence(oid, stage_path, "delivery-receipt")
         self.assert_invalid("delivered generated inventory no longer matches|generated file inventory changed")
+
+    def test_hkdf_source_control_cannot_be_removed_after_repinning_expectations(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = obligations.HKDF_SOURCE_RECEIPT
+        receipt = self.fixture._load_json(path)
+        del receipt["controls"]["third-callee-dup"]
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V7", path, "component-receipt")
+        self._set_receipt_expected("V7", path, {"controls": receipt["controls"]})
+        self.assert_invalid("required receipt value changed|controls")
+
+    def test_hkdf_source_input_map_cannot_be_trimmed_after_repinning(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = obligations.HKDF_SOURCE_RECEIPT
+        receipt = self.fixture._load_json(path)
+        receipt["inputs"].pop("formal/source/hkdf/checker/HkdfCoverage.cs")
+        self.fixture._write_json(path, receipt)
+        self.fixture._set_evidence("V7", path, "component-receipt")
+        self.assert_invalid("pinned map key inventory changed")
+
+    def test_hkdf_source_positives_assembly_and_sdk_cannot_be_self_blessed(self):
+        for field, value in (("positive.hkdf_body.verified", 1),
+                             ("checker.build.assembly_sha256", "0" * 64),
+                             ("checker.build.sdk", "unreviewed"),
+                             ("checker.declarations", 1)):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as folder:
+                fixture = Fixture(Path(folder))
+                fixture.make_supported("packet-receive-trace-scoped")
+                path = obligations.HKDF_SOURCE_RECEIPT
+                receipt = fixture._load_json(path)
+                fixture._nested_set(receipt, field, value)
+                fixture._write_json(path, receipt)
+                fixture._set_evidence("V7", path, "component-receipt")
+                for check in fixture.obligation("V7")["receipt_checks"]:
+                    if check["receipt"] == path:
+                        for checked in list(check["values"]):
+                            check["values"][checked] = fixture._nested_get(receipt, checked)
+                with self.assertRaisesRegex(obligations.LedgerError, "required receipt value changed"):
+                    obligations.validate_ledger(fixture.root, fixture.write_ledger())
+
+    def test_hkdf_source_trust_assumption_cannot_move_out_of_its_obligation(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        assumption = "trusted-source-observation-coverage"
+        self.fixture.obligation("V7")["assumptions"].remove(assumption)
+        if assumption not in self.fixture.obligation("V8")["assumptions"]:
+            self.fixture.obligation("V8")["assumptions"].append(assumption)
+        self.assert_invalid("required HKDF source-coverage trust assumption removed")
 
     def test_trimmed_hkdf_control_inventory_fails(self):
         self.fixture.make_supported("hkdf-production-functional")

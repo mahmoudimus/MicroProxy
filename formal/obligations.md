@@ -63,11 +63,17 @@ omitted dependency. The generated-file inventory compares the recorded
 `delivered_sources` with the actual files under the managed production prefixes, so
 a missing or newly added generated file fails even when all remaining hashes still
 match. HKDF additionally requires the exact 10-control inventory, sole Mac
-assumption, 21/22 proof counts, two 45-case/2766-assertion JDK records, adapter
+assumption, 248/249 proof counts, two 45-case/2766-assertion JDK records, adapter
 discipline metadata, and full input/generated/class key inventories from constants,
 not editable receipt expectations. V4-V6 additionally pin exact positive proof,
 audit, generation, vector, assumption, provider, and Java-result records in code;
-V7 pins the packet positive/trace text/result markers. Zeroing those values and
+V7 pins the packet positive/trace text/result markers. Its scoped HKDF source
+contribution additionally requires the actual 248/259 source checks, the exact
+64 control records (including the accepted bijective relabel), two-file source
+closure, sole Mac assumption, 44 pinned inputs, nine generated Java sources,
+twelve class/ABI checks and the recorded checker assembly/SDK. The coverage
+adapter has its own explicit trusted-source-observation assumption. These source
+results do not complete native crypto or Java-adapter trace composition. Zeroing those values and
 renewing the ledger/receipt hashes does not preserve a supported claim.
 
 Validation sections are not optional for a supported claim. A reviewed constant
