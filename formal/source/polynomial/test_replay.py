@@ -64,6 +64,60 @@ class ProofGateTests(unittest.TestCase):
                 REPLAY.require_assertion_failure(rc, text, "paired")
 
 
+class FocusedCounterexampleTests(unittest.TestCase):
+    def test_filter_symbol_is_the_actual_qualified_member(self):
+        focus = REPLAY.MISSING_FALSE_PREFIX_FOCUS
+        self.assertEqual("NativePolynomial.ZetasValue", focus["filter_symbol"])
+        self.assertIn(focus["filter_symbol"], REPLAY.DEFAULT_PURE_FUNCS)
+        self.assertNotIn("_default", focus["filter_symbol"])
+        self.assertEqual("ensures ZetasValue(i).1", focus["named_postcondition"])
+
+    def test_missing_false_prefix_mutant_is_only_the_old_prefix_deletion(self):
+        item = next(row for row in REPLAY.MUTATIONS if row[0] == "missing-false-prefix")
+        _, old, new, _, mode, named = item
+        self.assertEqual("focused", mode)
+        self.assertEqual("ensures ZetasValue(i).1", named)
+        self.assertEqual(old.replace("BranchFalsePrefix(800,3) + ", ""), new)
+        self.assertIn("BranchFalsePrefix(800,3) + ST.Branch(803,true)", old)
+        self.assertNotIn("BranchFalsePrefix(800,3)", new)
+
+    def test_focused_positive_requires_nonzero_verified_and_zero_errors(self):
+        self.assertEqual("focused-positive",
+                         REPLAY.require_focused_positive(0, ok(1), "NativePolynomial.ZetasValue", "x")["classification"])
+        for rc, text in ((4, ok(1)), (0, ok(0)), (0, ok(1, 1)),
+                         (0, ok(1) + "Verification timed out\n"),
+                         (0, ok(1) + "out of resource\n"),
+                         (0, ok(1) + "Warning: bad\n"),
+                         (0, ok(1) + ok(1))):
+            with self.subTest(rc=rc), self.assertRaises(REPLAY.GateError):
+                REPLAY.require_focused_positive(rc, text, "NativePolynomial.ZetasValue", "x")
+
+    def test_focused_counterexample_requires_one_named_postcondition_only(self):
+        good = ("NativePolynomial.dfy(569,24): Error: a postcondition could not be proved on this return path\n"
+                "    ensures ZetasValue(i).1 == (if i < 16 then [] else [])\n"
+                + ok(0, 1))
+        result = REPLAY.require_focused_counterexample(
+            4, good, "NativePolynomial.ZetasValue", "ensures ZetasValue(i).1", "x")
+        self.assertEqual("focused-dafny-postcondition-counterexample", result["classification"])
+        for rc, text in (
+            (0, good),
+            (4, good.replace("0 verified, 1 error", "0 verified, 0 errors")),
+            (4, good.replace("0 verified, 1 error", "0 verified, 2 errors")),
+            (4, good.replace("a postcondition could not be proved", "an unrelated error")),
+            (4, good.replace("ensures ZetasValue(i).1", "ensures Other(i).1")),
+            (4, good + "Verification timed out\n"),
+            (4, good + "out of resource\n"),
+            (4, good + "Warning: bad\n"),
+        ):
+            with self.subTest(rc=rc), self.assertRaises(REPLAY.GateError):
+                REPLAY.require_focused_counterexample(
+                    rc, text, "NativePolynomial.ZetasValue", "ensures ZetasValue(i).1", "x")
+
+    def test_unknown_filter_zero_match_is_rejected_as_vacuous(self):
+        with self.assertRaises(REPLAY.GateError):
+            REPLAY.require_focused_positive(0, ok(0), "NativePolynomial._default.ZetasValue", "unknown-filter")
+
+
 class CheckerGateTests(unittest.TestCase):
     def test_positive_checker_requires_exact_reviewed_root_identities(self):
         good = checker_ok(REPLAY.DEFAULT_METHOD_ROOTS)
