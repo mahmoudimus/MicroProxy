@@ -330,7 +330,10 @@ class TlsOriginationTest {
 
     @Test
     void anHttp3ServerGetsTheRequestOverQuic() throws Exception {
-        H3TestOrigin h3 = new H3TestOrigin(originCa, origin.getAddress().getPort());
+        origin.stop(0);
+        H3TestOrigin h3 = TestSupport.onSamePort(
+                () -> origin = httpsOrigin(originCa.serverContext("localhost", "127.0.0.1")),
+                port -> new H3TestOrigin(originCa, port)).udp();
         closeables.add(h3);
         proxy = forward().withHttp3Upstream(true).withHttp3UpstreamHosts("^localhost:").withHttp2Cleartext(true).start();
         String authority = "localhost:" + origin.getAddress().getPort();

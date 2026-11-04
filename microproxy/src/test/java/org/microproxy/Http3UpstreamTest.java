@@ -140,9 +140,10 @@ class Http3UpstreamTest {
 
     @Test
     void forcedHostsGoOverHttp3WithoutAltSvc() throws Exception {
-        HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
         // The HTTP/3 origin on the UDP port with the HTTPS origin's number.
-        H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
+        var origin = TestSupport.onSamePort(() -> tcpOrigin(TestSupport.fixed(200, "over tcp")), this::h3Origin);
+        HttpsServer tcp = origin.tcp();
+        H3TestOrigin h3 = origin.udp();
         proxy = mitmProxy().withHttp3UpstreamHosts("^localhost:").start();
         HttpResponse<String> r = TestSupport.get(client(), TestSupport.localhostUrl(tcp, "/hello"));
         assertEquals("hello over h3", r.body());
@@ -153,8 +154,9 @@ class Http3UpstreamTest {
 
     @Test
     void anHttp3ClientReachesAnHttp3ServerWithBodiesAndTrailers() throws Exception {
-        HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
-        H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
+        var origin = TestSupport.onSamePort(() -> tcpOrigin(TestSupport.fixed(200, "over tcp")), this::h3Origin);
+        HttpsServer tcp = origin.tcp();
+        H3TestOrigin h3 = origin.udp();
         SelfSignedSslContextSource listener = new SelfSignedSslContextSource();
         proxy = MicroProxy.bootstrap()
                 .withPort(0)
@@ -207,8 +209,9 @@ class Http3UpstreamTest {
 
     @Test
     void anHttp2ClientReachesAnHttp3Server() throws Exception {
-        HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
-        H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
+        var origin = TestSupport.onSamePort(() -> tcpOrigin(TestSupport.fixed(200, "over tcp")), this::h3Origin);
+        HttpsServer tcp = origin.tcp();
+        H3TestOrigin h3 = origin.udp();
         proxy = mitmProxy().withHttp2(true).withHttp3UpstreamHosts("^localhost:").start();
         try (H2TestClient client = H2TestClient.connect(proxy.getListenAddress(), "localhost:" + tcp.getAddress().getPort(),
                 proxyCa.clientContext()).handshake()) {
@@ -226,8 +229,9 @@ class Http3UpstreamTest {
 
     @Test
     void aGoAwayFromTheServerMovesLaterRequestsToANewConnection() throws Exception {
-        HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
-        H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
+        var origin = TestSupport.onSamePort(() -> tcpOrigin(TestSupport.fixed(200, "over tcp")), this::h3Origin);
+        HttpsServer tcp = origin.tcp();
+        H3TestOrigin h3 = origin.udp();
         proxy = mitmProxy().withHttp3UpstreamHosts("localhost").start();
         HttpClient client = client();
         assertEquals("ok", TestSupport.get(client, TestSupport.localhostUrl(tcp, "/goaway")).body());

@@ -61,8 +61,12 @@ class Http3FrameInterceptorTest {
 
     /** A client over HTTP/3 to the proxy, and the proxy over HTTP/3 to the origin, with {@code edit} after recording. */
     private H3TestClient start(FrameInterceptor edit) throws Exception {
-        tcp = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), TestSupport.fixed(200, "over tcp"));
-        h3 = new H3TestOrigin(originCa, tcp.getAddress().getPort());
+        var origin = TestSupport.onSamePort(
+                () -> TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"),
+                        TestSupport.fixed(200, "over tcp")),
+                port -> new H3TestOrigin(originCa, port));
+        tcp = origin.tcp();
+        h3 = origin.udp();
         listener = new SelfSignedSslContextSource();
         proxy = MicroProxy.bootstrap()
                 .withPort(0)

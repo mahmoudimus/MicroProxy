@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
 
 /** Origin servers, clients and helpers shared by the tests. */
@@ -55,6 +57,35 @@ public final class TestSupport {
      * cores (a proxy keeping its TLS connections to a few such origins) would starve every virtual
      * thread in the JVM, the proxy's and QUIC's included.
      */
+    /** A TCP server and a UDP endpoint on one port number, as an origin serving HTTPS and HTTP/3 together is. */
+    public record SamePort<U>(HttpsServer tcp, U udp) {
+    }
+
+    /** Binds a UDP endpoint on {@code port}. */
+    @FunctionalInterface
+    public interface UdpBinder<U> {
+        U bind(int port) throws Exception;
+    }
+
+    /**
+     * Starts {@code tcp} on an ephemeral port and binds {@code udp} on the same number. The OS hands out the TCP port
+     * without looking at UDP, so that UDP port may already be in use: on a {@link BindException} the TCP server is
+     * stopped and both start again on a fresh port.
+     */
+    public static <U> SamePort<U> onSamePort(Supplier<HttpsServer> tcp, UdpBinder<U> udp) throws Exception {
+        BindException last = null;
+        for (int attempt = 0; attempt < 20; attempt++) {
+            HttpsServer server = tcp.get();
+            try {
+                return new SamePort<>(server, udp.bind(server.getAddress().getPort()));
+            } catch (BindException e) {
+                server.stop(0);
+                last = e;
+            }
+        }
+        throw last;
+    }
+
     public static HttpsServer httpsOrigin(SSLContext context, HttpHandler handler) {
         try {
             HttpsServer server = HttpsServer.create(new InetSocketAddress(LOOPBACK, 0), 0);
