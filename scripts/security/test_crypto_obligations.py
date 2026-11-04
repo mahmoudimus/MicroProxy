@@ -2067,6 +2067,119 @@ class KeccakTraceGateTests(unittest.TestCase):
                 self.component[name] = saved
 
 
+class PolyFocusedControlTests(unittest.TestCase):
+    """The focused 1/0 original and 0/1 mutant are real verifier outcomes.
+
+    These small protocol fixtures exercise scope/log-binding attacks; they do
+    not stand in for the complete source replay required by PolySourceGateTests.
+    """
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.producer = "/executed/poly"
+        self.symbol = "NativePolynomial.ZetasValue"
+        self.policy = list(obligations.POLY_SOURCE_FOCUSED_POLICY)
+        original_source = self.producer + "/frozen/formal/crypto/NativePolynomial.dfy"
+        mutant_source = "/tmp/poly-mutation-missing-false-prefix-case/formal/crypto/NativePolynomial.dfy"
+        base = ["/tools/dafny", "verify", original_source, *self.policy]
+        self.receipt = {"proofs": [{"label": "polynomial", "command": base}]}
+        self.index = {"producer_root": self.producer, "logs": {}}
+        original_rel = obligations.POLY_SOURCE_FOCUSED_ORIGINAL_LOG
+        mutant_rel = "logs/controls/missing-false-prefix-dafny.log"
+        original_sha = self.log(original_rel,
+                                "Dafny program verifier finished with 1 verified, 0 errors\n")
+        mutant_sha = self.log(mutant_rel,
+            "/tmp/control/NativePolynomial.dfy(569,24): Error: a postcondition could not be proved on this return path\n"
+            "/tmp/control/NativePolynomial.dfy(557,12): Related location: this is the postcondition that could not be proved\n"
+            "557 | ensures ZetasValue(i).1 == expected\n"
+            "Dafny program verifier finished with 0 verified, 1 error\n")
+        original = {"command": base + ["--filter-symbol", self.symbol], "exit": 0,
+                    "log": self.producer + "/" + original_rel, "log_sha256": original_sha,
+                    "verified": 1, "errors": 0}
+        mutant = {"command": ["/tools/dafny", "verify", mutant_source, *self.policy,
+                               "--filter-symbol", self.symbol], "exit": 4,
+                  "log": self.producer + "/" + mutant_rel, "log_sha256": mutant_sha,
+                  "verified": 0, "errors": 1}
+        self.record = {"control": "missing-false-prefix", "dafny_command": mutant["command"],
+                       "dafny_exit": 4, "dafny_log": mutant["log"],
+                       "dafny_log_sha256": mutant_sha,
+                       "dafny": {"verified": 0, "errors": 1, "filter_symbol": self.symbol,
+                                 "named": "ensures ZetasValue(i).1",
+                                 "classification": "focused-dafny-postcondition-counterexample",
+                                 "paired_original": original},
+                       "focused": {"filter_symbol": self.symbol, "original": original,
+                                   "mutant": mutant, "note": "focused actual ZetasValue"}}
+
+    def log(self, relative, text):
+        path = self.root / obligations.POLY_SOURCE_TRACKED_PREFIX / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.index["logs"][relative] = digest
+        return digest
+
+    def validate(self):
+        return obligations._poly_validate_focused_control(
+            self.root, self.index, self.receipt, self.record, "focused")
+
+    def test_genuine_focused_original_and_mutant_pass(self):
+        self.assertGreater(self.validate(), 0)
+
+    def test_focus_cannot_be_omitted(self):
+        del self.record["focused"]
+        with self.assertRaisesRegex(obligations.LedgerError, "focused"):
+            self.validate()
+
+    def test_fully_consistent_wrong_symbol_is_rejected(self):
+        self.record["focused"]["filter_symbol"] = "NativePolynomial.Len"
+        self.record["dafny"]["filter_symbol"] = "NativePolynomial.Len"
+        for item in (self.record["focused"]["original"], self.record["focused"]["mutant"]):
+            item["command"][-1] = "NativePolynomial.Len"
+        with self.assertRaisesRegex(obligations.LedgerError, "symbol"):
+            self.validate()
+
+    def test_zero_match_original_is_not_a_proof(self):
+        original = self.record["focused"]["original"]
+        original["verified"] = 0
+        original["log_sha256"] = self.log(obligations.POLY_SOURCE_FOCUSED_ORIGINAL_LOG,
+            "Dafny program verifier finished with 0 verified, 0 errors\n")
+        with self.assertRaisesRegex(obligations.LedgerError, "original"):
+            self.validate()
+
+    def test_original_cannot_borrow_the_mutant_log(self):
+        self.record["focused"]["original"]["log"] = self.record["dafny_log"]
+        with self.assertRaisesRegex(obligations.LedgerError, "log path"):
+            self.validate()
+
+    def test_mutant_cannot_be_an_unfiltered_sweep(self):
+        del self.record["focused"]["mutant"]["command"][-2:]
+        with self.assertRaisesRegex(obligations.LedgerError, "command"):
+            self.validate()
+
+    def test_duplicate_policy_flag_is_rejected(self):
+        self.record["focused"]["mutant"]["command"].extend(["--resource-limit", "999999999"])
+        with self.assertRaisesRegex(obligations.LedgerError, "command"):
+            self.validate()
+
+    def test_paired_original_copies_must_agree(self):
+        self.record["dafny"]["paired_original"] = {"verified": 1, "errors": 0}
+        with self.assertRaisesRegex(obligations.LedgerError, "paired original"):
+            self.validate()
+
+    def test_generic_error_with_decoy_postcondition_is_rejected(self):
+        relative = "logs/controls/missing-false-prefix-dafny.log"
+        value = self.log(relative,
+            "unrelated.dfy(1,1): Error: assertion might not hold\n"
+            "ensures ZetasValue(i).1; // a postcondition could not be proved on this return path\n"
+            "Dafny program verifier finished with 0 verified, 1 error\n")
+        self.record["dafny_log_sha256"] = value
+        self.record["focused"]["mutant"]["log_sha256"] = value
+        with self.assertRaisesRegex(obligations.LedgerError, "diagnostic"):
+            self.validate()
+
+
 class PolySourceGateTests(unittest.TestCase):
     """Ingestion gate regressions over the real adopted report and logs.
 
@@ -2502,6 +2615,34 @@ class PolySourceGateTests(unittest.TestCase):
         self.write_log(relative, green)
         record["dafny_log_sha256"] = self.index["logs"][relative]
         self.reject("not an inconclusive resource diagnostic")
+
+    def focused_copies(self):
+        return (self.mutation("missing-false-prefix"),
+                self.check_record(lambda x: x.get("control") == "missing-false-prefix"))
+
+    def test_real_focused_record_cannot_drop_its_paired_original(self):
+        for record in self.focused_copies():
+            del record["dafny"]["paired_original"]
+        self.reject("focused Dafny result shape changed")
+
+    def test_real_zero_match_original_is_rejected_even_with_consistent_log_and_hash(self):
+        relative = obligations.POLY_SOURCE_FOCUSED_ORIGINAL_LOG
+        value = self.write_log(relative,
+            "Dafny program verifier finished with 0 verified, 0 errors\n")
+        for record in self.focused_copies():
+            for original in (record["focused"]["original"], record["dafny"]["paired_original"]):
+                original["verified"] = 0
+                original["log_sha256"] = value
+        self.reject("focused original must verify one obligation")
+
+    def test_real_focus_commands_cannot_silently_revert_to_whole_file_verification(self):
+        for record in self.focused_copies():
+            for command in (record["dafny_command"], record["focused"]["mutant"]["command"],
+                            record["focused"]["original"]["command"],
+                            record["dafny"]["paired_original"]["command"]):
+                self.assertEqual(command[-2:], ["--filter-symbol", "NativePolynomial.ZetasValue"])
+                del command[-2:]
+        self.reject("focused original command")
 
     def test_supported_claim_must_cite_every_reviewed_input(self):
         claim = {"id": obligations.POLY_SOURCE_CLAIM,
