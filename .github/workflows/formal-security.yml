@@ -202,7 +202,6 @@ jobs:
     timeout-minutes: 60
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/microproxy-select-dotnet-10.0.400
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -211,6 +210,8 @@ jobs:
         with:
           python-version: '3.13'
       - uses: actions/setup-dotnet@v6.1.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/microproxy-select-dotnet-10.0.400
         with:
           dotnet-version: '10.0.400'
           skip-lts-prepass: true
@@ -237,7 +238,7 @@ jobs:
           /usr/bin/git archive --format=tar 155bbe14cb9748cf677f4eb223af3dd2331687b0 formal | tar -x -C target/select-source-baseline
       - name: Prove Select source contracts, observations and erasure
         run: |
-          python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output target/dafny-select-source --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$DOTNET_INSTALL_DIR/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
+          python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output target/dafny-select-source --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$RUNNER_TEMP/microproxy-select-dotnet-10.0.400/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
           python scripts/security/run_select_package_tests.py --baseline target/select-source-baseline --full-report target/dafny-select-source/package-report.json --work-root "$RUNNER_TEMP/select-package-tests"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
