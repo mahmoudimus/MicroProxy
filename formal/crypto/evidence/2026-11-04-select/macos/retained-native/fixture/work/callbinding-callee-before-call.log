@@ -1,0 +1,6 @@
+work/controls/callbinding-callee-before-call/formal/crypto/NativeField.dfy(92,10): Error: Add: callee trace append must place its exact defining Call marker immediately before its callee trace leaf
+   |
+92 |     trace := trace + callee + ST.Call(1,1,1);
+   |           ^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

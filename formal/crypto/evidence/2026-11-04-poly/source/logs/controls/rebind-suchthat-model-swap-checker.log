@@ -1,4 +1,4 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-qx8954cx/formal/crypto/NativePolynomial.dfy(870,9): Error: Add: unsupported statement class in ghost-binding scan: AssignSuchThatStmt
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-1f6zovs2/formal/crypto/NativePolynomial.dfy(870,9): Error: Add: unsupported statement class in ghost-binding scan: AssignSuchThatStmt
     |
 870 |       ft :| ft == FieldSubCallee();
     |          ^^

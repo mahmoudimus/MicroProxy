@@ -1,0 +1,6 @@
+{
+  "name": "positive-alpha-out",
+  "expect": "accept",
+  "needle": null,
+  "note": "F3 sole non-ghost out formal alpha-renamed to outbuf; role 4 is positional"
+}

@@ -110,7 +110,7 @@
   },
   "delivery": {
     "manifest": "formal/crypto/delivery.json",
-    "manifest_sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+    "manifest_sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
     "existing_generated_sources_key": "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
     "existing_generated_sources_sha256": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
     "crypto_scope_prefixes": [

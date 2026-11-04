@@ -145,7 +145,7 @@
     "receipt_format": "native_kem_checks.py unversioned JSON, identified by this versioned contract and exact runner SHA256",
     "runner": {
       "path": "formal/crypto/native_kem_checks.py",
-      "sha256": "4341752e4435d7e9717a14bbab756722327164777647edec3eb34553ca5417ce"
+      "sha256": "7c0bedc97e02abbdd1a700e58d78c38fa1a4ae63ba4ae820a07b9e0a5b3dd91a"
     },
     "domain_source": "formal/crypto/native_kem_domain.dfy",
     "additional_inputs": [
@@ -224,7 +224,7 @@
     },
     "drift_policy": "Runner schema and inventory changes require explicit contract review/version or pin update. Every current domain dependency, runner, harness, provider and reference Java hash must match; partial controls or matching partial inventories cannot qualify. Full staging replays proofs but relies on these complete pinned controls and supported-JDK replays.",
     "required_source_pins": {
-      "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f"
+      "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a"
     },
     "bytecode_control_rejections": {
       "selector-narrow-helper": "Unreviewed or payload-sensitive runtime helper",

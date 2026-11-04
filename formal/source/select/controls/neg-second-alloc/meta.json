@@ -1,0 +1,6 @@
+{
+  "name": "neg-second-alloc",
+  "expect": "reject",
+  "needle": "Select must allocate its returned buffer exactly once",
+  "note": "F1 second top-level returned-buffer allocation"
+}

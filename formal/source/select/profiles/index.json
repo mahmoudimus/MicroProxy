@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "linux-sdk10.0.400": "89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1",
+    "macos-sdk10.0.400": "9ec9f05ce8dd1083071e6fc0aecea69d9972abe7d94ca8e7be0266c032e99f84"
+  },
+  "schema": "microproxy.select-profile-index/2"
+}

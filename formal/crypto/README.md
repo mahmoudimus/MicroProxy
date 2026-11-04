@@ -294,17 +294,22 @@ private ownership; caller inputs are preserved, results are fresh, and discarded
 temporary arrays are zeroed on modeled returns. The seed-backed factory establishes
 the cached-key invariant; arbitrary serialized private-key import is not offered.
 
-[Strict evidence](NATIVE-KEM-EVIDENCE.json) records composition 2,776, reference
-graph 2,649, native kernels 3,487 and generation 162 obligations, all with zero
+[Strict evidence](NATIVE-KEM-EVIDENCE.json) records composition 2,782, reference
+graph 2,695, native kernels 4,097 and generation 168 obligations, all with zero
 errors. Counts include overlapping dependency checks, not independent security
 properties. All 11 semantic controls terminate normally with exit4, and three
 compiled controls reject selector narrowing, payload branches and payload boxing.
 Both JDKs pass 7,813 assertions, including the Go accumulator and malformed-input,
 all-position selector and destruction cases. The hash-matched [Linux composition replay](NATIVE-KEM-LINUX-EVIDENCE.json)
-passes the same 2,776 checks at unchanged limits. Its ghost-only NoiseVector
+passes the same 2,782 checks. Its ghost-only NoiseVector
 model capture leaves all 66 emitted Java sources and 72 compiled component/test
 classes byte-identical to the prior strict receipt. Native source/runtime reviews
 were independent development reviews, not an external cryptographic audit.
+
+> Current updated facts (2026-11-04): the counts above overlap dependency checks;
+> they are not independent theorems, and the Linux replay is not a GitHub-hosted
+> CI run. Older paragraphs in this file that quote 2,776/2,767 are historical
+> snapshots of the pre-Select-caller state and are kept for the record.
 
 The complete comparison covers all 1088 ciphertext bytes and all 32 output bytes.
 Its mask uses a wide shift by public literal56, avoiding the pinned runtime's

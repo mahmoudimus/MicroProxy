@@ -1,0 +1,6 @@
+work/controls/callbinding-root-array-role/formal/crypto/NativeKeccak.dfy(412,9): Error: NativeKeccak.Wipe: expected 1 input formals, found 2
+    |
+412 |   method Wipe(a: array<bv64>, extra: array<bv64>) returns (ghost trace: seq<int>)
+    |          ^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

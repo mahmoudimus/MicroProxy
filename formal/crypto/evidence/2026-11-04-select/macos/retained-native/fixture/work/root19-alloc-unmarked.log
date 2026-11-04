@@ -1,0 +1,6 @@
+work/controls/root19-alloc-unmarked/formal/crypto/NativeKeccak.dfy(132,16): Error: unsupported allocation in current native root grammar
+    |
+132 |     var junk := new bv64[(value as int)%2];
+    |                 ^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

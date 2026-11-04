@@ -1,0 +1,153 @@
+{
+  "alloc-marked-public": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "unsupported allocation in current native root grammar",
+    "source": "controls-v2"
+  },
+  "alloc-marked-secret": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "unsupported allocation in current native root grammar",
+    "source": "controls-v2"
+  },
+  "alloc-unmarked": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy",
+      "source/SourceTraceBridge.dfy"
+    ],
+    "needle": "unsupported allocation in current native root grammar",
+    "source": "controls-v2"
+  },
+  "alloc-wrong-marker": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "unsupported allocation in current native root grammar",
+    "source": "controls-v2"
+  },
+  "baseline13": {
+    "expected_exit": 0,
+    "files": [],
+    "needle": null,
+    "source": "baseline"
+  },
+  "duplicate-root": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeField.dfy"
+    ],
+    "needle": "reserved native root outside exact default declaration",
+    "source": "controls-v2"
+  },
+  "fake-rotate": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "Rotate actual trace must begin with its actual branch outcome",
+    "source": "controls-v2"
+  },
+  "ghost-lemma-output": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeField.dfy"
+    ],
+    "needle": "ghost/lemma call output binding is unsupported",
+    "source": "controls-v2"
+  },
+  "helper-constant-arg": {
+    "expected_exit": 2,
+    "files": [
+      "source/SourceTrace.dfy"
+    ],
+    "needle": "marker helper changes or reorders positional formal",
+    "source": "controls-v2"
+  },
+  "helper-prefix": {
+    "expected_exit": 2,
+    "files": [
+      "source/SourceTrace.dfy"
+    ],
+    "needle": "marker helper is not exact canonical",
+    "source": "controls-v2"
+  },
+  "match-unmarked": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "unsupported",
+    "source": "controls-v2"
+  },
+  "rename-helper-formal": {
+    "expected_exit": 0,
+    "files": [
+      "source/SourceTrace.dfy"
+    ],
+    "needle": null,
+    "source": "additional-controls-v1"
+  },
+  "rename-public-formal": {
+    "expected_exit": 0,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": null,
+    "source": "additional-controls-v1"
+  },
+  "shadow-encoder": {
+    "expected_exit": 2,
+    "files": [
+      "source/SourceTrace.dfy"
+    ],
+    "needle": "marker helper is not exact canonical",
+    "source": "additional-controls-v1"
+  },
+  "shadow-marker-class": {
+    "expected_exit": 2,
+    "files": [
+      "source/SourceTrace.dfy"
+    ],
+    "needle": "reserved marker outside exact SourceTrace default ghost function",
+    "source": "additional-controls-v1"
+  },
+  "shadow-rotate-class": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "reserved native root outside exact default declaration",
+    "source": "additional-controls-v1"
+  },
+  "statement-expression": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeField.dfy"
+    ],
+    "needle": "unsupported statement expression in native binding grammar",
+    "source": "controls-v2"
+  },
+  "wrong-branch-outcome": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "Rotate actual trace must begin with its actual branch outcome",
+    "source": "additional-controls-v1"
+  },
+  "wrong-word-count": {
+    "expected_exit": 2,
+    "files": [
+      "crypto/NativeKeccak.dfy"
+    ],
+    "needle": "Rotate operation observation does not match actual executable count",
+    "source": "additional-controls-v1"
+  }
+}

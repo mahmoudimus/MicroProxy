@@ -1,0 +1,6 @@
+{
+  "name": "neg-public-branch-after-alloc",
+  "expect": "reject",
+  "needle": "expected exact SourceTrace.Branch",
+  "note": "F3 branch after allocation with TypeRhs in same block"
+}

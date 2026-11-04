@@ -1,0 +1,6 @@
+work/controls/callbinding-pure-rr-before-call/formal/crypto/NativeKeccak.dfy(227,12): Error: Theta: pure-function trace append must place its exact defining Call marker immediately before its pure trace leaf
+    |
+227 |       trace := trace + rr.1 + ST.Call(1,20,2);
+    |             ^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

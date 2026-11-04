@@ -1,0 +1,4 @@
+CASE-CONTEXT case=positive-alpha-out operand_sha256=ebc3e12d2708165988176bdfe866c53490c72e6cc4272c5f5526036202f80700 expected_fixture_sha256=ebc3e12d2708165988176bdfe866c53490c72e6cc4272c5f5526036202f80700 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","resolve","/out/replay-b1ce/trees/positive-alpha-out/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/out/replay-b1ce/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/out/replay-b1ce/trees/positive-alpha-out/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+SOURCE-COVERAGE OK: exact roots [NativeMlKem.Select]; ordered markers; fail-closed
+
+Dafny program verifier did not attempt verification

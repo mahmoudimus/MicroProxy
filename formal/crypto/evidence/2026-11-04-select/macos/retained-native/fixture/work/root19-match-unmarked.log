@@ -1,0 +1,21 @@
+work/controls/root19-match-unmarked/formal/crypto/NativeKeccak.dfy(131,4): Error: unsupported executable statement NestedMatchStmt in native binding grammar
+    |
+131 |     match value as int {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+work/controls/root19-match-unmarked/formal/crypto/NativeKeccak.dfy(131,4): Error: unsupported executable statement: NestedMatchStmt
+    |
+131 |     match value as int {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+work/controls/root19-match-unmarked/formal/crypto/NativeKeccak.dfy(129,16): Error: Write marker is not adjacent-before its executable operation
+    |
+129 |     trace := ST.Write(0, 0, index as int);
+    |                 ^^^^^
+
+work/controls/root19-match-unmarked/formal/crypto/NativeKeccak.dfy(129,16): Error: SetLane: stale observation Write
+    |
+129 |     trace := ST.Write(0, 0, index as int);
+    |                 ^^^^^
+
+4 resolution/type errors detected in AllTraceRoots.dfy

@@ -1,0 +1,6 @@
+{
+  "name": "neg-unmarked-private-loop-bound",
+  "expect": "reject",
+  "needle": "expected exact SourceTrace.Read",
+  "note": "F2 unmarked private loop bound/read fails coverage"
+}

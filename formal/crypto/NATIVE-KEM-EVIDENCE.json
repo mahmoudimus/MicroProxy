@@ -4,7 +4,7 @@
     {
       "label": "dafny-version",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "--version"
       ],
       "exit": 0
@@ -12,7 +12,7 @@
     {
       "label": "solver-version",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1",
         "--version"
       ],
       "exit": 0
@@ -20,40 +20,40 @@
     {
       "label": "audit",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "audit",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Codec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/JdkHash.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/KemSpec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeCodec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeField.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeJdkHash.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeKeccak.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeMlKem.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativePolynomial.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeSampling.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeShake.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeTypes.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Polynomial.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Sampling.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Shake.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/SpongeSpec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_kem_domain.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/primitives/Field.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/primitives/Keccak.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/source/SourceTrace.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/source/vocabulary/ObservationVocabulary.dfy"
+        "/repo/formal/crypto/Codec.dfy",
+        "/repo/formal/crypto/JdkHash.dfy",
+        "/repo/formal/crypto/KemSpec.dfy",
+        "/repo/formal/crypto/NativeCodec.dfy",
+        "/repo/formal/crypto/NativeField.dfy",
+        "/repo/formal/crypto/NativeJdkHash.dfy",
+        "/repo/formal/crypto/NativeKeccak.dfy",
+        "/repo/formal/crypto/NativeMlKem.dfy",
+        "/repo/formal/crypto/NativePolynomial.dfy",
+        "/repo/formal/crypto/NativeSampling.dfy",
+        "/repo/formal/crypto/NativeShake.dfy",
+        "/repo/formal/crypto/NativeTypes.dfy",
+        "/repo/formal/crypto/Polynomial.dfy",
+        "/repo/formal/crypto/Sampling.dfy",
+        "/repo/formal/crypto/Shake.dfy",
+        "/repo/formal/crypto/SpongeSpec.dfy",
+        "/repo/formal/crypto/native_kem_domain.dfy",
+        "/repo/formal/primitives/Field.dfy",
+        "/repo/formal/primitives/Keccak.dfy",
+        "/repo/formal/source/SourceTrace.dfy",
+        "/repo/formal/source/vocabulary/ObservationVocabulary.dfy"
       ],
       "exit": 0
     },
     {
       "label": "proof-native-composition",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeMlKem.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeJdkHash.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_kem_domain.dfy",
+        "/repo/formal/crypto/NativeMlKem.dfy",
+        "/repo/formal/crypto/NativeJdkHash.dfy",
+        "/repo/formal/crypto/native_kem_domain.dfy",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -61,26 +61,26 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 0
     },
     {
       "label": "proof-reference-graph",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Codec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/JdkHash.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/KemSpec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Polynomial.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Sampling.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/Shake.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/SpongeSpec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/primitives/Field.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/primitives/Keccak.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/source/SourceTrace.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/source/vocabulary/ObservationVocabulary.dfy",
+        "/repo/formal/crypto/Codec.dfy",
+        "/repo/formal/crypto/JdkHash.dfy",
+        "/repo/formal/crypto/KemSpec.dfy",
+        "/repo/formal/crypto/Polynomial.dfy",
+        "/repo/formal/crypto/Sampling.dfy",
+        "/repo/formal/crypto/Shake.dfy",
+        "/repo/formal/crypto/SpongeSpec.dfy",
+        "/repo/formal/primitives/Field.dfy",
+        "/repo/formal/primitives/Keccak.dfy",
+        "/repo/formal/source/SourceTrace.dfy",
+        "/repo/formal/source/vocabulary/ObservationVocabulary.dfy",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -88,22 +88,22 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 0
     },
     {
       "label": "proof-native-kernels",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeCodec.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeField.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeKeccak.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativePolynomial.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeSampling.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeShake.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeTypes.dfy",
+        "/repo/formal/crypto/NativeCodec.dfy",
+        "/repo/formal/crypto/NativeField.dfy",
+        "/repo/formal/crypto/NativeKeccak.dfy",
+        "/repo/formal/crypto/NativePolynomial.dfy",
+        "/repo/formal/crypto/NativeSampling.dfy",
+        "/repo/formal/crypto/NativeShake.dfy",
+        "/repo/formal/crypto/NativeTypes.dfy",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -111,7 +111,7 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1",
         "--boogie",
         "/proverOpt:O:smt.case_split=0"
       ],
@@ -120,14 +120,14 @@
     {
       "label": "control-wrong-coins",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/wrong-coins.dfy",
+        "/out/repair-full/native-kem-uon76nt5/wrong-coins.dfy",
         "--filter-symbol",
         "NativeMlKem.Encaps.",
         "--isolate-assertions",
         "--filter-position",
-        "wrong-coins.dfy:950",
+        "wrong-coins.dfy:990",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -135,16 +135,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-matrix-axis",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/matrix-axis.dfy",
+        "/out/repair-full/native-kem-uon76nt5/matrix-axis.dfy",
         "--filter-symbol",
         "NativeMlKem.Sample.",
         "--cores",
@@ -154,16 +154,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-matrix-transpose",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/matrix-transpose.dfy",
+        "/out/repair-full/native-kem-uon76nt5/matrix-transpose.dfy",
         "--filter-symbol",
         "NativeMlKem.Row.",
         "--cores",
@@ -173,16 +173,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-reused-nonce",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/reused-nonce.dfy",
+        "/out/repair-full/native-kem-uon76nt5/reused-nonce.dfy",
         "--filter-symbol",
         "NativeMlKem.Noise.",
         "--cores",
@@ -192,21 +192,21 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-wrong-fallback-seed",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/wrong-fallback-seed.dfy",
+        "/out/repair-full/native-kem-uon76nt5/wrong-fallback-seed.dfy",
         "--filter-symbol",
         "NativeMlKem.Decaps.",
         "--isolate-assertions",
         "--filter-position",
-        "wrong-fallback-seed.dfy:1076",
+        "wrong-fallback-seed.dfy:1116",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -214,16 +214,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-constant-selection",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/constant-selection.dfy",
+        "/out/repair-full/native-kem-uon76nt5/constant-selection.dfy",
         "--filter-symbol",
         "NativeMlKem.Select.",
         "--cores",
@@ -233,16 +233,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-short-comparison",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/short-comparison.dfy",
+        "/out/repair-full/native-kem-uon76nt5/short-comparison.dfy",
         "--filter-symbol",
         "NativeMlKem.Select.",
         "--cores",
@@ -252,16 +252,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-modulus-error-kind",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/modulus-error-kind.dfy",
+        "/out/repair-full/native-kem-uon76nt5/modulus-error-kind.dfy",
         "--filter-symbol",
         "NativeMlKem.Parse.",
         "--cores",
@@ -271,16 +271,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-short-sampler",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/short-sampler.dfy",
+        "/out/repair-full/native-kem-uon76nt5/short-sampler.dfy",
         "--filter-symbol",
         "NativeMlKem.SamplePrefix.",
         "--cores",
@@ -290,16 +290,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-missing-failure-wipe",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/missing-failure-wipe.dfy",
+        "/out/repair-full/native-kem-uon76nt5/missing-failure-wipe.dfy",
         "--filter-symbol",
         "NativeMlKem.SamplePrefix.",
         "--cores",
@@ -309,16 +309,16 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "control-missing-byte-wipe",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/missing-byte-wipe.dfy",
+        "/out/repair-full/native-kem-uon76nt5/missing-byte-wipe.dfy",
         "--filter-symbol",
         "NativeMlKem.WipeBytes.",
         "--cores",
@@ -328,21 +328,21 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1"
       ],
       "exit": 4
     },
     {
       "label": "generate-java",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny",
         "translate",
         "java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeMlKem.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/NativeJdkHash.dfy",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_kem_domain.dfy",
+        "/repo/formal/crypto/NativeMlKem.dfy",
+        "/repo/formal/crypto/NativeJdkHash.dfy",
+        "/repo/formal/crypto/native_kem_domain.dfy",
         "--output",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem",
         "--cores",
         "2",
         "--verification-time-limit",
@@ -350,102 +350,103 @@
         "--resource-limit",
         "50000000",
         "--solver-path",
-        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+        "/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/z3/bin/z3-4.12.1",
+        "--isolate-assertions"
       ],
       "exit": 0
     },
     {
       "label": "javac",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "/opt/jdk21/bin/javac",
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/opt/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/DecodeResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/DecodeResult_Decoded.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/DecodeResult_InvalidLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/DecodeResult_InvalidWidth.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/DecodeResult_ModulusError.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/CodecSpec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/Encapsulation.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_InvalidCiphertextLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_InvalidKeyLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_InvalidMessageLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_InvalidSeedLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_ModulusError.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/FailureKind_RejectionLimit.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/PublicKey.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/Result.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/Result_Failure.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/Result_Success.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/KemSpec/SecretKey.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/DecodeResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/DecodeResult_Decoded.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/DecodeResult_InvalidLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/DecodeResult_InvalidWidth.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/DecodeResult_ModulusError.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeCodec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeField/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeKeccak/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeKemDomain/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeMlKem/Encapsulation.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeMlKem/PublicKey.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeMlKem/SecretKey.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeMlKem/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeMlKem.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativePolynomial/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/FeedResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/FeedResult_Full.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/FeedResult_InvalidBlockLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/FeedResult_InvalidPrefix.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/FeedResult_NeedMore.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeSampling/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeShake/Sponge.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeShake/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeTypes/I.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/NativeTypes/L.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/PolySpec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/PolynomialRing/Residue.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/PolynomialRing/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/FeedResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/FeedResult_Full.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/FeedResult_InvalidBlockLength.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/FeedResult_InvalidPrefix.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/FeedResult_NeedMore.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SamplingSpec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/ReadResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/State.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/UpdateResult.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/UpdateResult_InputAfterOutput.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/UpdateResult_InvalidSlice.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/UpdateResult_Updated.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/SpongeSpec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedCodec/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedField/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedKeccak/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedPolynomial/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedSampling/__default.java",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/NativeMlKem-java/VerifiedShake/__default.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_kem_test.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/native_kem_hash.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/reference/MlKem768.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/crypto/reference/Shake.java"
+        "/out/repair-full/native-kem-uon76nt5/classes",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/DecodeResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/DecodeResult_Decoded.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/DecodeResult_InvalidLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/DecodeResult_InvalidWidth.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/DecodeResult_ModulusError.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/CodecSpec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/Encapsulation.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_InvalidCiphertextLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_InvalidKeyLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_InvalidMessageLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_InvalidSeedLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_ModulusError.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/FailureKind_RejectionLimit.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/PublicKey.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/Result.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/Result_Failure.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/Result_Success.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/KemSpec/SecretKey.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/DecodeResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/DecodeResult_Decoded.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/DecodeResult_InvalidLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/DecodeResult_InvalidWidth.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/DecodeResult_ModulusError.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeCodec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeField/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeKeccak/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeKemDomain/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeMlKem/Encapsulation.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeMlKem/PublicKey.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeMlKem/SecretKey.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeMlKem/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeMlKem.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativePolynomial/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/FeedResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/FeedResult_Full.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/FeedResult_InvalidBlockLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/FeedResult_InvalidPrefix.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/FeedResult_NeedMore.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeSampling/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeShake/Sponge.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeShake/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeTypes/I.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/NativeTypes/L.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/PolySpec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/PolynomialRing/Residue.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/PolynomialRing/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/FeedResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/FeedResult_Full.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/FeedResult_InvalidBlockLength.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/FeedResult_InvalidPrefix.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/FeedResult_NeedMore.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SamplingSpec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/ReadResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/State.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/UpdateResult.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/UpdateResult_InputAfterOutput.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/UpdateResult_InvalidSlice.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/UpdateResult_Updated.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/SpongeSpec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedCodec/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedField/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedKeccak/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedPolynomial/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedSampling/__default.java",
+        "/out/repair-full/native-kem-uon76nt5/NativeMlKem-java/VerifiedShake/__default.java",
+        "/repo/formal/crypto/native_kem_test.java",
+        "/repo/formal/crypto/native_kem_hash.java",
+        "/repo/formal/crypto/reference/MlKem768.java",
+        "/repo/formal/crypto/reference/Shake.java"
       ],
       "exit": 0
     },
     {
       "label": "native-runtime-bytecode",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes",
+        "/out/repair-full/native-kem-uon76nt5/classes",
         "NativeCodec.DecodeResult",
         "NativeCodec.DecodeResult_Decoded",
         "NativeCodec.DecodeResult_InvalidLength",
@@ -473,12 +474,12 @@
     {
       "label": "runtime-helpers-bytecode",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/opt/DafnyRuntime-4.9.1.jar",
         "dafny.Helpers"
       ],
       "exit": 0
@@ -486,7 +487,7 @@
     {
       "label": "jdk-byte-conversions",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
@@ -497,26 +498,26 @@
     {
       "label": "compile-selector-narrow-helper",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "/opt/jdk21/bin/javac",
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/out/repair-full/native-kem-uon76nt5/classes:/opt/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-narrow-helper",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-narrow-helper/NativeMlKem/__default.java"
+        "/out/repair-full/native-kem-uon76nt5/selector-narrow-helper",
+        "/out/repair-full/native-kem-uon76nt5/selector-narrow-helper/NativeMlKem/__default.java"
       ],
       "exit": 0
     },
     {
       "label": "inspect-selector-narrow-helper",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-narrow-helper:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes",
+        "/out/repair-full/native-kem-uon76nt5/selector-narrow-helper:/out/repair-full/native-kem-uon76nt5/classes",
         "NativeMlKem.__default"
       ],
       "exit": 0
@@ -524,26 +525,26 @@
     {
       "label": "compile-selector-payload-branch",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "/opt/jdk21/bin/javac",
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/out/repair-full/native-kem-uon76nt5/classes:/opt/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-branch",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-branch/NativeMlKem/__default.java"
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-branch",
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-branch/NativeMlKem/__default.java"
       ],
       "exit": 0
     },
     {
       "label": "inspect-selector-payload-branch",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-branch:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes",
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-branch:/out/repair-full/native-kem-uon76nt5/classes",
         "NativeMlKem.__default"
       ],
       "exit": 0
@@ -551,26 +552,26 @@
     {
       "label": "compile-selector-payload-boxing",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "/opt/jdk21/bin/javac",
         "--release",
         "21",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/out/repair-full/native-kem-uon76nt5/classes:/opt/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-boxing",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-boxing/NativeMlKem/__default.java"
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-boxing",
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-boxing/NativeMlKem/__default.java"
       ],
       "exit": 0
     },
     {
       "label": "inspect-selector-payload-boxing",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/selector-payload-boxing:/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes",
+        "/out/repair-full/native-kem-uon76nt5/selector-payload-boxing:/out/repair-full/native-kem-uon76nt5/classes",
         "NativeMlKem.__default"
       ],
       "exit": 0
@@ -578,7 +579,7 @@
     {
       "label": "java-0-version",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "/opt/jdk21/bin/java",
         "-version"
       ],
       "exit": 0
@@ -586,7 +587,7 @@
     {
       "label": "java-0-byte-conversions",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "/opt/jdk21/bin/javap",
         "-c",
         "-p",
         "-s",
@@ -597,11 +598,11 @@
     {
       "label": "java-0",
       "command": [
-        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "/opt/jdk21/bin/java",
         "-Xmx1024m",
         "-ea",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/out/repair-full/native-kem-uon76nt5/classes:/opt/DafnyRuntime-4.9.1.jar",
         "io.github.mahmoudimus.quic.tls.native_kem_test"
       ],
       "exit": 0
@@ -609,7 +610,7 @@
     {
       "label": "java-1-version",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/opt/jdk25/bin/java",
         "-version"
       ],
       "exit": 0
@@ -617,7 +618,7 @@
     {
       "label": "java-1-byte-conversions",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/javap",
+        "/opt/jdk25/bin/javap",
         "-c",
         "-p",
         "-s",
@@ -628,21 +629,21 @@
     {
       "label": "java-1",
       "command": [
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
+        "/opt/jdk25/bin/java",
         "-Xmx1024m",
         "-ea",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/out/repair-full/native-kem-uon76nt5/classes:/opt/DafnyRuntime-4.9.1.jar",
         "io.github.mahmoudimus.quic.tls.native_kem_test"
       ],
       "exit": 0
     }
   ],
   "proofs": {
-    "proof-native-composition": 2776,
+    "proof-native-composition": 2782,
     "proof-reference-graph": 2695,
     "proof-native-kernels": 4097,
-    "generate-java": 162
+    "generate-java": 168
   },
   "controls": {
     "wrong-coins": {
@@ -692,7 +693,7 @@
   },
   "java": [
     {
-      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
+      "version": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)\n",
       "tests": {
         "assertions": 7813,
         "rounds": 100,
@@ -2113,7 +2114,7 @@
     "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
     "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
     "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
-    "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+    "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
     "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
     "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
     "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
@@ -2122,12 +2123,12 @@
     "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
     "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
     "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
-    "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+    "formal/crypto/native_kem_domain.dfy": "30bda846c92ab356e3b34feab0531ce6dba3d279556d41d4f5c917596c0ef53e",
     "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
     "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
     "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
     "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
-    "formal/crypto/native_kem_checks.py": "4341752e4435d7e9717a14bbab756722327164777647edec3eb34553ca5417ce",
+    "formal/crypto/native_kem_checks.py": "7c0bedc97e02abbdd1a700e58d78c38fa1a4ae63ba4ae820a07b9e0a5b3dd91a",
     "formal/crypto/native_kem_test.java": "8134a9adf34634324b13690006ad7b9faa12ca084180bed49333822d2e36b56c",
     "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
     "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
@@ -2136,6 +2137,41 @@
   },
   "native_big_integer_sites": {
     "NativeMlKem.java": [],
+    "NativeTypes/I.java": [
+      {
+        "line": 10,
+        "source": "public static java.util.ArrayList<java.lang.Integer> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
+      },
+      {
+        "line": 12,
+        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Integer.valueOf(j.intValue())); }"
+      },
+      {
+        "line": 15,
+        "source": "public static int Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).intValue();"
+      }
+    ],
+    "NativeTypes/L.java": [
+      {
+        "line": 10,
+        "source": "public static java.util.ArrayList<java.lang.Long> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
+      },
+      {
+        "line": 12,
+        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Long.valueOf(j.longValue())); }"
+      },
+      {
+        "line": 15,
+        "source": "public static long Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).longValue();"
+      }
+    ],
+    "NativeSampling/FeedResult_InvalidBlockLength.java": [],
+    "NativeSampling/FeedResult_InvalidPrefix.java": [],
+    "NativeSampling/__default.java": [],
+    "NativeSampling/FeedResult_Full.java": [],
+    "NativeSampling/FeedResult.java": [],
+    "NativeSampling/FeedResult_NeedMore.java": [],
+    "NativeField/__default.java": [],
     "NativeMlKem/__default.java": [
       {
         "line": 206,
@@ -2235,8 +2271,24 @@
       }
     ],
     "NativeMlKem/Encapsulation.java": [],
-    "NativeMlKem/PublicKey.java": [],
     "NativeMlKem/SecretKey.java": [],
+    "NativeMlKem/PublicKey.java": [],
+    "NativeShake/__default.java": [],
+    "NativeShake/Sponge.java": [
+      {
+        "line": 43,
+        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "line": 45,
+        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "line": 47,
+        "source": "long[] _nw2 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      }
+    ],
+    "NativePolynomial/__default.java": [],
     "NativeKeccak/__default.java": [
       {
         "line": 138,
@@ -2259,64 +2311,13 @@
         "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
       }
     ],
-    "NativePolynomial/__default.java": [],
-    "NativeTypes/I.java": [
-      {
-        "line": 10,
-        "source": "public static java.util.ArrayList<java.lang.Integer> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
-      },
-      {
-        "line": 12,
-        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Integer.valueOf(j.intValue())); }"
-      },
-      {
-        "line": 15,
-        "source": "public static int Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).intValue();"
-      }
-    ],
-    "NativeTypes/L.java": [
-      {
-        "line": 10,
-        "source": "public static java.util.ArrayList<java.lang.Long> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
-      },
-      {
-        "line": 12,
-        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Long.valueOf(j.longValue())); }"
-      },
-      {
-        "line": 15,
-        "source": "public static long Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).longValue();"
-      }
-    ],
-    "NativeShake/__default.java": [],
-    "NativeShake/Sponge.java": [
-      {
-        "line": 43,
-        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
-      },
-      {
-        "line": 45,
-        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
-      },
-      {
-        "line": 47,
-        "source": "long[] _nw2 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
-      }
-    ],
-    "NativeSampling/__default.java": [],
-    "NativeSampling/FeedResult.java": [],
-    "NativeSampling/FeedResult_Full.java": [],
-    "NativeSampling/FeedResult_NeedMore.java": [],
-    "NativeSampling/FeedResult_InvalidBlockLength.java": [],
-    "NativeSampling/FeedResult_InvalidPrefix.java": [],
-    "NativeCodec/__default.java": [],
-    "NativeCodec/DecodeResult_InvalidWidth.java": [],
+    "NativeKemDomain/__default.java": [],
+    "NativeCodec/DecodeResult_Decoded.java": [],
     "NativeCodec/DecodeResult_ModulusError.java": [],
+    "NativeCodec/__default.java": [],
     "NativeCodec/DecodeResult_InvalidLength.java": [],
     "NativeCodec/DecodeResult.java": [],
-    "NativeCodec/DecodeResult_Decoded.java": [],
-    "NativeKemDomain/__default.java": [],
-    "NativeField/__default.java": []
+    "NativeCodec/DecodeResult_InvalidWidth.java": []
   },
   "generated_java": {
     "CodecSpec/DecodeResult.java": "4b0c6bafb10a5e8d9a6e98d4c4e36b1a60b7798ee723aac6e35edbd18b898851",
@@ -2460,8 +2461,8 @@
     "io/github/mahmoudimus/quic/tls/native_kem_test.class": "c54aa8932f005b24becf5a3a2a6261f6c4f4683f8ed7a17e38f74c366380e794",
     "io/github/mahmoudimus/verifiedcrypto/native_kem_hash.class": "e2812917aebe9a81568207da0c72053485dbdf043c97bcadb3660f68221937df"
   },
-  "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
-  "solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+  "dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+  "solver_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a",
   "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
   "runtime_coordinate": "org.dafny:DafnyRuntime:4.9.1",
   "footprint": {
@@ -2471,88 +2472,64 @@
   },
   "schema": "microproxy.native-kem-evidence/v2",
   "recorded_receipt": {
-    "path": "formal/crypto/evidence/2026-11-04-poly/kem-mac/receipt.json",
-    "sha256": "132c0436b848d218abfacab5ad39f1424f7db76de5e5c75396b84eb1baa711a8",
-    "producer_path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/receipt.json",
-    "producer_sha256": "132c0436b848d218abfacab5ad39f1424f7db76de5e5c75396b84eb1baa711a8",
-    "scope": "Fresh complete full-scope replay over the adopted source on macOS ARM64 with JDK21.0.12.1 and JDK25.0.5; the delivery.json required_source_pins edit that occurred during this run is metadata only and is not an input to native_kem_checks.py.",
+    "path": "formal/crypto/evidence/2026-11-04-poly/kem-linux/receipt.json",
+    "sha256": "cf2a617bc8c68384e23c33a44002df175b98ebe93bffecac465952d2cf663369",
+    "producer_path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/select-linux-revalidation/repair/full-out/repair-full/native-kem-uon76nt5/receipt.json",
+    "scope": "Actual full native KEM replay on linux/amd64 (Ubuntu) over the adopted Select-caller source: 2782 composition / 2695 reference / 4097 native kernels / 168 generation, 11 semantic and 3 compiled selector controls, both supported JDKs. This replaces the earlier macOS receipt as the current full replay; the prior macOS receipt is kept under historical_mac_receipt.",
     "log_sha256": {
-      "audit.log": "d449161305b85d9a5b89897dfeb8aa81d83239dddaeb9742538e7511b58283ee",
-      "compile-selector-narrow-helper.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "compile-selector-payload-boxing.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "compile-selector-payload-branch.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "control-constant-selection.log": "f58bf9d40b24e71e6e3c4c947df3be3b353884fedf75a01148775b372f312044",
-      "control-matrix-axis.log": "bb87b61bbf6a07056bae24ac7967813affcf99b5826a4a37ef35fb06dbb6dd71",
-      "control-matrix-transpose.log": "b7751ad3bdb097b7a7299c44f200540c27335b176c3910502f2e8ff1b4c5090e",
-      "control-missing-byte-wipe.log": "aff316415b902fd352003263e7ee027c251b393426f84c5978aa6d23a43820ff",
-      "control-missing-failure-wipe.log": "6e092201746122151e561edb29fb217a0d2187fa78aeb526639573acc1aac348",
-      "control-modulus-error-kind.log": "15b74cd03af576b25931f54654f41baec994518251297fe07f787db4db15b28e",
-      "control-reused-nonce.log": "ef89d99a78011f610b2cca272285e8a890a4fa3b4eab153678f356ae80eb7a4d",
-      "control-short-comparison.log": "64f32d8c593020dddfb94184c2d9d5c237897975d0b47e93f4d940bd92b69050",
-      "control-short-sampler.log": "6e4f4b00df493c5425ec4e740cc929efda40fcfea85c9ee22ae50d5d93ee3741",
-      "control-wrong-coins.log": "97d428a78043f29993b8d821502532b6199b5810beb11034214108a99f9c977b",
-      "control-wrong-fallback-seed.log": "8ffc9b3419176c56c0125ebf95115b9190c0b13fe87ee2617ee571e6adb682b0",
-      "dafny-version.log": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
-      "generate-java.log": "a0b2c25509ef59430ebcc6012fdb320fa1dc19cc0156bb67f3f92f22ef2fe61a",
-      "inspect-selector-narrow-helper.log": "5f29196cbc5185d881ec959ed4ec2a4d10e85dd95e5ee526b49c42a5dc625c36",
-      "inspect-selector-payload-boxing.log": "85114d0a24fd4769f1b482aaa1759236c8ec9ac0019d542f51e3d585a3a12ce6",
-      "inspect-selector-payload-branch.log": "95f63232f37badd06e3c6cfe522277eed1f8168414775d86cc711e98281f09ee",
-      "java-0-byte-conversions.log": "1a602c95130d70bc49df8af122b3903977c0c6387fbb667b97602250e76ef6ec",
-      "java-0-version.log": "da6bb29c482c0fd5ea827d1eecfcf573d88175541589705d776142562e788e18",
-      "java-0.log": "6f079b3b54d4110e6a12a9d541a82e5bee253731eacc9a6b86e4fb1e37a01816",
-      "java-1-byte-conversions.log": "fcd3eddcecfb8d3401316a965f3e063103e3a78f9a4cb3b5ff212a58181b80b5",
-      "java-1-version.log": "dc25d4c269605476cbe8abf0a71814a943b1303a7249657c140d7e2878f5fa46",
-      "java-1.log": "6f079b3b54d4110e6a12a9d541a82e5bee253731eacc9a6b86e4fb1e37a01816",
-      "javac.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "jdk-byte-conversions.log": "1a602c95130d70bc49df8af122b3903977c0c6387fbb667b97602250e76ef6ec",
-      "native-runtime-bytecode.log": "7906955a094f0f714dc020397c2352a985b9dc9e41dc7eb48d8b77d4b7f479f0",
-      "proof-native-composition.log": "968b0261f8aa2f9ed52e1764813d199752b94b29af19eadca6101187249d1cf7",
-      "proof-native-kernels.log": "4d2f2f42c9bf034f568a8e77638808b3d2e28e3c018904f5e23b726e22e8f9e1",
-      "proof-reference-graph.log": "4601a83de6357d5bf6f62ee402c2212519a94bf65899797670c0a07be8e2c0a2",
-      "runtime-helpers-bytecode.log": "ec65fc3f0370eaff6b0904ab5549e0f31dc58d5a42c03b9533adc7b3fb6df6d4",
-      "solver-version.log": "b9483dbdbdeee09f019dde3ba63e9aa51e41c2c40194e9308f494476001c2462"
+      "logs/audit.log": "d449161305b85d9a5b89897dfeb8aa81d83239dddaeb9742538e7511b58283ee",
+      "logs/compile-selector-narrow-helper.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logs/compile-selector-payload-boxing.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logs/compile-selector-payload-branch.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logs/control-constant-selection.log": "43fdf25e99476fdc986ce4f894e0b132e32e809a88e471bbf18d14e84db89047",
+      "logs/control-matrix-axis.log": "e72f80beac0f6eae0e443316e86558606d8ab00d32ac8ecd574690c132cfd266",
+      "logs/control-matrix-transpose.log": "a067a9798a571677c698e730f3c5cd1c40a020f94c64a7fb1514b2963a7de4d5",
+      "logs/control-missing-byte-wipe.log": "cb28072d58af7e7f2f1dc47919287f289cc065350752cdc7e82ab1c68a547c65",
+      "logs/control-missing-failure-wipe.log": "ec7a966d12074835a0956d05e40e748d8d98783aa0f54c93c05485d1a5a2c240",
+      "logs/control-modulus-error-kind.log": "decd3e2ecf34d66f96de3d1706ccb499070135f621414f8c16492d882a6f86cd",
+      "logs/control-reused-nonce.log": "a75f60541cefb1d9e81d18bd18899fba680b74766001bdfddf485bc894931fb8",
+      "logs/control-short-comparison.log": "f573a5eb0aad5e5ce40fcb879751937598aed56c6a2407b63347a8dc224fbcc0",
+      "logs/control-short-sampler.log": "f83f4849446b1d07373a743656b17f5b2e885dd80cd8e95205da086e09019e0b",
+      "logs/control-wrong-coins.log": "dba59a7374fba4edd509047233dc2da068a41e86767b39faf3111ce5a30b5c59",
+      "logs/control-wrong-fallback-seed.log": "0efaffd9e7db5dc791c84d1afed4c255e1b2623b8cb011bc88a3ae3db7390bae",
+      "logs/dafny-version.log": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+      "logs/generate-java.log": "8caf59d621a39785e524ebdb24b4f689a780d817caaf7b45b3acd4339ebe14d3",
+      "logs/inspect-selector-narrow-helper.log": "5f29196cbc5185d881ec959ed4ec2a4d10e85dd95e5ee526b49c42a5dc625c36",
+      "logs/inspect-selector-payload-boxing.log": "85114d0a24fd4769f1b482aaa1759236c8ec9ac0019d542f51e3d585a3a12ce6",
+      "logs/inspect-selector-payload-branch.log": "95f63232f37badd06e3c6cfe522277eed1f8168414775d86cc711e98281f09ee",
+      "logs/java-0-byte-conversions.log": "1a602c95130d70bc49df8af122b3903977c0c6387fbb667b97602250e76ef6ec",
+      "logs/java-0-version.log": "477d64a6b08c9a9dd143deae108edf7929a93b40434d87285d41addc8fba509f",
+      "logs/java-0.log": "6f079b3b54d4110e6a12a9d541a82e5bee253731eacc9a6b86e4fb1e37a01816",
+      "logs/java-1-byte-conversions.log": "fcd3eddcecfb8d3401316a965f3e063103e3a78f9a4cb3b5ff212a58181b80b5",
+      "logs/java-1-version.log": "dc25d4c269605476cbe8abf0a71814a943b1303a7249657c140d7e2878f5fa46",
+      "logs/java-1.log": "6f079b3b54d4110e6a12a9d541a82e5bee253731eacc9a6b86e4fb1e37a01816",
+      "logs/javac.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logs/jdk-byte-conversions.log": "1a602c95130d70bc49df8af122b3903977c0c6387fbb667b97602250e76ef6ec",
+      "logs/native-runtime-bytecode.log": "7906955a094f0f714dc020397c2352a985b9dc9e41dc7eb48d8b77d4b7f479f0",
+      "logs/proof-native-composition.log": "e8a295bb9aa17b85091a8f422065a6f9dc5abd3a023e1ed6d6fbfe0875f3096c",
+      "logs/proof-native-kernels.log": "4d2f2f42c9bf034f568a8e77638808b3d2e28e3c018904f5e23b726e22e8f9e1",
+      "logs/proof-reference-graph.log": "4601a83de6357d5bf6f62ee402c2212519a94bf65899797670c0a07be8e2c0a2",
+      "logs/runtime-helpers-bytecode.log": "ec65fc3f0370eaff6b0904ab5549e0f31dc58d5a42c03b9533adc7b3fb6df6d4",
+      "logs/solver-version.log": "b9483dbdbdeee09f019dde3ba63e9aa51e41c2c40194e9308f494476001c2462"
     }
   },
   "linux_composition_evidence": {
-    "status": "pending-fresh-linux-run",
     "path": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
-    "receipt": null,
-    "required": {
-      "platform": "linux/amd64",
-      "scope": "full",
-      "both_jdk_replays": true,
-      "source_graph_must_equal_this_receipt.inputs_dafy_keys": true
-    },
-    "note": "No pre-Poly Linux values are reused; see historical_linux_composition_evidence."
+    "sha256": "73ac6427ff1a26ca6569fa57ffdbd14fd59c37267df2877e749f09395f792ccf",
+    "scope": "Full linux/amd64 composition, native hash ABI and domain harness replay, with the actual measured static CSV profile.",
+    "verified": 2782,
+    "exit": 0
+  },
+  "historical_mac_receipt": {
+    "path": "formal/crypto/evidence/2026-11-04-poly/kem-mac/receipt.json",
+    "sha256": "132c0436b848d218abfacab5ad39f1424f7db76de5e5c75396b84eb1baa711a8",
+    "wrapper_sha256": "a39a0d22c0303b0f",
+    "note": "Prior macOS full replay, retained unchanged. The current full receipt is the Linux run."
   },
   "historical_linux_composition_evidence": {
-    "path": "NATIVE-KEM-LINUX-EVIDENCE.json",
-    "sha256": "f85b9cbfaa1a9c2f66ba0367df388de35b84eaeeb3d2d4c8e27cf258f1bc8a41",
-    "scope": "Native ML-KEM composition, native hash ABI and unrestricted domain harness; included dependency contracts, not a second Linux proof of all dependency bodies",
-    "verified": 2776,
-    "exit": 0,
-    "max_obligation_seconds": 18.6739675,
-    "max_resource_count": 10275514,
-    "source_graph": {
-      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
-      "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
-      "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
-      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
-      "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
-      "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
-      "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
-      "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
-      "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
-      "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
-      "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
-      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
-      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
-      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
-      "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
-      "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
-      "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
-      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
-      "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
-    }
+    "previous_receipt_sha256": "fac869b12e09245c",
+    "previous_linux_wrapper_sha256": "dae93b5ccff20935",
+    "git_commit": "f3f992e538be6d522c5cb318eb84565a756b3621",
+    "note": "The prior linux/amd64 full-scope run, its wrapper and its raw logs remain in the immutable f3f992e5 git history at this path; this tree now carries the current run. Only digests are carried forward, so no old number is presented as current."
   }
 }

@@ -61,6 +61,7 @@ CLAIM_OBLIGATION = {
     "aws-full-upstream-hkdf-replay": "V1",
     "packet-nonce-functional-production": "V3",
     "poly-source-trace-ni": "V5",
+    "select-source-trace-ni": "V6",
     "all-v0-v8-complete": "V8",
 }
 

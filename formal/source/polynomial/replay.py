@@ -108,7 +108,7 @@ PROOFS = [
     ("formal/crypto/NativeField.dfy", CS0, 86, "field"),
     ("formal/crypto/NativePolynomial.dfy", CS0, 1001, "polynomial"),
     ("formal/source/polynomial/NativePolynomialTraceHarness.dfy", CS0, 26, "paired-harness"),
-    ("formal/crypto/NativeMlKem.dfy", CS3, 2767, "mlkem-composition"),
+    ("formal/crypto/NativeMlKem.dfy", CS3, 2773, "mlkem-composition"),
     ("formal/source/polynomial/FieldTraceCompatibility.dfy", CS0, 14, "field-compatibility"),
     ("formal/source/SourceTrace.dfy", CS0, 17, "source-trace"),
     ("formal/source/vocabulary/ObservationVocabulary.dfy", CS0, 29, "observation-vocabulary"),

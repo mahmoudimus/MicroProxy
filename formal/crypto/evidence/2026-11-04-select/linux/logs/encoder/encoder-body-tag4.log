@@ -1,0 +1,7 @@
+CASE-CONTEXT case=encoder-encoder-body-tag4 operand_sha256=793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a expected_fixture_sha256=793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","resolve","/src/candidate/formal/source/select/fixtures/encoder-fixtures-v2/encoder-body-tag4/formal/crypto/NativeKeccak.dfy","--allow-external-contracts","--plugin","/out/replay-b1ce/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/src/candidate/formal/source/select/fixtures/encoder-fixtures-v2/encoder-body-tag4/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+/src/candidate/formal/source/select/fixtures/encoder-fixtures-v2/encoder-body-tag4/formal/source/ObservationVocabulary.dfy(24,17): Error: canonical Encode does not implement the exact typed wire layout: expected complete direct Event match
+   |
+24 |   ghost function Encode(e: Event): seq<int> { [Tag(e), 0, 0, 0] }
+   |                  ^^^^^^
+
+1 resolution/type errors detected in NativeKeccak.dfy

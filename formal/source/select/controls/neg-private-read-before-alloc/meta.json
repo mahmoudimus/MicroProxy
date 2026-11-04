@@ -1,0 +1,6 @@
+{
+  "name": "neg-private-read-before-alloc",
+  "expect": "reject",
+  "needle": "expected exact SourceTrace.Read",
+  "note": "F3 private read interposed before allocation, same block"
+}

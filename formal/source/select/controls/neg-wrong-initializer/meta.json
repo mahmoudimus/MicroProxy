@@ -1,0 +1,6 @@
+{
+  "name": "neg-wrong-initializer",
+  "expect": "reject",
+  "needle": "Select allocation initializer body is not the exact literal zero",
+  "note": "non-zero initializer"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "positive-zero-init",
+  "expect": "accept",
+  "needle": null,
+  "note": "explicit literal-zero lambda initializer"
+}

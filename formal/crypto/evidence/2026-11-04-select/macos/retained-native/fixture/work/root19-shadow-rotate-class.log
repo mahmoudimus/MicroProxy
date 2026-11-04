@@ -1,0 +1,6 @@
+work/controls/root19-shadow-rotate-class/formal/crypto/NativeKeccak.dfy(429,13): Error: reserved native root outside exact default declaration: NativeKeccak.ShadowRotate.Rotate
+    |
+429 |     function Rotate(v: bv64, n: T.I): bv64 { v }
+    |              ^^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

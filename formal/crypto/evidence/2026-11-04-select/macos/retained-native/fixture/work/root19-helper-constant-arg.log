@@ -1,0 +1,6 @@
+work/controls/root19-helper-constant-arg/formal/source/SourceTrace.dfy(22,28): Error: marker helper changes or reorders positional formal 1: SourceTrace._default.Branch
+   |
+22 |   { O.Encode(O.Branch(site, true)) }
+   |                             ^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

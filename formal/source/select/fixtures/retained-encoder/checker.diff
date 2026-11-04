@@ -1,0 +1,67 @@
+--- /Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair/formal/source/checker/SourceCoverage.cs	2026-11-03 20:54:19.587873478 -0800
++++ /Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-call-order-repair/formal/source/checker/SourceCoverage.cs	2026-11-03 21:25:46.721492427 -0800
+@@ -552,7 +552,7 @@
+     return null;
+   }
+ 
+-  bool HasExactCallMarker(SingleAssignStmt sa, CalleeDef def) {
++  bool IsExactCallMarker(Expression leaf, CalleeDef def) {
+     int targetId; int arity;
+     if (def?.Call != null) {
+       var pair = callTargets.FirstOrDefault(kv => ReferenceEquals(kv.Value, def.Call.Method));
+@@ -563,16 +563,31 @@
+       if (pair.Value == null) return false;
+       targetId = pair.Key; arity = def.Pure.Args.Count;
+     } else return false;
++    var m = AsMarkerCall(leaf);
++    if (m == null || !ReferenceEquals(m.Function, markerFuncs["Call"]) || m.Args.Count != 3) return false;
++    if (!TryInt(Unwrap(m.Args[1]), out var id) || id != targetId) return false;
++    if (!TryInt(Unwrap(m.Args[2]), out var ar) || ar != arity) return false;
++    return true;
++  }
++
++  bool HasExactCallMarker(SingleAssignStmt sa, CalleeDef def) {
+     if (sa.Rhs is not ExprRhs er) return false;
+-    FunctionCallExpr first = null;
+-    foreach (var leaf in ConcatLeaves(er.Expr)) {
+-      var m = AsMarkerCall(leaf);
+-      if (m != null && markerFuncs.Values.Contains(m.Function)) { first = m; break; }
++    return ConcatLeaves(er.Expr).Any(leaf => IsExactCallMarker(leaf, def));
++  }
++
++  // The immutable prefix is leaves[0].  A compiled call append must be exactly
++  // leaves[0] + exact defining Call marker + its own callee/pure trace leaf.
++  // This is deliberately positional: searching for any matching marker allowed
++  // a callee's events to be observed before the Call that caused them.
++  bool IsOrderedCallChild(List<Expression> leaves, int childIndex, CalleeDef def, IVariable childVar, bool pure) {
++    if (childIndex != 2 || leaves.Count < 3) return false;
++    if (!IsExactCallMarker(leaves[1], def)) return false;
++    var child = leaves[2];
++    if (pure) {
++      if (child is not MemberSelectExpr ms || !IsGhostTupleProjection(ms)) return false;
++      return ReferenceEquals(AsVar(ms.Obj), childVar);
+     }
+-    if (first == null || !ReferenceEquals(first.Function, markerFuncs["Call"]) || first.Args.Count != 3) return false;
+-    if (!TryInt(Unwrap(first.Args[1]), out var id) || id != targetId) return false;
+-    if (!TryInt(Unwrap(first.Args[2]), out var ar) || ar != arity) return false;
+-    return true;
++    return ReferenceEquals(AsVar(child), childVar);
+   }
+ 
+   bool ContainsTraceAssign(Statement s) => s.DescendantsAndSelf.OfType<SingleAssignStmt>()
+@@ -630,6 +645,7 @@
+               else {
+                 if (!ReferenceEquals(FirstTraceUpdateAfter(ddef),sa)) Error(sa.Tok,m.Name+": pure-function trace append is not the first trace update immediately after its defining call");
+                 if (!HasExactCallMarker(sa,ddef)) Error(sa.Tok,m.Name+": pure-function trace append does not bind its exact defining Call marker");
++                else if (!IsOrderedCallChild(leaves,i,ddef,ov,true)) Error(sa.Tok,m.Name+": pure-function trace append must place its exact defining Call marker immediately before its pure trace leaf");
+               }
+               if (pureAppendCtx.TryGetValue(key,out var prev) && !ReferenceEquals(prev,sa)) Error(sa.Tok,m.Name+": callee trace append is not in its defining call append");
+               else pureAppendCtx[key]=sa;
+@@ -643,6 +659,7 @@
+             else {
+               if (!ReferenceEquals(FirstTraceUpdateAfter(ddef2),sa)) Error(sa.Tok,m.Name+": callee trace append is not the first trace update immediately after its defining call");
+               if (!HasExactCallMarker(sa,ddef2)) Error(sa.Tok,m.Name+": callee trace append does not bind its exact defining Call marker");
++              else if (!IsOrderedCallChild(leaves,i,ddef2,v,false)) Error(sa.Tok,m.Name+": callee trace append must place its exact defining Call marker immediately before its callee trace leaf");
+             }
+             if (calleeAppendCtx.TryGetValue(v,out var prev2) && !ReferenceEquals(prev2,sa)) Error(sa.Tok,m.Name+": callee trace append is not in its defining call append");
+             else calleeAppendCtx[v]=sa;

@@ -1,0 +1,6 @@
+{
+  "name": "neg-loop-alloc",
+  "expect": "reject",
+  "needle": "Select allocation must be a direct top-level statement of the method body",
+  "note": "F1 reviewer loop-alloc probe; allocation is nested in a public loop"
+}

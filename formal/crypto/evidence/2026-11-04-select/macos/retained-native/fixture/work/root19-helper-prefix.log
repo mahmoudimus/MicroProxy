@@ -1,0 +1,6 @@
+work/controls/root19-helper-prefix/formal/source/SourceTrace.dfy(21,17): Error: marker helper is not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch
+   |
+21 |   ghost function Branch(site: int, taken: bool): seq<int>
+   |                  ^^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

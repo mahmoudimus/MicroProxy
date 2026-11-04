@@ -1,0 +1,6 @@
+{
+  "name": "neg-wrong-alloc-size",
+  "expect": "reject",
+  "needle": "mismatched Alloc observation",
+  "note": "marker size differs from actual"
+}

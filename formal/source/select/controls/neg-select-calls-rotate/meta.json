@@ -1,0 +1,6 @@
+{
+  "name": "neg-select-calls-rotate",
+  "expect": "reject",
+  "needle": "unregistered executable function call NativeKeccak._default.Rotate",
+  "note": "F5 reachable Rotate call rejected even without Keccak root selected"
+}

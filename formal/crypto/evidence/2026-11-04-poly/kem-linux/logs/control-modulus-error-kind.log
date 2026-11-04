@@ -1,11 +1,11 @@
-/out/linux-full/native-kem-xh1s0sah/modulus-error-kind.dfy(759,24): Error: a postcondition could not be proved on this return path
+/out/repair-full/native-kem-uon76nt5/modulus-error-kind.dfy(799,24): Error: a postcondition could not be proved on this return path
     |
-759 |     if words.Failure? { return S.Failure(S.InvalidKeyLength); }
+799 |     if words.Failure? { return S.Failure(S.InvalidKeyLength); }
     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/out/linux-full/native-kem-xh1s0sah/modulus-error-kind.dfy(753,12): Related location: this is the postcondition that could not be proved
+/out/repair-full/native-kem-uon76nt5/modulus-error-kind.dfy(793,12): Related location: this is the postcondition that could not be proved
     |
-753 |     ensures ModelPublic(r) == S.Parse(bytes[..])
+793 |     ensures ModelPublic(r) == S.Parse(bytes[..])
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 

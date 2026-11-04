@@ -1,0 +1,8 @@
+CASE-CONTEXT case=observed-mutant-harness operand_sha256=4e2337bca4edf8df1afc7394f31072ea4e8fd2c1bc32160fe1ec51a9b8a24b04 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","verify","/out/replay-b1ce/trees/observed/formal/source/select/observed/SelectObservedHarness.dfy","--allow-external-contracts","--verification-time-limit","30","--resource-limit","50000000","--cores","2","--solver-option","O:smt.case_split=0"] cwd=/out/replay-b1ce/trees/observed/formal/source/select/observed
+SelectObservedHarness.dfy(13,11): Error: assertion might not hold
+   |
+13 |     assert t1 == t2;
+   |            ^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

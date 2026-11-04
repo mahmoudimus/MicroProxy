@@ -1,0 +1,6 @@
+work/controls/callbinding-pure-call-second-missing-child/formal/crypto/NativeKeccak.dfy(193,84): Error: Theta: pure function trace must be appended exactly once
+    |
+193 |   method {:isolate_assertions} Theta(a: array<bv64>, c: array<bv64>) returns (ghost trace: seq<int>)
+    |                                                                                     ^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

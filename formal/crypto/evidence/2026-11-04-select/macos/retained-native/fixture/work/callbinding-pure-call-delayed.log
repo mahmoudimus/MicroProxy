@@ -1,0 +1,41 @@
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,12): Error: Theta: pure-function trace append is not the first trace update immediately after its defining call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |             ^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: Call marker is not the next observation after its call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: expected exact SourceTrace.Read for array read c[0], found Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: expected exact SourceTrace.LoopBound for for start 0, found Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: expected exact SourceTrace.LoopBound for for end 5, found Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: expected exact SourceTrace.Read for array read a[i], found Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: expected exact SourceTrace.Write for array write a[i], found Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-delayed/formal/crypto/NativeKeccak.dfy(228,26): Error: Theta: stale observation Call
+    |
+228 |       trace := trace + ST.Call(1,20,2) + rr.1;
+    |                           ^^^^
+
+8 resolution/type errors detected in AllTraceRoots.dfy

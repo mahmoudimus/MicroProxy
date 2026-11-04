@@ -98,6 +98,51 @@ PROOF_EVIDENCE_KINDS = {
     "source-inventory",
 }
 
+SELECT_SOURCE_CLAIM = "select-source-trace-ni"
+SELECT_SOURCE_MAC_COLLECTION = "formal/crypto/evidence/2026-11-04-select/macos"
+SELECT_SOURCE_LINUX_COLLECTION = "formal/crypto/evidence/2026-11-04-select/linux"
+SELECT_SOURCE_MAC_REPORT = SELECT_SOURCE_MAC_COLLECTION + "/package-report.json"
+SELECT_SOURCE_LINUX_REPORT = SELECT_SOURCE_LINUX_COLLECTION + "/package-report.json"
+SELECT_SOURCE_CLAIM_EVIDENCE = (
+    (SELECT_SOURCE_MAC_REPORT, "component-receipt"),
+    (SELECT_SOURCE_LINUX_REPORT, "component-receipt"),
+    *((collection + "/" + name, "source-inventory")
+      for collection in (SELECT_SOURCE_MAC_COLLECTION, SELECT_SOURCE_LINUX_COLLECTION)
+      for name in ("COLLECTION-FILES.json", "COLLECTION-PROVENANCE.json",
+                   "derived-codegen-maps/java-base.sha256",
+                   "derived-codegen-maps/java-overlay.sha256",
+                   "derived-codegen-maps/classes-base-jdk21.sha256",
+                   "derived-codegen-maps/classes-overlay-jdk21.sha256",
+                   "derived-codegen-maps/classes-base-jdk25.sha256",
+                   "derived-codegen-maps/classes-overlay-jdk25.sha256")),
+    *(("formal/source/select/" + name, kind) for name, kind in (
+        ("package.json", "input-manifest"), ("baseline.json", "input-manifest"),
+        ("candidate-sources.json", "input-manifest"), ("README.md", "documentation"),
+        ("profiles/index.json", "tool-manifest"),
+        ("profiles/macos-sdk10.0.400.json", "tool-manifest"),
+        ("profiles/linux-sdk10.0.400.json", "tool-manifest"),
+        ("replay.py", "tool-manifest"), ("test_replay.py", "test-source"),
+        ("checker/SourceCoverage.cs", "tool-manifest"),
+        ("checker/SourceCoverage.csproj", "tool-manifest"),
+        ("checker/NativeCanonicalEncoderPolicy.cs", "tool-manifest"),
+        ("harness/SelectTraceHarness.dfy", "proof-receipt"),
+        ("bridge/SourceTraceBridge.dfy", "proof-receipt"),
+        ("fixtures/retained-native/run.py", "tool-manifest"),
+        ("fixtures/retained-native/controls/root19.json", "input-manifest"),
+        ("fixtures/retained-native/controls/callbinding.json", "input-manifest"),
+    )),
+    ("formal/crypto/NativeMlKem.dfy", "proof-receipt"),
+    ("formal/crypto/native_kem_domain.dfy", "spec-source"),
+    ("formal/source/SourceTrace.dfy", "proof-receipt"),
+    ("formal/source/vocabulary/ObservationVocabulary.dfy", "spec-source"),
+    ("scripts/security/check_select_source.py", "tool-manifest"),
+    ("scripts/security/test_crypto_select_source.py", "test-source"),
+    ("scripts/security/test_crypto_select_claims.py", "test-source"),
+    ("scripts/security/run_select_package_tests.py", "test-source"),
+    ("scripts/security/install_select_jdks.sh", "tool-manifest"),
+    (".github/workflows/formal-security.yml", "tool-manifest"),
+)
+
 # --- Poly source-trace NI (V7 scoped claim) -------------------------------
 # A separate, scoped V7 contribution: NativeField/NativePolynomial source
 # observation proofs bound by a separately trusted resolved-AST checker.  The
@@ -143,7 +188,7 @@ POLY_SOURCE_PROOFS = (
     ("field", "formal/crypto/NativeField.dfy", 86),
     ("polynomial", "formal/crypto/NativePolynomial.dfy", 1001),
     ("paired-harness", "formal/source/polynomial/NativePolynomialTraceHarness.dfy", 26),
-    ("mlkem-composition", "formal/crypto/NativeMlKem.dfy", 2767),
+    ("mlkem-composition", "formal/crypto/NativeMlKem.dfy", 2773),
     ("field-compatibility", "formal/source/polynomial/FieldTraceCompatibility.dfy", 14),
     ("source-trace", "formal/source/SourceTrace.dfy", 17),
     ("observation-vocabulary", "formal/source/vocabulary/ObservationVocabulary.dfy", 29),
@@ -1215,18 +1260,18 @@ REQUIRED_RECEIPT_EXACT.update({
     ('V6', 'formal/crypto/KEM-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n', 'tests': {'assertions': 5091, 'rounds': 100, 'malformed': 30, 'selections': 3265}}, {'version': 'openjdk version "25.0.4" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 5091, 'rounds': 100, 'malformed': 30, 'selections': 3265}}],
     ('V6', 'formal/crypto/KEM-EVIDENCE.json', 'provider_assumptions'): ['formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.'],
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'scope'): 'full',
-    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'proofs'): {'proof-native-composition': 2776, 'proof-reference-graph': 2695, 'proof-native-kernels': 4097, 'generate-java': 162},
-    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}],
+    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'proofs'): {'proof-native-composition': 2782, 'proof-reference-graph': 2695, 'proof-native-kernels': 4097, 'generate-java': 168},
+    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.13" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}],
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'provider_assumptions'): {'primitive_count': 2, 'declaration_count': 4, 'declarations': ['formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/NativeJdkHash.dfy(12,4): Warning: Hash: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/NativeJdkHash.dfy(17,4): Warning: Expand: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.']},
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'bytecode_controls'): {'selector-narrow-helper': {'rejected': 'Unreviewed or payload-sensitive runtime helper'}, 'selector-payload-branch': {'rejected': 'Selector payload branch or changed loop control'}, 'selector-payload-boxing': {'rejected': 'Payload scalar boxing: 47: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;'}},
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'native_runtime_guard.payload_scalar_boxings'): 0,
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'status'): 'complete',
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'verified'): 2776,
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'verified'): 2782,
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'exit'): 0,
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'platform'): 'linux/amd64',
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'dafny_version'): '4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2',
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_resource_count'): 10275514,
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_obligation_seconds'): 10.1399173,
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_resource_count'): 38963949,
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_obligation_seconds'): 8.0272167,
 })
 
 REQUIRED_COMPONENT_CHECKS['V7'] = dict(REQUIRED_COMPONENT_CHECKS['V7'])
@@ -1926,6 +1971,18 @@ CLAIM_POLICIES = {
         "required_statuses": {"V5": ("implementation-proof",), "V7": ("partial",)},
         "component_checks": ("V5", "V7"),
     },
+    "select-source-trace-ni": {
+        "obligations": ("V6", "V7"),
+        "strength": "implementation",
+        "production": False,
+        "assumptions": frozenset({
+            "dafny-toolchain", "dafny-runtime", "javac-jvm", "generated-runtime-discipline",
+            "trusted-source-observation-coverage",
+        }),
+        "required_evidence": SELECT_SOURCE_CLAIM_EVIDENCE,
+        "required_statuses": {"V6": ("implementation-proof",), "V7": ("partial",)},
+        "component_checks": ("V6", "V7"),
+    },
     "all-v0-v8-complete": {
         "obligations": ("V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8"),
         "strength": "none",
@@ -1962,6 +2019,7 @@ ALLOWED_CLAIMS = {
     "aws-full-upstream-hkdf-replay",
     "packet-nonce-functional-production",
     "poly-source-trace-ni",
+    "select-source-trace-ni",
     "all-v0-v8-complete",
 }
 # A metadata/schema recognizer cannot establish a new theorem, expert review or
@@ -1976,6 +2034,7 @@ SEMANTICALLY_VALIDATED_SUPPORTED_CLAIMS = {
     "v8-nontiming-release-gate",
     "packet-nonce-functional-production",
     "poly-source-trace-ni",
+    "select-source-trace-ni",
 }
 COMPLETION_REQUIRED_CLAIMS = {
     "shake-mlkem-functional-production",
@@ -3206,6 +3265,30 @@ def _validate_poly_source_evidence(root: Path, label: str = "V7:poly-source") ->
                 "(candidate-as-own-baseline is rejected)")
     checked += 6
     return checked
+
+
+def _validate_select_source_claim(root: Path, claim: dict[str, Any], label: str) -> int:
+    """Both actual platforms and their companion maps are mandatory."""
+    missing = [path for path, _ in SELECT_SOURCE_CLAIM_EVIDENCE
+               if path not in claim["evidence"]]
+    if missing:
+        raise LedgerError(f"{label}: Select source claim does not cite {missing[0]}")
+    from check_select_source import SelectGateError, validate_supported_select_claim
+
+    try:
+        results = validate_supported_select_claim(
+            macos=(checked_path(root, SELECT_SOURCE_MAC_REPORT, label),
+                   root / SELECT_SOURCE_MAC_COLLECTION),
+            linux=(checked_path(root, SELECT_SOURCE_LINUX_REPORT, label),
+                   root / SELECT_SOURCE_LINUX_COLLECTION),
+            workspace_root=root)
+    except (SelectGateError, OSError, ValueError, TypeError, KeyError) as error:
+        raise LedgerError(f"{label}: {error}") from error
+    if set(results) != {"macos-arm64", "linux-x64"} or any(
+            type(result.get("checked")) is not int or result["checked"] <= 0
+            for result in results.values()):
+        raise LedgerError(f"{label}: both reviewed platform results are required")
+    return sum(result["checked"] for result in results.values())
 
 
 def _validate_poly_source_claim(root: Path, claim: dict[str, Any], label: str) -> int:
@@ -5498,6 +5581,8 @@ def _validate_supported_claim(root: Path, claim: dict[str, Any], policy: dict[st
         checked += _validate_packet_nonce_functional(root)
     if claim_id == POLY_SOURCE_CLAIM:
         checked += _validate_poly_source_claim(root, claim, f"{claim_id}:poly-source")
+    if claim_id == SELECT_SOURCE_CLAIM:
+        checked += _validate_select_source_claim(root, claim, f"{claim_id}:select-source")
     return checked
 
 

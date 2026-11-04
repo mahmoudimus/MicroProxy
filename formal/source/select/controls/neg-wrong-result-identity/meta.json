@@ -1,0 +1,6 @@
+{
+  "name": "neg-wrong-result-identity",
+  "expect": "reject",
+  "needle": "Select allocation result must be the sole non-ghost output formal by resolved identity",
+  "note": "allocation bound to a local, not returned r"
+}

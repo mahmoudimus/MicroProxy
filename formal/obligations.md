@@ -108,9 +108,12 @@ adopted ghost-instrumented source, so the checker no longer accepts the earlier
   controls and the 8 payload bytecode controls, plus a pinned 16-key `inputs` map.
   The pre-Poly proof-reuse, portability and strict-exit records are retained only
   under `historical` and are not evidence for the current source hashes.
-- `NATIVE-KEM-EVIDENCE.json` carries the fresh full receipt: 2776 composition,
-  2695 reference-graph, 4097 native-kernel and 162 generation checks, 11 rejected
-  semantic controls, both JDK replays and a pinned 27-key `inputs` map. Its
+- `NATIVE-KEM-EVIDENCE.json` carries the fresh full receipt: 2782 composition,
+  2695 reference-graph, 4097 native-kernel and 168 generation checks, 11 rejected
+  semantic controls, both JDK replays and a pinned 27-key `inputs` map. The full
+  replay was produced on linux/amd64 (Temurin 21.0.13 and 25.0.5, same 7813
+  assertions per JDK) over the adopted Select caller; the earlier macOS receipt
+  is retained under `historical_mac_receipt`. Its
   reviewed generated-caller inventory digest is repinned because two generated
   `NativePolynomial` call sites gained parentheses at platform-value (`.0`) sites;
   the reviewed site set, methods, lines, counts and review text are unchanged.
@@ -140,16 +143,44 @@ adopted ghost-instrumented source, so the checker no longer accepts the earlier
   qualification is claimed here.
 - `NATIVE-KEM-LINUX-EVIDENCE.json` now records the actual full-scope linux/amd64
   replay (Ubuntu 24.04.5 under a WSL2-hosted Docker daemon, not a GitHub runner):
-  2776 composition obligations with 0 errors, the 21-file source graph, both JDK
+  2782 composition obligations with 0 errors, the 21-file source graph, both JDK
   replays, 11 rejected semantic controls and the 3 compiled selector controls.
   The per-run maxima come from an equivalent same-source/same-flags replay that
-  adds CSV logging only (`max_resource_count` 10275514 deterministic rlimit
-  units; `max_obligation_seconds` 10.1399173 wall-clock). The previous
+  adds CSV logging only (`max_resource_count` 38963949 deterministic rlimit
+  units; `max_obligation_seconds` 8.0272167 wall-clock). The previous
   control-only composition run is preserved under
   `historical_previous_control_only_run`; no old numbers were carried forward and
   the GitHub-hosted CI replay is still required after push.
 
-The delivered source graph adds `formal/source/SourceTrace.dfy` and
+### Actual Select-caller adoption (2026-11-04)
+
+The Select-caller inputs match the actual staged source. Four delivery inputs
+changed against the immutable `f3f992e5` tree —
+`formal/crypto/NativeMlKem.dfy` (`267ba21d…`), `native_kem_domain.dfy`
+(`30bda846…`), `native_kem_checks.py` (`7c0bedc9…`) and `delivery.json`
+(`e7d1dce3…`, which repins the first and third). `NativeMlKem.dfy` adds the
+Select ghost observation contracts and caller binding; the domain records the
+ghost result. The Python runner adds `translate --isolate-assertions`; the
+fixed 30 s / 50M / 2-core policy is unchanged. The complete 20-root / 34-input / 27-native-replay
+stage receipt is `c58ce4fa…`; its 66 generated sources and class maps are
+byte-identical to the independently hashed prior delivery. The full receipt pins
+in the main wrapper, the Linux wrapper and the delivery manifest therefore all
+name the new files.
+
+The current-release artifact record is the actual completed helper report
+`formal/crypto/evidence/2026-11-04-poly/artifacts-v2/report.json` (`dd238e83…`):
+468 library / 84 crypto / 468 retained / 37 runtime classes, and on both JDK 21
+and 25 nine handshakes, nine nonces and the origin checks. It is a
+requalification of the existing actual A jar/classes against the new stage, not a
+rebuilt-candidate claim. `current-release-jar-identity` stays `deferred` in the
+static ledger; supplied-artifact validation remains invocation-scoped. The first helper
+attempt (v1) failed for missing clone fixtures and is preserved; it is not cited.
+
+> These are actual-replay observations, overlapping where a dependency is
+> rechecked. They are not independent security theorems, not a whole-KEM or
+> whole-proxy NI result, and not JVM timing evidence.
+
+The delivered source graph includes `formal/source/SourceTrace.dfy` and
 `formal/source/vocabulary/ObservationVocabulary.dfy`, so the stage-receipt source
 map and the native input maps are pinned at their new exact key counts (20/13/16/27
 and 21 for the Linux source graph). The V5 claim now requires the codec input map
@@ -157,9 +188,15 @@ as well, so trimming any of these maps fails instead of quietly narrowing covera
 
 Any change to `formal/crypto/delivery.json` also invalidates the nonce functional
 receipt's `delivery.manifest_sha256` and the committed delivery stage's
-`manifest_sha256`; the coherent change therefore requires a fresh nonce functional
-replay and a fresh complete delivery stage in the same commit. Those receipts are
-produced by the pinned runners, not edited by hand.
+`manifest_sha256`. A fresh complete delivery stage is always required. A fresh
+nonce functional replay is required only when one of the nonce's own inputs
+(kernel, generated Java, bridge) changed; when those are byte-identical, only the
+clearly derived `delivery.manifest_sha256` binding is refreshed and the report
+must say so. Here the 2026-11-04 Select-caller update changed exactly two
+`delivery.json` lines (`NativeMlKem` source pin and the native runner pin), so the
+nonce binding was refreshed from the actual new manifest without re-running or
+re-labelling the nonce proof. Receipts produced by a runner are never otherwise
+edited by hand.
 
 ### Scoped poly source-trace claim (V7 contribution)
 
@@ -180,7 +217,7 @@ repository bytes:
   the receipt's map must equal `formal/source/polynomial/inputs.json`, including
   its own manifest hash. Trimming or dropping a guard fails; the receipt cannot
   be renewed without the files.
-- the eight proof targets and exact verified counts (86/1001/26/2767/14/17/29/19),
+- the eight proof targets and exact verified counts (86/1001/26/2773/14/17/29/19),
   zero errors, the reviewed 30 s/50M/2-core budget with `O:smt.case_split=0` on
   native targets and `3` only for the composition source, and eight audits with a
   finding count of zero;
@@ -297,10 +334,47 @@ trust-boundary blocks. A deferred claim would bypass all of this, so demoting th
 claim is a gate removal, not a bookkeeping change; `check_crypto_release.py
 --require poly-source-trace-ni` makes that visible in CI.
 
-The claim is still subject to the V5 component checks (including the pending
+The claim is still subject to the V5 component checks (including the separate
 linux/amd64 14-control replay of the native polynomial wrapper) and to the
 separate V7 packet/timing gate; it is `supported` as a scoped source claim, not as
 a complete V7 result.
+
+### Scoped Select source claim (V6/V7 contribution)
+
+`select-source-trace-ni` covers the actual `NativeMlKem.Select` body, its fresh
+32-byte result, permitted aliases and existing-heap frame, and its fixed logical
+observation trace. It is an implementation claim with `production: false`;
+complete ML-KEM trace composition and V7 remain unfinished.
+
+The gate requires both actual Mac and Linux FULL reports under
+`formal/crypto/evidence/2026-11-04-select/`, for the same frozen package
+`b1ce4b85…` and reviewed SDK 10.0.400 profiles. At validation time it rehashes the
+current 85-file Dafny closure, strict 311-file package and eight used inputs.
+The authenticated baseline has 85 files and exactly the two declared candidate
+diffs. The offline consumer reads current workspace/evidence bytes, rather than
+opening the producer's paths, old baseline or installed tools.
+
+Each report must retain all 25 controls, the six-check paired/alias harness,
+2,773 body checks, the observed-secret-branch and private-bound proof failures,
+encoding proofs/audits, and the exact retained 13/18/22 matrices matched to raw
+outcomes. Raw and typed case contexts bind case identity, operands, argument
+vectors, plugin and before/after hashes. Tool/parser/type/resource failures
+cannot qualify as semantic negatives, including when mixed with a genuine
+proof failure.
+
+Both reports require companion Java/class maps derived from the actual output
+bytes, with reviewed map digests independent of their index. They establish
+65-source/class ghost erasure on JDK 21/25; the complete delivery's 66-class
+inventory remains separate. Compile arguments are bound to the reviewed
+runner, not invented as producer-recorded logs. The C# coverage adapter,
+Python orchestration/evidence validator and compiler/runtime/provider boundaries
+remain explicit trust. Logical roles are not physical heap addresses, and no
+JVM timing, cryptographic-hardness or expert-review claim follows.
+
+`check_crypto_release.py --require select-source-trace-ni` requires this scoped
+claim in CI. Dropping either platform or its companion maps fails closed. The
+original 13-open / 19-assumed / 31-unchecked bytecode residuals are unchanged;
+this does not close issue #117.
 
 ## Claims
 

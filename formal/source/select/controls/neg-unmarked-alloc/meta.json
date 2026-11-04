@@ -1,0 +1,6 @@
+{
+  "name": "neg-unmarked-alloc",
+  "expect": "reject",
+  "needle": "expected exact SourceTrace.Alloc",
+  "note": "allocation marker omitted"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "neg-private-callee",
+  "expect": "reject",
+  "needle": "Select allocation initializer contains an executable call",
+  "note": "F2 private callee in initializer"
+}

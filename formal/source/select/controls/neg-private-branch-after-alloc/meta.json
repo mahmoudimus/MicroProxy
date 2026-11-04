@@ -1,0 +1,6 @@
+{
+  "name": "neg-private-branch-after-alloc",
+  "expect": "reject",
+  "needle": "expected exact SourceTrace.Read",
+  "note": "F3 private branch/read interposed after allocation"
+}

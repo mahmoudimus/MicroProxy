@@ -1,7 +1,7 @@
-/out/linux-full/native-kem-xh1s0sah/matrix-transpose.dfy(416,16): Error: this invariant could not be proved to be maintained by the loop
+/out/repair-full/native-kem-uon76nt5/matrix-transpose.dfy(456,16): Error: this invariant could not be proved to be maintained by the loop
  Related message: loop invariant violation
     |
-416 |       invariant forall k: int :: 0 <= k < j as int ==> r[k] == a[if transposed then 3*k+i as int else 3*(i as int)+k]
+456 |       invariant forall k: int :: 0 <= k < j as int ==> r[k] == a[if transposed then 3*k+i as int else 3*(i as int)+k]
     |                 ^^^^^^
 
 

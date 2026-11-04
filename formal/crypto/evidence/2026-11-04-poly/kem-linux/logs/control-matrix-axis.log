@@ -1,6 +1,6 @@
-/out/linux-full/native-kem-xh1s0sah/matrix-axis.dfy(312,11): Error: assertion might not hold
+/out/repair-full/native-kem-uon76nt5/matrix-axis.dfy(352,11): Error: assertion might not hold
     |
-312 |     assert input[..] == rho[..]+[j as bv8,i as bv8];
+352 |     assert input[..] == rho[..]+[j as bv8,i as bv8];
     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 

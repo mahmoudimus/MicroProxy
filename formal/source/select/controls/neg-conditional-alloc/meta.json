@@ -1,0 +1,6 @@
+{
+  "name": "neg-conditional-alloc",
+  "expect": "reject",
+  "needle": "Select allocation must be a direct top-level statement of the method body",
+  "note": "F1 allocation inside a conditional, marker/block contexts consistent"
+}

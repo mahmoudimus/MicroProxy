@@ -1,0 +1,49 @@
+{
+  "schema": "microproxy.crypto-adoption-provenance/v1",
+  "base_commit": "f3f992e538be6d522c5cb318eb84565a756b3621",
+  "note": "Every entry is a byte copy of an actual producer output, not a re-rendered summary. derived=true entries are indexes/labels computed from those bytes; their own digests are not inputs to any proof. Old run bytes stay in the f3f992e5 git history at the same path.",
+  "entries": [
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/source/SOURCE-EVIDENCE.json",
+      "producer": "select-root-polynomial-replay/full/evidence.json",
+      "derived": false,
+      "sha256": "5c1b82ce7163bf5f697306159ade894f4329f9708ed1e45295f02a256d2554fb"
+    },
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/source/log-index.json",
+      "producer": "derived from SOURCE-EVIDENCE.json + copied logs",
+      "derived": true,
+      "sha256": "4053c2d469ff555a4248d43e861ecfd0ebbe0092279c210e24bf6b3788a20ee6"
+    },
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/kem-linux/receipt.json",
+      "producer": "select-linux-revalidation/repair/full-out/repair-full/native-kem-uon76nt5/receipt.json",
+      "derived": false,
+      "sha256": "cf2a617bc8c68384e23c33a44002df175b98ebe93bffecac465952d2cf663369"
+    },
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/kem-linux/profile/repair-composition-profile.csv",
+      "producer": "select-linux-revalidation/repair/profile-out/repair-composition-profile.csv",
+      "derived": false,
+      "sha256": "8d60f1c3c2077db2f2084b23572cd276ea469f0a750d09f27f3597ca6d59e9f7"
+    },
+    {
+      "tracked": "formal/crypto/adoption/stage-receipt.json",
+      "producer": "select-root-stage-candidate/stage/receipt.json",
+      "derived": false,
+      "sha256": "c58ce4fabd969d5f09422be6f7ea601e0e9e7a546366fcb30b711221de5aa084"
+    },
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/artifacts-v2/report.json",
+      "producer": "select-root-stage-candidate/actual-artifacts-v2/report.json",
+      "derived": false,
+      "sha256": "dd238e83a9b41aaeaab823c71ea40771dbc04cf0e872fafb66027434c0db4d6e"
+    },
+    {
+      "tracked": "formal/crypto/evidence/2026-11-04-poly/artifacts-v2/delivery-check.json",
+      "producer": "select-root-stage-candidate/actual-artifacts-v2/delivery-check.json",
+      "derived": false,
+      "sha256": "8acef5194a47c1a7435452990cb73b1c0907a0f4c287b6396f50758ee83186fc"
+    }
+  ]
+}

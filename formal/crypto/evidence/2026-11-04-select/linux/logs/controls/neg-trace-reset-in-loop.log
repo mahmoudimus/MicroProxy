@@ -1,0 +1,22 @@
+CASE-CONTEXT case=neg-trace-reset-in-loop operand_sha256=e4ef8a3e167ce2d786f3e44223b35928a25ed55435defabc1e2c03ee66d1d319 expected_fixture_sha256=e4ef8a3e167ce2d786f3e44223b35928a25ed55435defabc1e2c03ee66d1d319 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","resolve","/out/replay-b1ce/trees/neg-trace-reset-in-loop/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/out/replay-b1ce/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/out/replay-b1ce/trees/neg-trace-reset-in-loop/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(283,12): Error: Select: later trace update must append to the same trace as its immutable left prefix
+    |
+283 |       trace := ST.Alloc(0,32);
+    |             ^^
+
+NativeMlKem.dfy(284,24): Error: missing Read observation for array read candidate[i]
+    |
+284 |       r[i] := (candidate[i] & mask) | (fallback[i] & !mask);
+    |                         ^
+
+NativeMlKem.dfy(284,47): Error: missing Read observation for array read fallback[i]
+    |
+284 |       r[i] := (candidate[i] & mask) | (fallback[i] & !mask);
+    |                                                ^
+
+NativeMlKem.dfy(284,7): Error: missing Write observation for array write r[i]
+    |
+284 |       r[i] := (candidate[i] & mask) | (fallback[i] & !mask);
+    |        ^
+
+4 resolution/type errors detected in NativeMlKem.dfy

@@ -212,7 +212,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "3ad757652b5c866d3bf7492796b2ac2004155d7c06d815a7c9930510f185d80a",
+          "sha256": "aa834e3c4ce62765ff1c402b77baffff137227a2f39a930e6893a0dbac55dd46",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -709,7 +709,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+          "sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
           "kind": "delivery-receipt",
           "role": "generated-source and handwritten-provider delivery manifest"
         }
@@ -1038,7 +1038,7 @@
         },
         {
           "path": "formal/nonce/PRODUCTION-EVIDENCE.json",
-          "sha256": "27a6e470284d7cd99ec8d4b325697950f4ad4662b8a3793966d800c006f9bdb4",
+          "sha256": "fcf705edd032bf71a36f37eb721669de113007173b3f2f3336d5616013025494",
           "kind": "component-receipt",
           "role": "pinned generated-nonce production adoption receipt"
         },
@@ -1056,7 +1056,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+          "sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
           "kind": "delivery-receipt",
           "role": "central delivery manifest including the generated nonce inventory"
         },
@@ -1252,13 +1252,13 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+          "sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
           "kind": "delivery-receipt",
           "role": "generated crypto delivery/runtime/trust configuration"
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
+          "sha256": "c58ce4fabd969d5f09422be6f7ea601e0e9e7a546366fcb30b711221de5aa084",
           "kind": "delivery-receipt",
           "role": "current complete source/generated/class delivery stage"
         },
@@ -1498,7 +1498,7 @@
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
+          "sha256": "c58ce4fabd969d5f09422be6f7ea601e0e9e7a546366fcb30b711221de5aa084",
           "kind": "delivery-receipt",
           "role": "current complete source/generated/class delivery stage"
         },
@@ -1865,7 +1865,7 @@
       "id": "V6",
       "title": "Full ML-KEM-768 functional composition",
       "status": "implementation-proof",
-      "statement": "Verified Dafny ML-KEM-768 key generation, encapsulation, valid/invalid decapsulation, fallback selection, validation, ownership and cleanup are connected through exact generated-source and class inventory to the adopted reviewed facade; JDK SHA3 and compiler/runtime remain explicit trust.",
+      "statement": "Verified Dafny ML-KEM-768 key generation, encapsulation, valid/invalid decapsulation, fallback selection, validation, ownership and cleanup are connected through exact generated-source and class inventory to the adopted reviewed facade; JDK SHA3 and compiler/runtime remain explicit trust. The Select method also has a scoped logical source-observation contribution under the separately trusted coverage checker; full ML-KEM trace composition remains open.",
       "dependencies": [
         "V5"
       ],
@@ -1876,7 +1876,8 @@
         "jdk-primitives",
         "generated-runtime-discipline",
         "reviewed-java-facades",
-        "crypto-hardness-entropy"
+        "crypto-hardness-entropy",
+        "trusted-source-observation-coverage"
       ],
       "evidence": [
         {
@@ -1887,13 +1888,13 @@
         },
         {
           "path": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
-          "sha256": "a39a0d22c0303b0f8a2d5ed3cbcf0750e19cec45cf6022c1b4228bd804702267",
+          "sha256": "37fa572cf0497d91636fda590bdb039c4aa9e2652fe9937f79ae2718c0930a5e",
           "kind": "component-receipt",
           "role": "native KEM proof/control/bytecode receipt"
         },
         {
           "path": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
-          "sha256": "dae93b5ccff20935c2ad2804817f6c840672e0ab9a13c416664a4fd5268f7e21",
+          "sha256": "99b4af0c27b8f111d9a708ca5cb04cae303622cdbf02982bdde3f495c86614a3",
           "kind": "component-receipt",
           "role": "Linux native composition replay"
         },
@@ -1911,13 +1912,13 @@
         },
         {
           "path": "formal/crypto/NativeMlKem.dfy",
-          "sha256": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+          "sha256": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
           "kind": "proof-receipt",
           "role": "native primitive-array refinement"
         },
         {
           "path": "formal/crypto/native_kem_domain.dfy",
-          "sha256": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+          "sha256": "30bda846c92ab356e3b34feab0531ce6dba3d279556d41d4f5c917596c0ef53e",
           "kind": "spec-source",
           "role": "every-finite-native-input domain harness"
         },
@@ -1935,7 +1936,7 @@
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
+          "sha256": "c58ce4fabd969d5f09422be6f7ea601e0e9e7a546366fcb30b711221de5aa084",
           "kind": "delivery-receipt",
           "role": "complete source/generated/class delivery stage"
         },
@@ -1965,7 +1966,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+          "sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
           "kind": "delivery-receipt",
           "role": "delivery runtime/trust/facade configuration"
         },
@@ -2129,10 +2130,10 @@
           "receipt": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
           "values": {
             "scope": "full",
-            "proofs.proof-native-composition": 2776,
+            "proofs.proof-native-composition": 2782,
             "proofs.proof-reference-graph": 2695,
             "proofs.proof-native-kernels": 4097,
-            "proofs.generate-java": 162,
+            "proofs.generate-java": 168,
             "native_runtime_guard.payload_scalar_boxings": 0
           }
         },
@@ -2141,11 +2142,11 @@
           "values": {
             "status": "complete",
             "exit": 0,
-            "verified": 2776,
+            "verified": 2782,
             "platform": "linux/amd64",
             "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
-            "max_resource_count": 10275514,
-            "max_obligation_seconds": 10.1399173
+            "max_resource_count": 38963949,
+            "max_obligation_seconds": 8.0272167
           }
         },
         {
@@ -2281,7 +2282,7 @@
       "id": "V7",
       "title": "Secret-trace proof for our code",
       "status": "partial",
-      "statement": "The actual production HKDF Dafny methods have scoped paired source-trace proofs (248 body/259 paired-domain checks) with the separately trusted resolved-AST coverage adapter, 72 control records and byte-identical generated Java/classes. Full native SHAKE/Keccak/NTT/KEM and adapter/comparison trace composition remains open. Conditional trace evidence covers the original five callers, four codec helpers, two static HKDF helper roots, nine NativeField helpers, a separate composed Feed and seven fully expanded Keccak helpers under explicit mapper/runtime/provider assumptions. The Keccak concrete programs prove public-only scalar arguments, exact argument counts, no heap arguments and known targets for their remaining provider calls. Completed finite controls enforce public-heap equality and all 24 permutation rounds. The original caller set retains 19 assumed owned contracts; 13 roots and 31 aggregate labels remain open. Copy/alias, JVM value/timing and full V7 closure are not claimed.",
+      "statement": "The actual production HKDF Dafny methods have scoped paired source-trace proofs (248 body/259 paired-domain checks) with the separately trusted resolved-AST coverage adapter, 72 control records and byte-identical generated Java/classes. Full native SHAKE/Keccak/NTT/KEM and adapter/comparison trace composition remains open. Conditional trace evidence covers the original five callers, four codec helpers, two static HKDF helper roots, nine NativeField helpers, a separate composed Feed and seven fully expanded Keccak helpers under explicit mapper/runtime/provider assumptions. The Keccak concrete programs prove public-only scalar arguments, exact argument counts, no heap arguments and known targets for their remaining provider calls. Completed finite controls enforce public-heap equality and all 24 permutation rounds. The original caller set retains 19 assumed owned contracts; 13 roots and 31 aggregate labels remain open. Copy/alias, JVM value/timing and full V7 closure are not claimed. Select adds a separately gated source slice over fixed public shapes, legal aliases and a fresh output; its logical observations do not establish whole-KEM or physical JVM trace independence.",
       "dependencies": [
         "V1",
         "V2",
@@ -2421,7 +2422,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "91fd4acf9115be6182becbf2f5289ce6ff0cfe3c20e2a93314c04ee355da3af7",
+          "sha256": "d53672ea8a8919eb0cacf29afe8b8a6958befbd98e00253e1768105cb5724696",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2583,13 +2584,13 @@
         },
         {
           "path": "formal/source/polynomial/SOURCE-EVIDENCE.json",
-          "sha256": "86b0a127728cbf4645f16be6be6e93774709baaa490b0bac95fbfdd0061b0b35",
+          "sha256": "5c1b82ce7163bf5f697306159ade894f4329f9708ed1e45295f02a256d2554fb",
           "kind": "component-receipt",
           "role": "actual A portable-package report (proofs, controls, checker scope, erasure, baseline)"
         },
         {
           "path": "formal/source/polynomial/inputs.json",
-          "sha256": "107e0867d53c408f648ca028360c0457108e370f784e2c22377bcf5a8d02e590",
+          "sha256": "dcbf50166c566639431e1e68da5863e9618a576c6fa525f9963e8632179adbae",
           "kind": "input-manifest",
           "role": "44 explicit package/closure pins"
         },
@@ -2601,7 +2602,7 @@
         },
         {
           "path": "formal/source/polynomial/replay.py",
-          "sha256": "7755f7b8a6858aada4ac37df006c95890f3a6cf36d558edae71efe7c5abaa026",
+          "sha256": "4484b249d9f1c590d689767f99ac06d46557c3974443b19ffffc0759e79d0362",
           "kind": "tool-manifest",
           "role": "pinned runner: roots, ambient selectors, repeated-root guard"
         },
@@ -2661,7 +2662,7 @@
         },
         {
           "path": "formal/crypto/NativeMlKem.dfy",
-          "sha256": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+          "sha256": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
           "kind": "proof-receipt",
           "role": "composition source verified in the poly report"
         },
@@ -2724,6 +2725,1650 @@
           "sha256": "280f1c34d4d91996b74404ce1e1ab5a0f9569259ed7426a10f3c3db3c2ca4a57",
           "kind": "proof-receipt",
           "role": "reviewed control source"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/package-report.json",
+          "sha256": "a54f702df2c047ba078e5466e804c5ce5c6f482962c52f057736a7dc4e66c220",
+          "kind": "component-receipt",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/package-report.json",
+          "sha256": "6d144c6016e5c0fad1c9eb8d15d481dc57033b6e9b0f2dc144704338e88d693d",
+          "kind": "component-receipt",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/COLLECTION-FILES.json",
+          "sha256": "0331bbb9ba6b045793ff678d251d13718fe9169d3862b268f9209d208f160b36",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/COLLECTION-PROVENANCE.json",
+          "sha256": "e2c08cdfc995a49ebfd9c4e50727ce9aee4e5cc811250931fdbce9cab624bfb8",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/java-base.sha256",
+          "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/java-overlay.sha256",
+          "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-base-jdk21.sha256",
+          "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-overlay-jdk21.sha256",
+          "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-base-jdk25.sha256",
+          "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-overlay-jdk25.sha256",
+          "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/COLLECTION-FILES.json",
+          "sha256": "e231bd796fa8eaf3873e06d257913059cc9223cd845430a72f56cf2744dfc44c",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/COLLECTION-PROVENANCE.json",
+          "sha256": "6e5f5dd7530944a57d1458d8526652835cfbecfee5f52f88fc21ddc61d66cc08",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/java-base.sha256",
+          "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/java-overlay.sha256",
+          "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-base-jdk21.sha256",
+          "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-overlay-jdk21.sha256",
+          "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-base-jdk25.sha256",
+          "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-overlay-jdk25.sha256",
+          "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+          "kind": "source-inventory",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/package.json",
+          "sha256": "b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f",
+          "kind": "input-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/baseline.json",
+          "sha256": "fcb201051093fdc50ae66e428a9533c88f2be00a4f8cc83c5abc04a98e870563",
+          "kind": "input-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/candidate-sources.json",
+          "sha256": "12addcc0d2327b4033b3a99ddb8de033255c65f306395eca27defdc5754f009d",
+          "kind": "input-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/README.md",
+          "sha256": "092e5eeed4a2b8207879488dc4f66502bdc3c11f95e72ea28857ecd160863ea2",
+          "kind": "documentation",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/profiles/index.json",
+          "sha256": "013387dd0d1b646f5e0aa465a949787a84ec6334ddccf9e7052edbe4a8677f69",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/profiles/macos-sdk10.0.400.json",
+          "sha256": "9ec9f05ce8dd1083071e6fc0aecea69d9972abe7d94ca8e7be0266c032e99f84",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/profiles/linux-sdk10.0.400.json",
+          "sha256": "89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/replay.py",
+          "sha256": "14bdb5e5bdc0fd354ee9d74ff4523b4c0cf16aee1abc59908ef3330c1973cdf9",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/test_replay.py",
+          "sha256": "e74db40df85cd7ca88d2049ed4cc9b5c8666c140cbd4f1248ca39c1612e346da",
+          "kind": "test-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/checker/SourceCoverage.cs",
+          "sha256": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/checker/SourceCoverage.csproj",
+          "sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/checker/NativeCanonicalEncoderPolicy.cs",
+          "sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/harness/SelectTraceHarness.dfy",
+          "sha256": "02d273f37728bcbec7094eea21cbeb0f89d4c9092211fbb91b31f61435aa1342",
+          "kind": "proof-receipt",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/bridge/SourceTraceBridge.dfy",
+          "sha256": "505d6bc737b8fba3e51ace056e3bd170f1d16b0a74d56623a72e983b74518a6c",
+          "kind": "proof-receipt",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/fixtures/retained-native/run.py",
+          "sha256": "a9ea276f3d92cfb630ce73233b4fcff5afd2085d407b4e4749931cfc220ab019",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/fixtures/retained-native/controls/root19.json",
+          "sha256": "d6f0a30447bec5c43bffa5ae183ac06a28f62b746e58a41b167cc5e37934cbb5",
+          "kind": "input-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/select/fixtures/retained-native/controls/callbinding.json",
+          "sha256": "42767ad62a16f22c804b62b645e36eec298ceefa8295e4964a17ef29fdb6aee8",
+          "kind": "input-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/native_kem_domain.dfy",
+          "sha256": "30bda846c92ab356e3b34feab0531ce6dba3d279556d41d4f5c917596c0ef53e",
+          "kind": "spec-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/SourceTrace.dfy",
+          "sha256": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+          "kind": "proof-receipt",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/source/vocabulary/ObservationVocabulary.dfy",
+          "sha256": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+          "kind": "spec-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "scripts/security/check_select_source.py",
+          "sha256": "1f5eada16b4586af16b4caa612f318df507419b199929d448bcfcf4d1e8c3bc7",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "scripts/security/test_crypto_select_source.py",
+          "sha256": "aa109aaca270e47095e951efe3716f6debddf7c01c708e2fdc7ae44984441691",
+          "kind": "test-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "scripts/security/test_crypto_select_claims.py",
+          "sha256": "4c21313467ec9e9380cab0de775f5879b10c6b19090967a588e45ec3da904289",
+          "kind": "test-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "scripts/security/run_select_package_tests.py",
+          "sha256": "b03d8f4747bb69c9ca5b36a542922be87e39dcc523ae31fb782b7a2fc19e43f9",
+          "kind": "test-source",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "scripts/security/install_select_jdks.sh",
+          "sha256": "341c9e995a87effdd8d4d27afc59eb3465d724b184ae774740fbc86e15a7f7c6",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": ".github/workflows/formal-security.yml",
+          "sha256": "713e7ee44fa4103e569e9ee23422b2fe1fd2413a290149091cae8997e4047c45",
+          "kind": "tool-manifest",
+          "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/audit/ObservationVocabulary.dfy.log",
+          "sha256": "3b6364278e00ded5fada16415142e19e5c26d4921df90b4bc592eaa0edd39b1d",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/audit/SourceTrace.dfy.log",
+          "sha256": "90d895252a58b1f95b302ad23de9b4ad1449b2dec79bad72d26f872231846249",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/audit/SourceTraceBridge.dfy.log",
+          "sha256": "d38c98bb71f2115d1ea6ea8e880a65878f65e85c757d6869cbc91d2416be0a31",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/checker-build.log",
+          "sha256": "9e43a389132cc67e417023089e4310ba6a2144a3f7841f456b0606afbb6f74ad",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/codegen/base-translate.log",
+          "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/codegen/overlay-translate.log",
+          "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/coverage-private-loop-bound.log",
+          "sha256": "392e030157f00bfb77c254d28833e4faffbd8aa5ea4a963994a853138219e27e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-block-wrap-alloc.log",
+          "sha256": "17ade2dd3110a5b79310a99d4edc17df5b49ba631acb2530bbc7cfaf6c2e68b7",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-conditional-alloc.log",
+          "sha256": "8367833867dd38ca4235016ed2d86418b721f388f8864c94b8cd689bcaaa6985",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-loop-alloc.log",
+          "sha256": "c77a3fbd91c63714da2bdb9a8af4c5920313dc78ed1485c80e3afcc121dedd96",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-private-branch-after-alloc.log",
+          "sha256": "0f9c88b3884f3092c2b5e5888236686e1ce72316f61f3939d4f7e96d4d4134b0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-private-callee.log",
+          "sha256": "69744092eda1245ac32ac9ade0f075ed5f8009f91ce11aa92b0fcaef178a6ec2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-private-init-read.log",
+          "sha256": "82b84515d945bdf95a9eca96d999732b14c851769d22a967bc4fbbdeb455339f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-private-read-after-alloc.log",
+          "sha256": "4652705bf0468b9761c97f3a513b9a5bade9676f1b22268ab3e3b568ce2fd961",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-private-read-before-alloc.log",
+          "sha256": "7d479a70de95655c5cc7e27e414ff61b7fb8ed93fed45aaaebd97712299522ee",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-public-branch-after-alloc.log",
+          "sha256": "eae7fe7095b79ca8ba033f1daf91860a1a0c7edda78ad7712a2d8eb611e6d301",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-second-alloc.log",
+          "sha256": "9452b267164a279dbe41c9835c39089b736b20627e07f38f9ab47b1f9ec9c8df",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-secret-init-condition.log",
+          "sha256": "539427e6c7294011f1ffba7c1fc27eeffccbf44586dbf10b6827b737d4f00d7f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-select-calls-rotate.log",
+          "sha256": "344e5344abe02e6a321df42d9c2864034abe6245acd508c6017a5611de85bbb2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-shadow-select.log",
+          "sha256": "c45bde39a392bf916d2b67722b0ea6048b8696d3479272d981505a7f42ffad06",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-trace-reset-in-loop.log",
+          "sha256": "db9ea6d19dbb0f2955a08fc49fb4f05103351d7e1cd79b668fae54ee29f4a66a",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-unmarked-alloc.log",
+          "sha256": "b38a5793726031528da451ee040f401e2b4de9e740c70d73d8a9ae3e237416d1",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-unmarked-private-loop-bound.log",
+          "sha256": "51b25ed8edc41b29c40a6b2e24603314c256b70c6c91a43248327e8ad224f63c",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-wrong-alloc-site.log",
+          "sha256": "4f0afa0111d0bcf90c9a28681efb07971221fe13ecd2373d0542f06fbd4b4f33",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-wrong-alloc-size.log",
+          "sha256": "580fa3cec189acecd2df269d41af68e2202bc4754e33a352367bcb9e8d493969",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-wrong-initializer.log",
+          "sha256": "aff77661328226c1803435c2faf07b4cc9e6c9c3f14ee2b61083f250ade7dab1",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-wrong-result-identity.log",
+          "sha256": "ba9404441571e16127c6a3d3db34a1ac5a1a260c91322807ebc4b33679c0c535",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/neg-wrong-size.log",
+          "sha256": "f584ef715f9302b6e075195b4cac7375479084aef573626294fe6d7903d68ed9",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/observed-checker.log",
+          "sha256": "0bffb0af3a1df46ed053677e03a1a7bcf3e3d333eb5491a53a866f3b40a50380",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/positive-actual.log",
+          "sha256": "61d3cb688732dcf0f6d5e0f52204d1bd7e3348a496983599766c0b895bc2c50a",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/positive-alpha-out.log",
+          "sha256": "8f90f67f5b74d04c478f59d122c2d52112519dd89820a98058ec2a17cbad6ec2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/controls/positive-zero-init.log",
+          "sha256": "f653b3fcfa776a6eef6c9ef7a4f8990dc158e7ae3e983109f8fc0bbf5a4c8b62",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/constant-branch-bridge.log",
+          "sha256": "a6d0401054311ab31f3407f540c4dfdb8fef5339bb71498f3fe9ba68a159da33",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/f2-private-loop-bound-full.log",
+          "sha256": "182950be515de88f5f22ff0278a06076255aa533df0a4baaa64293b444a0f255",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/full-native-mlkem.log",
+          "sha256": "ad3f73d0ccab772d099d65e36f0f3decab0c74c6eeb9b6e4ea15375307275b5e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/observed-mutant-harness.log",
+          "sha256": "f9da0593caac326c57baceb686267cf765012a8cf1e756601a5ffe1cc6e1efc0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/observed-mutant-method.log",
+          "sha256": "229f8def9dc63eed89a639faa9fa177e273af0a5f1126d901d81fc422e236332",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/proof-observation-vocabulary.log",
+          "sha256": "0a763f510ae553732f03573fd89dbdde3d523442f109f8854ada516b42050c38",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/proof-source-trace-bridge.log",
+          "sha256": "98d9ffeef2e60c10c14e036e3e76ba584c1bcf53eee8188d8aff93c5abbc727f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/proof-source-trace.log",
+          "sha256": "c2ce1b403ca846f8b3eba5cb6108e388fa5af1f7c0584e381e849a0ee9171804",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/dafny/select-harness.log",
+          "sha256": "d5b3052cd6ec3f35e4c27235fd10f34ff3804ecac89962506c99040d23f6a58e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/address-loss.log",
+          "sha256": "6c9f801b9c960ed7a03d318abad0372ff5733d6b7162881e5f6daac5c21ce5cb",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/alpha-case-formals.log",
+          "sha256": "6cf442e5502797aed96b229900c145a8b27278a510e3e0efbd2a50a099339023",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/boolean-flip.log",
+          "sha256": "f20abde3e36076274291df80c4261d482fcd40137b38bfde90d89d54d8b969b0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/branch-tag.log",
+          "sha256": "d36fadcdf6bcf66d72319fb03069229bf127c64d0b0691c38660998a576a0c47",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/encoder-body-constant4.log",
+          "sha256": "f7a913f13472475b6e7d805dfd23111533bb4a9b58e400a67a2403ae9b7122b8",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/encoder-body-empty.log",
+          "sha256": "1aea35dcd3cdf1b23537ad8e9769846ee6ae5f70fb44c4beac53e91cd23956ad",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/encoder-body-tag4.log",
+          "sha256": "f07582ce8c82e9e2c9efc9713b98f088fe04afd2cccc8988b5ceaffb79518a86",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/encoder/ops-reordered.log",
+          "sha256": "332ac8811a56e9f5e6bca1a0937446b6c58f4f24abe473183ba30f4989989bd0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/logs/retained-native/run.log",
+          "sha256": "0774f20ecccd30060f631f8f19962c9a02701c7c6492f4e616cf2e497ed6a310",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/report.json",
+          "sha256": "fb6d212aed3766738f7aa02cb1c57d1b2ccbb95e6dc52c9c3a325b995bf31d2a",
+          "kind": "component-receipt",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/baseline13.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/build.log",
+          "sha256": "3a7f60441552751cbaa8ee18dc41760398867543960cdb7cf2f17157178a55a3",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-binding-unknown.log",
+          "sha256": "6ae4843e297314aecea721b8e9487c234412625d6e3f6bca84869abf4f8485f6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-block-boundary.log",
+          "sha256": "81bbc11bdbd73584ee39e9f087a6f9b566b435ec574c6234b209676d2cb80320",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-call-child-interposed-marker-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-call-child-interposed-marker.log",
+          "sha256": "7607a750a995112fbf67585eabb48a3d3cd7346c1387ecc97e7e40f4151e5a13",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-callee-before-call-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-callee-before-call.log",
+          "sha256": "bf68a33fe6d5cbd98810e71491ec5b950a565d7811c88776ed1a01fa5153e508",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-delayed-callee-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-delayed-callee.log",
+          "sha256": "5bbcabd5b1a698ec891d2e54d4e72331fef8696c8a14668addaa28338014a764",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-interposed-op.log",
+          "sha256": "dbda17344c39189a5735ca44694158081fcd3be0941a079f640aae8093ec07af",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-nested-callee.log",
+          "sha256": "5ffd7da1c89ae9b44378b66c797c5c42e3db02aeb613164ad3c6ecbf59ca7414",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-delayed.log",
+          "sha256": "47749737e6f0f2aeeafdf8d11924cb6436e28f8b5f49c14bf93de45e5e112194",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local.log",
+          "sha256": "c83d89b0fccbf1775012dab3cdaa65b93122e7f831f97dfc81aac0e135fd15c5",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-inline-projection-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-inline-projection-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-inline-projection.log",
+          "sha256": "f75b3dc03319bf8b7d6c737232db01a2e3cc86f84fdd5a20d1a02b0d106d05c2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-missing-child-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-missing-child-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-missing-child.log",
+          "sha256": "4825a65f7bf5b739db99c3f76b0b7c414b990fc97c572eff58ad99772f700b88",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-no-call-marker.log",
+          "sha256": "b0b27ce1131a62b6acab2f618c359cbf1d3949d846365c39d9137a1fb3fe48c2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-inline-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-inline-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-inline.log",
+          "sha256": "9a12cb30c224818486f27a8981f0eaf9953d314b10ab69bf5a7f1ba4fb850339",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-missing-child-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-missing-child-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-second-missing-child.log",
+          "sha256": "d44135c3033834dc46f09267c14d0341136985d379e7b0a73c0cb597a3d1c25d",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-rr-before-call-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-rr-before-call-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-pure-rr-before-call.log",
+          "sha256": "9fa2692a6842ad19fb4da06c4cb7c443aadd7b93aaccb799789947f04c8b7d3b",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-array-rank.log",
+          "sha256": "11ac31d9b3d1a3b8c8492455ff45ddb3ee1ffff1e197c3f21c32eec20bebbed9",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-array-role.log",
+          "sha256": "d483f45d534382b94b05754f8dd06ebc873a8cb70cd45374374b15e3d298d4e8",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-extra-output.log",
+          "sha256": "4d1033dcc2d0ad13067a3d751770a35183207eb0ba1c39b8501b181b875c47a2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-signature-add-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-signature-add.log",
+          "sha256": "a8ce3086c50ad444d8d30bac83f639bb9c5a536483daf003083c6b3984a36f50",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-unexpected-field-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-unexpected-field.log",
+          "sha256": "fb2bd4eca62bc03f997e233acd9853944b1a95e916b7b518b8ff3e7f350cfaad",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/callbinding-root-wrong-ghost.log",
+          "sha256": "85247ea0276019e6ecac1ab0228b2703751c528ebc8ac70a393cacd7084bf000",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/checker-build.json",
+          "sha256": "7f4268907265ebd47da4e39514e130f994936c694b60d971e01d36f031859cb3",
+          "kind": "source-inventory",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/checker-sdk.log",
+          "sha256": "d0c8e5a09a2e5655cffdca9e350ecbba59a860154f5adadb92398b844f705ed0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/dafny-version.log",
+          "sha256": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-alloc-marked-public.log",
+          "sha256": "bb9c9d7e2ba114948c624f57c5c483636c2200b5d9c7e1be0c0dc2b3dba560b6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-alloc-marked-secret.log",
+          "sha256": "f0b43c94866811ea3f9c7dddfc8e12225a61955b52deebff3a0e1b2a8980b46a",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-alloc-unmarked.log",
+          "sha256": "2313e460711733a26d7bdf193661c5e90ce78716bf917a1b10ce23573c04fc2c",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-alloc-wrong-marker.log",
+          "sha256": "3b67b6c08ea054ae71af716900889f7e07e8c9ef319d0cb08dc473b8baf62556",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-duplicate-root.log",
+          "sha256": "6122d66bd8fb7be2f7ad1e2ec7a5561d331b39128b462aef05905550af7e12d2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-fake-rotate.log",
+          "sha256": "d41fc713b3ccda520feebb3ba396218caf6f5842c20579740a24adde618abcca",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-ghost-lemma-output.log",
+          "sha256": "f03925a2708cbf27c8fc138e2a511adfec05dae785248c65eba4eb13454977de",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-helper-constant-arg.log",
+          "sha256": "d9a64a381921f7d461167f26a5891afe4e80af71c16427a6332b1faaa49b8554",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-helper-prefix.log",
+          "sha256": "2c8a520eadf983174504bbdde1ddc5a3c3c35b4c47ee05920be90ace881ddb08",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-match-unmarked.log",
+          "sha256": "967131d5b275f1aed0408fe578138ad628f8fae236f47a1cf0f40cfa726ad0f3",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-rename-helper-formal.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-rename-public-formal.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-shadow-encoder.log",
+          "sha256": "926cdc9174158586141ee8403ad6283ef0ae4ca15e6089eea847dd0bd694d3fe",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-shadow-marker-class.log",
+          "sha256": "480a6499a0c3d29284140e487784a7223977da47427184788faa520cca30284e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-shadow-rotate-class.log",
+          "sha256": "aa62ae0853a3042a728d39bad34e996d43a0e550d5e3f7106e8f5248f7a7bc71",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-statement-expression.log",
+          "sha256": "5574b86b201b5bedb05959947754039d93a6c48ded07e7123a644352ba54c490",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-wrong-branch-outcome.log",
+          "sha256": "6f40ee6c516164f7490249ed2a0f7d49aff95ed973753bc09327375374d922ef",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/macos/retained-native/fixture/work/root19-wrong-word-count.log",
+          "sha256": "5cc192a1fb90db2add6f60e2c4e7b2dc52e0d2f2f6753128ea536c3e10496089",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/audit/ObservationVocabulary.dfy.log",
+          "sha256": "0408fb369b44e33cbcd1832d30676da0a72bd7f01f00c5f509e9a1b475f6c0cb",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/audit/SourceTrace.dfy.log",
+          "sha256": "571e05f8803cb67847639be67a942f2dd9c4ecc6665f18ea6f87ed641f951d30",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/audit/SourceTraceBridge.dfy.log",
+          "sha256": "84e300e60ba1eeca3a3627167cb31a110ec54dee2928fe9357f44388448b03e7",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/checker-build.log",
+          "sha256": "23985adeedfdf67f4ee9db1c2f2a321cf4b22e23c99eeea46e3e429d39a3d84c",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/codegen/base-translate.log",
+          "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/codegen/overlay-translate.log",
+          "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/coverage-private-loop-bound.log",
+          "sha256": "fd11d739c47e6d81edfa3d9294fb30acbe4686504ba183740c60b303ef5ad55f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-block-wrap-alloc.log",
+          "sha256": "87fec137fb2b33dc73ca4e89faf99e9f5b1bb3d34c4782b4b87751e492cc9724",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-conditional-alloc.log",
+          "sha256": "f9f69b2f2c5906ef97f6649d11f24f025288670dc0f26041808a61b3430ee475",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-loop-alloc.log",
+          "sha256": "ceb4d1637838dbde827339de5b357bba35a0978a83f1d6ba6fc83df1137d4daa",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-private-branch-after-alloc.log",
+          "sha256": "e02e4c2cd5de434762ff413795e0ec2aaaf1b916daf1827bf9b789d3d638c319",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-private-callee.log",
+          "sha256": "e015fcafb497e50cbbe00a8a0f49ccc5c0c84f720dd7de029bd64f2fba056745",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-private-init-read.log",
+          "sha256": "e43dd868e1cc4992074a51ff18e422555df26da18ba229572cc3a2ea193ecfa1",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-private-read-after-alloc.log",
+          "sha256": "4b0cf5d0ce88b05d6f99832ff7d16df03914938c9b85eb2d021eb73d957ae422",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-private-read-before-alloc.log",
+          "sha256": "8a96ffbf6e35dfa1e88be5c7039a04e2686557fff04d0e266bde1cfabae51036",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-public-branch-after-alloc.log",
+          "sha256": "bc253cdce4a5cb33f7df4d94395c1106d5623f6f8d3ec9fd1f5d97986fd45c5b",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-second-alloc.log",
+          "sha256": "378a2632171553132b2732696d82aeac9e9c3ec436d72517007078b7793aef6f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-secret-init-condition.log",
+          "sha256": "14a638f684c92d45f50da5abd4c8243d0a899f937831c8d2aa12fd89869ae314",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-select-calls-rotate.log",
+          "sha256": "db04b312becc18e6f1fd75827152571d4f1b400a50169cf67e9d49ede987d508",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-shadow-select.log",
+          "sha256": "38ae0ccf4f798bff5a988b37372f160d6382586934bf6bea97fe70d183585f29",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-trace-reset-in-loop.log",
+          "sha256": "cff6c3a77c55b5c61f7fb5e3a7f253fcabcfcb3236192660e028c483efa95249",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-unmarked-alloc.log",
+          "sha256": "d75b460fdca98e4219d4a54e3851e66691705943e000247f55240d699cb0a156",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-unmarked-private-loop-bound.log",
+          "sha256": "899e399caabfaafb5396ebc53f45d46fce77277ba905c939a1ab39268620dd85",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-wrong-alloc-site.log",
+          "sha256": "0d7b462f6862fdf0d43f3105a289f70a69f87d34fae18e5c0accc4eafd6ebb7b",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-wrong-alloc-size.log",
+          "sha256": "8d7a43e5288eec7dc15f89a4f9572d631e7aff847134eef9779ce72c9773f73d",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-wrong-initializer.log",
+          "sha256": "0a4170559b349255081c32fa614aab0502e652b97acfa4fa1b69c930223d1f08",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-wrong-result-identity.log",
+          "sha256": "4b30056cf0471293179f7db63ecdbbf6b2ece78a962c20d2c3df71b5dcb3cf1e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/neg-wrong-size.log",
+          "sha256": "81eeafcde6850a42bed530684957cb2d86dae27dae3068581a2d052135beee28",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/observed-checker.log",
+          "sha256": "b3c2e1374889687d9a003831032d4a714942ad703591e0f5b36b8bd76a4f3792",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/positive-actual.log",
+          "sha256": "59bb2a99eaf3369c162bae4e6487d281d81f87dd23c53846b1ed347985b51a4f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/positive-alpha-out.log",
+          "sha256": "a02197ed8b584daf7c63c101055b4d3ad45c5f0332ffb867098501f6b2bb77ad",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/controls/positive-zero-init.log",
+          "sha256": "3f90fc2b9f81edd69b9de28b18fa613489c642d9de1a833f05d173079131aa88",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/constant-branch-bridge.log",
+          "sha256": "06faa6e0e7fe46a661ef01fad23df1fa4ae9360f73e434886c788a8c4a07b75c",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/f2-private-loop-bound-full.log",
+          "sha256": "64843710d322229606587272899bad157d424ca06ff046274423c4a251e0bf8d",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/full-native-mlkem.log",
+          "sha256": "92eb23d158ca6ed1a3c4deb110293c036aadfd5701727a6dc7eba71c9161ee49",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/observed-mutant-harness.log",
+          "sha256": "9d01a7320b78271f0130e361c19857a3351a884286b7bdc95c56a73bbd73e2d6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/observed-mutant-method.log",
+          "sha256": "54db99e03d3f2cd1890827a3799b1696c328df2996641f5a3c5f9985e1479633",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/proof-observation-vocabulary.log",
+          "sha256": "f888e7728c21e2aa306e3cb11fc784d83e9ce77a12a199ee17bf683113a52cd6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/proof-source-trace-bridge.log",
+          "sha256": "5f17f91a3f14d6df9181c623620278b234e0b37b4214025eb50db28ea7af3e21",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/proof-source-trace.log",
+          "sha256": "9b0bed5068e4d0e82c758451d8c5696a60c52c1ba3ecdcd70e1b2f5c3f6872b8",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/dafny/select-harness.log",
+          "sha256": "6396e8cc1826735bf0ef83c723c3a77190aa1e6ee9889608355ddd5e3534950b",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/address-loss.log",
+          "sha256": "2ac9d229cd4680eedb1a5e640e2bd4d36e2c1a064501e02cfeb60b7b412c06eb",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/alpha-case-formals.log",
+          "sha256": "ee5f22e697275bf53d3c9d9cc954d987e323206d5b27307603a1955e94f69daf",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/boolean-flip.log",
+          "sha256": "f7bda2e95c4d1af5431c7bbfa74305d091c8288239955a6dd6a530569d643b36",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/branch-tag.log",
+          "sha256": "76419486a3fcb5618ab46e9ec27634a1a6e4c9e46849aa325942235a1aae3095",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/encoder-body-constant4.log",
+          "sha256": "beeb4b7ff38a5a031e9b0111b7af159cbd4569680494bacb04bbb3a35edbb070",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/encoder-body-empty.log",
+          "sha256": "9846e6d72dcb9aeaeaa9195b3813f559dff1d0ea1c20bf3a763ed97b71c361d3",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/encoder-body-tag4.log",
+          "sha256": "f91bdea39416df0b889757e123647039948340682ee8a56310da1ce94cdab438",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/encoder/ops-reordered.log",
+          "sha256": "af71b6d0c4fa9da0158e050b6d71700925a5390f11370dd557dfc3414b66aeaa",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/logs/retained-native/run.log",
+          "sha256": "35a75438024cc1e52454055d421453c0f7807cae1f424eeee25d89cce4e778f2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/report.json",
+          "sha256": "fb6d212aed3766738f7aa02cb1c57d1b2ccbb95e6dc52c9c3a325b995bf31d2a",
+          "kind": "component-receipt",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/baseline13.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/build.log",
+          "sha256": "ade97791647db1329984546f65fecee32aba18aaef79f20f1652edb1ee145191",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-binding-unknown.log",
+          "sha256": "6ae4843e297314aecea721b8e9487c234412625d6e3f6bca84869abf4f8485f6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-block-boundary.log",
+          "sha256": "81bbc11bdbd73584ee39e9f087a6f9b566b435ec574c6234b209676d2cb80320",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-call-child-interposed-marker-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-call-child-interposed-marker.log",
+          "sha256": "7607a750a995112fbf67585eabb48a3d3cd7346c1387ecc97e7e40f4151e5a13",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-callee-before-call-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-callee-before-call.log",
+          "sha256": "bf68a33fe6d5cbd98810e71491ec5b950a565d7811c88776ed1a01fa5153e508",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-delayed-callee-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-delayed-callee.log",
+          "sha256": "5bbcabd5b1a698ec891d2e54d4e72331fef8696c8a14668addaa28338014a764",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-interposed-op.log",
+          "sha256": "dbda17344c39189a5735ca44694158081fcd3be0941a079f640aae8093ec07af",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-nested-callee.log",
+          "sha256": "5ffd7da1c89ae9b44378b66c797c5c42e3db02aeb613164ad3c6ecbf59ca7414",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-delayed.log",
+          "sha256": "47749737e6f0f2aeeafdf8d11924cb6436e28f8b5f49c14bf93de45e5e112194",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-forged-ghost-local.log",
+          "sha256": "c83d89b0fccbf1775012dab3cdaa65b93122e7f831f97dfc81aac0e135fd15c5",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-inline-projection-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-inline-projection-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-inline-projection.log",
+          "sha256": "f75b3dc03319bf8b7d6c737232db01a2e3cc86f84fdd5a20d1a02b0d106d05c2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-missing-child-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-missing-child-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-missing-child.log",
+          "sha256": "4825a65f7bf5b739db99c3f76b0b7c414b990fc97c572eff58ad99772f700b88",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-no-call-marker.log",
+          "sha256": "b0b27ce1131a62b6acab2f618c359cbf1d3949d846365c39d9137a1fb3fe48c2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-inline-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-inline-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-inline.log",
+          "sha256": "9a12cb30c224818486f27a8981f0eaf9953d314b10ab69bf5a7f1ba4fb850339",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-missing-child-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-missing-child-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-second-missing-child.log",
+          "sha256": "d44135c3033834dc46f09267c14d0341136985d379e7b0a73c0cb597a3d1c25d",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-harness-verify.log",
+          "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-nativekeccak-verify.log",
+          "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-call-two-direct-accepted.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-rr-before-call-harness-verify.log",
+          "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-rr-before-call-nativekeccak-verify.log",
+          "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-pure-rr-before-call.log",
+          "sha256": "9fa2692a6842ad19fb4da06c4cb7c443aadd7b93aaccb799789947f04c8b7d3b",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-array-rank.log",
+          "sha256": "11ac31d9b3d1a3b8c8492455ff45ddb3ee1ffff1e197c3f21c32eec20bebbed9",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-array-role.log",
+          "sha256": "d483f45d534382b94b05754f8dd06ebc873a8cb70cd45374374b15e3d298d4e8",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-extra-output.log",
+          "sha256": "4d1033dcc2d0ad13067a3d751770a35183207eb0ba1c39b8501b181b875c47a2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-signature-add-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-signature-add.log",
+          "sha256": "a8ce3086c50ad444d8d30bac83f639bb9c5a536483daf003083c6b3984a36f50",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-unexpected-field-verify.log",
+          "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-unexpected-field.log",
+          "sha256": "fb2bd4eca62bc03f997e233acd9853944b1a95e916b7b518b8ff3e7f350cfaad",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/callbinding-root-wrong-ghost.log",
+          "sha256": "85247ea0276019e6ecac1ab0228b2703751c528ebc8ac70a393cacd7084bf000",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/checker-build.json",
+          "sha256": "7f4268907265ebd47da4e39514e130f994936c694b60d971e01d36f031859cb3",
+          "kind": "source-inventory",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/checker-sdk.log",
+          "sha256": "d0c8e5a09a2e5655cffdca9e350ecbba59a860154f5adadb92398b844f705ed0",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/dafny-version.log",
+          "sha256": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-alloc-marked-public.log",
+          "sha256": "bb9c9d7e2ba114948c624f57c5c483636c2200b5d9c7e1be0c0dc2b3dba560b6",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-alloc-marked-secret.log",
+          "sha256": "f0b43c94866811ea3f9c7dddfc8e12225a61955b52deebff3a0e1b2a8980b46a",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-alloc-unmarked.log",
+          "sha256": "2313e460711733a26d7bdf193661c5e90ce78716bf917a1b10ce23573c04fc2c",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-alloc-wrong-marker.log",
+          "sha256": "3b67b6c08ea054ae71af716900889f7e07e8c9ef319d0cb08dc473b8baf62556",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-duplicate-root.log",
+          "sha256": "6122d66bd8fb7be2f7ad1e2ec7a5561d331b39128b462aef05905550af7e12d2",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-fake-rotate.log",
+          "sha256": "d41fc713b3ccda520feebb3ba396218caf6f5842c20579740a24adde618abcca",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-ghost-lemma-output.log",
+          "sha256": "f03925a2708cbf27c8fc138e2a511adfec05dae785248c65eba4eb13454977de",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-helper-constant-arg.log",
+          "sha256": "d9a64a381921f7d461167f26a5891afe4e80af71c16427a6332b1faaa49b8554",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-helper-prefix.log",
+          "sha256": "2c8a520eadf983174504bbdde1ddc5a3c3c35b4c47ee05920be90ace881ddb08",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-match-unmarked.log",
+          "sha256": "967131d5b275f1aed0408fe578138ad628f8fae236f47a1cf0f40cfa726ad0f3",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-rename-helper-formal.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-rename-public-formal.log",
+          "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-shadow-encoder.log",
+          "sha256": "926cdc9174158586141ee8403ad6283ef0ae4ca15e6089eea847dd0bd694d3fe",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-shadow-marker-class.log",
+          "sha256": "480a6499a0c3d29284140e487784a7223977da47427184788faa520cca30284e",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-shadow-rotate-class.log",
+          "sha256": "aa62ae0853a3042a728d39bad34e996d43a0e550d5e3f7106e8f5248f7a7bc71",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-statement-expression.log",
+          "sha256": "5574b86b201b5bedb05959947754039d93a6c48ded07e7123a644352ba54c490",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-wrong-branch-outcome.log",
+          "sha256": "6f40ee6c516164f7490249ed2a0f7d49aff95ed973753bc09327375374d922ef",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
+        },
+        {
+          "path": "formal/crypto/evidence/2026-11-04-select/linux/retained-native/fixture/work/root19-wrong-word-count.log",
+          "sha256": "5cc192a1fb90db2add6f60e2c4e7b2dc52e0d2f2f6753128ea536c3e10496089",
+          "kind": "proof-log",
+          "role": "Unmodified actual Select FULL raw evidence; derived indexes/maps labelled by provenance"
         }
       ],
       "limitations": [
@@ -3264,7 +4909,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "6bcb4bcd3eaef7d5b31f4f32bd80cbdc6031fa52112932eb4c8a049542c6cdc0",
+          "sha256": "703eb6399bf20787d55a4d3f6d331df9d251e89fef34a9b2c6a41e09be69458d",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -3276,13 +4921,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "3ad757652b5c866d3bf7492796b2ac2004155d7c06d815a7c9930510f185d80a",
+          "sha256": "aa834e3c4ce62765ff1c402b77baffff137227a2f39a930e6893a0dbac55dd46",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "77410ae12a71b84055bd9e7293b8bf51e13590944cb09f6d172fb13df599be52",
+          "sha256": "0a92257dd4d56a23c672112aeec89d09a2b933bd998a27275e51be97b38b15de",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -3300,7 +4945,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "91fd4acf9115be6182becbf2f5289ce6ff0cfe3c20e2a93314c04ee355da3af7",
+          "sha256": "d53672ea8a8919eb0cacf29afe8b8a6958befbd98e00253e1768105cb5724696",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -3318,13 +4963,13 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
+          "sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
           "kind": "delivery-receipt",
           "role": "current delivery/runtime pins"
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
+          "sha256": "c58ce4fabd969d5f09422be6f7ea601e0e9e7a546366fcb30b711221de5aa084",
           "kind": "delivery-receipt",
           "role": "current generated-source/class inventory"
         },
@@ -3905,6 +5550,78 @@
         "No JVM/JIT/CPU timing or constant-time claim, and no bytecode-level refinement beyond the recorded ghost-erasure class-identity check.",
         "Keccak/Shake, full ML-KEM composition, adapter/invalid-input trace composition and the KeyGen rho-failure NI path remain open; this does not close issue #117.",
         "The Linux 14-control replay and the release/nonce gates are separate; this claim covers only the reviewed source roots and controls."
+      ]
+    },
+    {
+      "id": "select-source-trace-ni",
+      "statement": "The actual NativeMlKem.Select Dafny method returns a fresh 32-byte result, preserves its existing-heap frame and permitted aliases, and proves equal logical source observations for fixed public shapes/ciphertext while expected/candidate/fallback byte contents vary. A separately trusted resolved-AST checker binds observations to actual operations and the sole result allocation. The same-source generation has exact ghost erasure for 65 algorithm Java files/classes on JDK 21/25 under both reviewed Mac and Linux profiles. This is a Select source slice, not whole ML-KEM trace composition or physical JVM security.",
+      "status": "supported",
+      "strength": "implementation",
+      "production": false,
+      "obligations": [
+        "V6",
+        "V7"
+      ],
+      "assumptions": [
+        "dafny-runtime",
+        "dafny-toolchain",
+        "generated-runtime-discipline",
+        "javac-jvm",
+        "trusted-source-observation-coverage"
+      ],
+      "evidence": [
+        "formal/crypto/evidence/2026-11-04-select/macos/package-report.json",
+        "formal/crypto/evidence/2026-11-04-select/linux/package-report.json",
+        "formal/crypto/evidence/2026-11-04-select/macos/COLLECTION-FILES.json",
+        "formal/crypto/evidence/2026-11-04-select/macos/COLLECTION-PROVENANCE.json",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/java-base.sha256",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/java-overlay.sha256",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-base-jdk21.sha256",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-overlay-jdk21.sha256",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-base-jdk25.sha256",
+        "formal/crypto/evidence/2026-11-04-select/macos/derived-codegen-maps/classes-overlay-jdk25.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/COLLECTION-FILES.json",
+        "formal/crypto/evidence/2026-11-04-select/linux/COLLECTION-PROVENANCE.json",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/java-base.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/java-overlay.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-base-jdk21.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-overlay-jdk21.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-base-jdk25.sha256",
+        "formal/crypto/evidence/2026-11-04-select/linux/derived-codegen-maps/classes-overlay-jdk25.sha256",
+        "formal/source/select/package.json",
+        "formal/source/select/baseline.json",
+        "formal/source/select/candidate-sources.json",
+        "formal/source/select/README.md",
+        "formal/source/select/profiles/index.json",
+        "formal/source/select/profiles/macos-sdk10.0.400.json",
+        "formal/source/select/profiles/linux-sdk10.0.400.json",
+        "formal/source/select/replay.py",
+        "formal/source/select/test_replay.py",
+        "formal/source/select/checker/SourceCoverage.cs",
+        "formal/source/select/checker/SourceCoverage.csproj",
+        "formal/source/select/checker/NativeCanonicalEncoderPolicy.cs",
+        "formal/source/select/harness/SelectTraceHarness.dfy",
+        "formal/source/select/bridge/SourceTraceBridge.dfy",
+        "formal/source/select/fixtures/retained-native/run.py",
+        "formal/source/select/fixtures/retained-native/controls/root19.json",
+        "formal/source/select/fixtures/retained-native/controls/callbinding.json",
+        "formal/crypto/NativeMlKem.dfy",
+        "formal/crypto/native_kem_domain.dfy",
+        "formal/source/SourceTrace.dfy",
+        "formal/source/vocabulary/ObservationVocabulary.dfy",
+        "scripts/security/check_select_source.py",
+        "scripts/security/test_crypto_select_source.py",
+        "scripts/security/test_crypto_select_claims.py",
+        "scripts/security/run_select_package_tests.py",
+        "scripts/security/install_select_jdks.sh",
+        ".github/workflows/formal-security.yml"
+      ],
+      "limitations": [
+        "The C# coverage checker, Python orchestration/evidence validator and Dafny/Boogie/Z3 toolchain remain trusted; this does not formally prove the checker or compiler correct.",
+        "Read/write roles and indices are method-local logical identities, not physical Java heap addresses, JVM timing or physical erasure.",
+        "Compiler/runtime/provider correctness and whole-KEM, SHAKE/Keccak, adapter, invalid-input and rho-failure trace composition remain open; this does not close issue #117.",
+        "Independent external cryptographic/proof review and cryptographic security reductions remain open.",
+        "The 65-class component erasure and 66-class complete delivery inventories have different scopes; supplied-artifact checks remain separate."
       ]
     },
     {
