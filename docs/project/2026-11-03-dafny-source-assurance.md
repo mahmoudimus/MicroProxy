@@ -93,6 +93,17 @@ These are scoped source-observation results. Complete SHAKE/Keccak, ML-KEM,
 Java adapters/comparisons and failure-path declassification still require
 composition work. The existing residual bytecode inventories remain open.
 
+The separate `assurance/shake-api/` root now proves public API state/status
+coupling by calling the unchanged executable Sponge methods over arbitrary valid
+states. It preserves the native caller domains, makes cross-run separation
+explicit and includes shared external outputs. Its replay verifies 1,558
+included-body checks and 51 overlapping root-only checks, seven zero-finding
+audits, five named false-assertion controls and an included-body axiom control.
+This prerequisite does not prove internal operation traces: secret-dependent
+branches could preserve the public state. Keccak child traces and API observation
+faithfulness remain open. The independent root imports production source; no
+existing root imports it, so the frozen Select inputs remain unchanged.
+
 ## Assurance boundaries
 
 Functional correctness, source trace independence and artifact identity remain

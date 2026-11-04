@@ -251,6 +251,29 @@ jobs:
             !${{ runner.temp }}/dafny-select-source/**/dotnet-home/**
           if-no-files-found: ignore
 
+  dafny-shake-api-state:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Test SHAKE API proof replay admission and diagnostics
+        run: python -m unittest discover -s assurance/shake-api -p 'test_*.py' -v
+      - name: Prove public API state and status coupling
+        run: python assurance/shake-api/replay.py --output "$RUNNER_TEMP/shake-api-state" --cache "$RUNNER_TEMP/shake-api-tools"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-shake-api-state
+          path: ${{ runner.temp }}/shake-api-state/
+          if-no-files-found: ignore
+
   dafny-source-ownership:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

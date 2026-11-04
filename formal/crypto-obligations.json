@@ -2422,7 +2422,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "a3f7d58a9cdce0915fe7e1c39e89e6a2bb94035053ce0a2ba15aa8def556a665",
+          "sha256": "6d63492c051439ca6a081095c69fc2de303f01013611a54cc2ae924de563ba79",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2986,7 +2986,7 @@
         },
         {
           "path": ".github/workflows/formal-security.yml",
-          "sha256": "2c3421cebef84d4c663995301de0009c6c6c411f5c468b68bbbfb7a2f4c2f84b",
+          "sha256": "ccd3873dab6aa2b25ff303c312ff33eb777648d9d7514a4c0b0292f01e81fcc7",
           "kind": "tool-manifest",
           "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
         },
@@ -4945,7 +4945,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "a3f7d58a9cdce0915fe7e1c39e89e6a2bb94035053ce0a2ba15aa8def556a665",
+          "sha256": "6d63492c051439ca6a081095c69fc2de303f01013611a54cc2ae924de563ba79",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },

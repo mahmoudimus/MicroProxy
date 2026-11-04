@@ -1,0 +1,508 @@
+{
+  "schema": "microproxy.shake-api-state/1",
+  "status": "complete",
+  "scope": "Actual SHAKE public API state/status coupling only",
+  "not_claimed": [
+    "operation trace independence",
+    "observer completeness",
+    "Java/JVM refinement",
+    "physical timing or erasure",
+    "cryptographic hardness",
+    "external expert review"
+  ],
+  "commands": [
+    {
+      "label": "graph-0-dependencies-0",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/assurance/shake-api/ApiStateHarness.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-0-dependencies-0.log",
+      "log_sha256": "4b5095e95f869b8361168759a237b690eac9eb075386b49b8e1cf9e095c27a51"
+    },
+    {
+      "label": "graph-0-dependencies-1",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeShake.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-0-dependencies-1.log",
+      "log_sha256": "3ace912d165ebcfbb91a7af1b820063289aabc34fca1de97dc96edcf01d76f7b"
+    },
+    {
+      "label": "graph-0-dependencies-2",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeKeccak.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/SpongeSpec.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-0-dependencies-2.log",
+      "log_sha256": "1602e27b06538b0bf0912737bbeaeac0269e6c5900953f89f2ea4815523c5a89"
+    },
+    {
+      "label": "graph-0-dependencies-3",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeTypes.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/primitives/Keccak.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-0-dependencies-3.log",
+      "log_sha256": "3e8cea8c0fc83921bcfd49247882f201b4f54ca82b3218773a78b839dacea36a"
+    },
+    {
+      "label": "graph-1-dependencies-0",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/assurance/shake-api/controls/NegativeControls.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-1-dependencies-0.log",
+      "log_sha256": "33bed0a0902eae1654531c47e19b4f8946d393984f56ed9b52d152a03e990d92"
+    },
+    {
+      "label": "graph-1-dependencies-1",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/assurance/shake-api/ApiStateHarness.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-1-dependencies-1.log",
+      "log_sha256": "4b5095e95f869b8361168759a237b690eac9eb075386b49b8e1cf9e095c27a51"
+    },
+    {
+      "label": "graph-1-dependencies-2",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeShake.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-1-dependencies-2.log",
+      "log_sha256": "3ace912d165ebcfbb91a7af1b820063289aabc34fca1de97dc96edcf01d76f7b"
+    },
+    {
+      "label": "graph-1-dependencies-3",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeKeccak.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/SpongeSpec.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-1-dependencies-3.log",
+      "log_sha256": "1602e27b06538b0bf0912737bbeaeac0269e6c5900953f89f2ea4815523c5a89"
+    },
+    {
+      "label": "graph-1-dependencies-4",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "/printIncludes:Immediate",
+        "/noResolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/crypto/NativeTypes.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen/formal/primitives/Keccak.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "graph-1-dependencies-4.log",
+      "log_sha256": "3e8cea8c0fc83921bcfd49247882f201b4f54ca82b3218773a78b839dacea36a"
+    },
+    {
+      "label": "complete-source",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/ApiStateHarness.dfy",
+        "--verify-included-files",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "complete-source.log",
+      "log_sha256": "9a824ab32654cb248717edbc5d25044f0675d6474bd231d6396a2679d91325bd"
+    },
+    {
+      "label": "api-domain",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/ApiStateHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "api-domain.log",
+      "log_sha256": "2c0b740bc99c935088dc9739afff3fbf28aeadc68bff0f152e1a736fba38c7e2"
+    },
+    {
+      "label": "audit-0",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "assurance/shake-api/ApiStateHarness.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-0.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-1",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "assurance/shake-api/controls/NegativeControls.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-1.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-2",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-2.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-3",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "formal/crypto/NativeShake.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-3.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-4",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "formal/crypto/NativeTypes.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-4.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-5",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "formal/crypto/SpongeSpec.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-5.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "audit-6",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "formal/primitives/Keccak.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "audit-6.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed"
+    },
+    {
+      "label": "control-empty-read-phase",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/controls/NegativeControls.dfy",
+        "--filter-symbol",
+        "ShakeApiControls.WrongEmptyReadPhase",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 4,
+      "log": "control-empty-read-phase.log",
+      "log_sha256": "d9bc3c912a9b556b575d43fed234d38e7175bcf200783f490bac0d6b5e0c1a7f"
+    },
+    {
+      "label": "control-phase-before-bounds",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/controls/NegativeControls.dfy",
+        "--filter-symbol",
+        "ShakeApiControls.WrongPhaseBeforeBounds",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 4,
+      "log": "control-phase-before-bounds.log",
+      "log_sha256": "7f98b2a71544b4d4191d1ff6a414593bd221150a4bd3de09f8b677b135f859ce"
+    },
+    {
+      "label": "control-invalid-slice",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/controls/NegativeControls.dfy",
+        "--filter-symbol",
+        "ShakeApiControls.WrongInvalidSlice",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 4,
+      "log": "control-invalid-slice.log",
+      "log_sha256": "355451223ee46574927c5dcbfdb543db2edb75dd5e8e101f993454eb75b6b191"
+    },
+    {
+      "label": "control-destroy-phase",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/controls/NegativeControls.dfy",
+        "--filter-symbol",
+        "ShakeApiControls.WrongDestroyPhase",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 4,
+      "log": "control-destroy-phase.log",
+      "log_sha256": "167ea928e1af1a4c6ad1c1df2bf6d69f4d7faa3148871653651c07e323c934c6"
+    },
+    {
+      "label": "control-next-boundary-position",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "assurance/shake-api/controls/NegativeControls.dfy",
+        "--filter-symbol",
+        "ShakeApiControls.WrongNextBoundaryPosition",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-option",
+        "O:smt.case_split=0",
+        "--cores",
+        "2",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 4,
+      "log": "control-next-boundary-position.log",
+      "log_sha256": "4a573b2f6396a0a11bde6113a4713eaed3c01885c03d98ea8bdac26c3a83c76f"
+    },
+    {
+      "label": "control-included-assumption",
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/included-assumption/formal/crypto/NativeShake.dfy"
+      ],
+      "cwd": "/Users/mahmoud/.cache/microproxy-formal/issue117-shake-source-20261104/full-qualification-1/frozen",
+      "exit": 0,
+      "log": "control-included-assumption.log",
+      "log_sha256": "286745a00a5918a6d6359172f448fc4790a31496caa7dd3f1669f026cce22559"
+    }
+  ],
+  "proofs": {
+    "complete_source": {
+      "verified": 1558,
+      "errors": 0
+    },
+    "api_domain": {
+      "verified": 51,
+      "errors": 0
+    }
+  },
+  "audits": {
+    "assurance/shake-api/ApiStateHarness.dfy": {
+      "findings": 0
+    },
+    "assurance/shake-api/controls/NegativeControls.dfy": {
+      "findings": 0
+    },
+    "formal/crypto/NativeKeccak.dfy": {
+      "findings": 0
+    },
+    "formal/crypto/NativeShake.dfy": {
+      "findings": 0
+    },
+    "formal/crypto/NativeTypes.dfy": {
+      "findings": 0
+    },
+    "formal/crypto/SpongeSpec.dfy": {
+      "findings": 0
+    },
+    "formal/primitives/Keccak.dfy": {
+      "findings": 0
+    }
+  },
+  "controls": {
+    "empty-read-phase": {
+      "verified": 0,
+      "errors": 1,
+      "method": "WrongEmptyReadPhase",
+      "assertion_line": 18
+    },
+    "phase-before-bounds": {
+      "verified": 0,
+      "errors": 1,
+      "method": "WrongPhaseBeforeBounds",
+      "assertion_line": 29
+    },
+    "invalid-slice": {
+      "verified": 0,
+      "errors": 1,
+      "method": "WrongInvalidSlice",
+      "assertion_line": 39
+    },
+    "destroy-phase": {
+      "verified": 0,
+      "errors": 1,
+      "method": "WrongDestroyPhase",
+      "assertion_line": 49
+    },
+    "next-boundary-position": {
+      "verified": 0,
+      "errors": 1,
+      "method": "WrongNextBoundaryPosition",
+      "assertion_line": 64
+    }
+  },
+  "manifest_sha256": "583164671d12c781063735efd469d9e7acc82d283ec9fb475cd6834c4a76e35f",
+  "inputs_before": {
+    "assurance/shake-api/ApiStateHarness.dfy": "52bf0f5cf69fbd5d2011c28804956ac53a379b9359bcf8100728ec7e17a78c86",
+    "assurance/shake-api/README.md": "308b2cef9c74726077f9ba40df55b6f5105b6115df0b40a060d4c0ff03ddb999",
+    "assurance/shake-api/controls/NegativeControls.dfy": "8a1aa04e62f56914109ee96568943f863eeffd10082879776b1de7e9653a18e3",
+    "assurance/shake-api/replay.py": "3924d9b8327f7c4e2be7f48624764d107fb152cc0432428e86d5204a77b79f53",
+    "assurance/shake-api/test_replay.py": "d99bff981809646587d63ff8f4b12272ed3cf43bbb17d3106ebc29519448a6cd",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  },
+  "tools": {
+    "dafny": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+    "solver": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+    "archive": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e"
+  },
+  "source_graph": {
+    "assurance/shake-api/ApiStateHarness.dfy": "52bf0f5cf69fbd5d2011c28804956ac53a379b9359bcf8100728ec7e17a78c86",
+    "assurance/shake-api/controls/NegativeControls.dfy": "8a1aa04e62f56914109ee96568943f863eeffd10082879776b1de7e9653a18e3",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  },
+  "included_assumption_findings": 1,
+  "inputs_after": {
+    "assurance/shake-api/ApiStateHarness.dfy": "52bf0f5cf69fbd5d2011c28804956ac53a379b9359bcf8100728ec7e17a78c86",
+    "assurance/shake-api/README.md": "308b2cef9c74726077f9ba40df55b6f5105b6115df0b40a060d4c0ff03ddb999",
+    "assurance/shake-api/controls/NegativeControls.dfy": "8a1aa04e62f56914109ee96568943f863eeffd10082879776b1de7e9653a18e3",
+    "assurance/shake-api/replay.py": "3924d9b8327f7c4e2be7f48624764d107fb152cc0432428e86d5204a77b79f53",
+    "assurance/shake-api/test_replay.py": "d99bff981809646587d63ff8f4b12272ed3cf43bbb17d3106ebc29519448a6cd",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "microproxy.shake-api-state-inputs/1",
+  "sources": {
+    "assurance/shake-api/ApiStateHarness.dfy": "52bf0f5cf69fbd5d2011c28804956ac53a379b9359bcf8100728ec7e17a78c86",
+    "assurance/shake-api/controls/NegativeControls.dfy": "8a1aa04e62f56914109ee96568943f863eeffd10082879776b1de7e9653a18e3",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  },
+  "inputs": {
+    "assurance/shake-api/ApiStateHarness.dfy": "52bf0f5cf69fbd5d2011c28804956ac53a379b9359bcf8100728ec7e17a78c86",
+    "assurance/shake-api/README.md": "308b2cef9c74726077f9ba40df55b6f5105b6115df0b40a060d4c0ff03ddb999",
+    "assurance/shake-api/controls/NegativeControls.dfy": "8a1aa04e62f56914109ee96568943f863eeffd10082879776b1de7e9653a18e3",
+    "assurance/shake-api/replay.py": "3924d9b8327f7c4e2be7f48624764d107fb152cc0432428e86d5204a77b79f53",
+    "assurance/shake-api/test_replay.py": "d99bff981809646587d63ff8f4b12272ed3cf43bbb17d3106ebc29519448a6cd",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c"
+  }
+}

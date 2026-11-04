@@ -457,6 +457,25 @@ harness. These results use the existing contracts without changing executable
 Dafny, generated Java or accepted caller domains. They do not discharge the
 separate secret-trace, compiler-preservation or exclusive Java ownership claims.
 
+The independent [SHAKE API state component](https://github.com/mahmoudimus/MicroProxy/tree/main/assurance/shake-api)
+also proves public rate/position/phase and status coupling through the actual
+constructor, Update, Start, Next, Read and Destroy calls. Secret contents vary
+independently; the paired states are arbitrary valid instances with explicit
+cross-run footprint separation. Shared external output buffers remain permitted.
+The proofs cover invalid slices, phase-before-bounds precedence, empty reads,
+segmented calls, rate boundaries and destruction/reuse. The actual
+[qualification snapshot](https://github.com/mahmoudimus/MicroProxy/tree/main/assurance/shake-api/evidence/2026-11-04-macos)
+records 1,558 included-body checks, 51 overlapping root-only checks, seven clean
+source audits, five named assertion-failure controls and an included-body axiom
+audit control. Its own pinned replay and CI qualify this additive root; existing
+production source and Select inputs remain unchanged.
+
+This is an API state/status theorem, not a full SHAKE trace theorem. An internal
+secret-dependent branch could leave these public fields unchanged. Checked
+operation observations and transitive Keccak traces are still required, along
+with the remaining adapter and failure-path composition. V7 remains partial;
+this component enables no additional whole-SHAKE trace or release claim.
+
 ### Existing bytecode trace evidence
 
 The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)
