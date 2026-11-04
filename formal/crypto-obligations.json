@@ -212,7 +212,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "331ae0564047a6ba937b7d6339bbacd943bd8a37305cbc82732ff0c6c678ccac",
+          "sha256": "aabe77aab75b2b27b587bf1bb6e80eb6dc847518f5dcc478c4afd4729c0fccb2",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -709,7 +709,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
           "kind": "delivery-receipt",
           "role": "generated-source and handwritten-provider delivery manifest"
         }
@@ -1038,7 +1038,7 @@
         },
         {
           "path": "formal/nonce/PRODUCTION-EVIDENCE.json",
-          "sha256": "41d85be74bfaf61427722196ea5260da4bf2c89d53dcfc249c904699852d0947",
+          "sha256": "27a6e470284d7cd99ec8d4b325697950f4ad4662b8a3793966d800c006f9bdb4",
           "kind": "component-receipt",
           "role": "pinned generated-nonce production adoption receipt"
         },
@@ -1056,7 +1056,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
           "kind": "delivery-receipt",
           "role": "central delivery manifest including the generated nonce inventory"
         },
@@ -1252,13 +1252,13 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
           "kind": "delivery-receipt",
           "role": "generated crypto delivery/runtime/trust configuration"
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
           "kind": "delivery-receipt",
           "role": "current complete source/generated/class delivery stage"
         },
@@ -1426,13 +1426,13 @@
         },
         {
           "path": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
-          "sha256": "7e8bd395727c811ab7f209957fa81f7676873e4ac237adfee3ae4a0565e9fc85",
+          "sha256": "8019776be07de2f9a72e6a956174cc56333ae10463de78c873e55efdfbed890c",
           "kind": "component-receipt",
           "role": "native codec/sampling proof reuse and bytecode controls"
         },
         {
           "path": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
-          "sha256": "9646f6a4e6b41ed577eb26c5bb8b77b024d46edfa474a068459e28fd32365c89",
+          "sha256": "c9fd07c4559b2e71256a89da4508f97e8a47a54bde6584fb260d812215824274",
           "kind": "component-receipt",
           "role": "native polynomial positive and 14-control replays"
         },
@@ -1462,19 +1462,19 @@
         },
         {
           "path": "formal/crypto/NativeSampling.dfy",
-          "sha256": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+          "sha256": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
           "kind": "proof-receipt",
           "role": "native sampling refinement"
         },
         {
           "path": "formal/crypto/NativePolynomial.dfy",
-          "sha256": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+          "sha256": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
           "kind": "proof-receipt",
           "role": "native polynomial/NTT refinement"
         },
         {
           "path": "formal/crypto/NativeField.dfy",
-          "sha256": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+          "sha256": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
           "kind": "proof-receipt",
           "role": "native field arithmetic refinement"
         },
@@ -1486,7 +1486,7 @@
         },
         {
           "path": "formal/crypto/native_polynomial_domain.dfy",
-          "sha256": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+          "sha256": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
           "kind": "spec-source",
           "role": "complete 256-coefficient domain harness"
         },
@@ -1498,9 +1498,21 @@
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
           "kind": "delivery-receipt",
           "role": "current complete source/generated/class delivery stage"
+        },
+        {
+          "path": "formal/source/SourceTrace.dfy",
+          "sha256": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+          "kind": "proof-receipt",
+          "role": "shared flat observation wrappers used by NativeField/NativePolynomial"
+        },
+        {
+          "path": "formal/source/vocabulary/ObservationVocabulary.dfy",
+          "sha256": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+          "kind": "spec-source",
+          "role": "canonical observation vocabulary encoders"
         }
       ],
       "limitations": [
@@ -1586,7 +1598,7 @@
         {
           "id": "native-codec-semantic-controls",
           "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
-          "controls_path": "reused_evidence.semantic_controls",
+          "controls_path": "controls",
           "expected": {
             "compress-rounding": {
               "verified": 3,
@@ -1803,11 +1815,11 @@
         {
           "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
           "values": {
-            "reused_evidence.proofs.proof-NativeField": 84,
-            "reused_evidence.proofs.proof-NativeCodec": 1493,
-            "reused_evidence.proofs.proof-NativeSampling": 281,
-            "reused_evidence.proofs.native_codec_domain": 8,
-            "reused_evidence.proofs.native_sampling_domain": 4
+            "proofs.proof-NativeField": 86,
+            "proofs.proof-NativeCodec": 1503,
+            "proofs.proof-NativeSampling": 281,
+            "proofs.native_codec_domain": 8,
+            "proofs.native_sampling_domain": 4
           }
         },
         {
@@ -1818,8 +1830,11 @@
             "unchanged_policy.required_semantic_exit": 4,
             "mac_full.receipt.status": "passed",
             "mac_full.receipt.dependency_verified": 1562,
-            "mac_full.receipt.native_verified": 482,
-            "linux_controls.receipt.status": "passed"
+            "mac_full.receipt.native_verified": 1092,
+            "linux_controls.receipt.status": "passed",
+            "linux_controls.receipt.phase": "controls",
+            "scope": "Full positive-domain proof/translation/runtime replay on macOS ARM64; all 14 strict negative controls on Linux amd64. The Linux replay is control-only, not another proof of the unrestricted positive graph.",
+            "mac_full.receipt.phase": "all"
           }
         }
       ],
@@ -1831,6 +1846,10 @@
         {
           "receipt": "formal/crypto/adoption/stage-receipt.json",
           "path": "sources"
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+          "path": "inputs"
         }
       ],
       "nonvacuity": {
@@ -1868,13 +1887,13 @@
         },
         {
           "path": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
-          "sha256": "ddb88b52b7c9d30133628435cfa80b025cd52ee9eaada7c34c9cec9c39d5014b",
+          "sha256": "a39a0d22c0303b0f8a2d5ed3cbcf0750e19cec45cf6022c1b4228bd804702267",
           "kind": "component-receipt",
           "role": "native KEM proof/control/bytecode receipt"
         },
         {
           "path": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
-          "sha256": "f85b9cbfaa1a9c2f66ba0367df388de35b84eaeeb3d2d4c8e27cf258f1bc8a41",
+          "sha256": "dae93b5ccff20935c2ad2804817f6c840672e0ab9a13c416664a4fd5268f7e21",
           "kind": "component-receipt",
           "role": "Linux native composition replay"
         },
@@ -1892,7 +1911,7 @@
         },
         {
           "path": "formal/crypto/NativeMlKem.dfy",
-          "sha256": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+          "sha256": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
           "kind": "proof-receipt",
           "role": "native primitive-array refinement"
         },
@@ -1916,7 +1935,7 @@
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
           "kind": "delivery-receipt",
           "role": "complete source/generated/class delivery stage"
         },
@@ -1946,7 +1965,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
           "kind": "delivery-receipt",
           "role": "delivery runtime/trust/facade configuration"
         },
@@ -2111,8 +2130,8 @@
           "values": {
             "scope": "full",
             "proofs.proof-native-composition": 2776,
-            "proofs.proof-reference-graph": 2649,
-            "proofs.proof-native-kernels": 3487,
+            "proofs.proof-reference-graph": 2695,
+            "proofs.proof-native-kernels": 4097,
             "proofs.generate-java": 162,
             "native_runtime_guard.payload_scalar_boxings": 0
           }
@@ -2120,10 +2139,13 @@
         {
           "receipt": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
           "values": {
+            "status": "complete",
             "exit": 0,
             "verified": 2776,
             "platform": "linux/amd64",
-            "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2"
+            "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+            "max_resource_count": 10275514,
+            "max_obligation_seconds": 10.1399173
           }
         },
         {
@@ -2339,7 +2361,7 @@
         },
         {
           "path": "formal/timing/inputs.json",
-          "sha256": "c10c2bdc194707fa02bd9f0d433f8cff89093a79b1de859523fb3487effe8548",
+          "sha256": "0835c4efb3759eb1e0f81f39614c31056e70e7d0ff06e0d4ab823b749a72ffb4",
           "kind": "input-manifest",
           "role": "139 pinned timing sources/fixtures/production inputs/tools"
         },
@@ -2393,13 +2415,13 @@
         },
         {
           "path": "formal/timing/PRODUCTION-EVIDENCE.json",
-          "sha256": "a4a6d0b4ab5d2bc4124672bb40e6d2468a7a5b388b79d16250a1d1e115161886",
+          "sha256": "07be9330dc2dc183a726f52f255c5895e3f485dab3746c304fe4fe7f367a44c5",
           "kind": "component-receipt",
           "role": "actual-bytecode certificate report with open scope and assumptions"
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "32afda5a5ebeb24c72acddb6be65472a21267282a8f64a0f87da647bfb9e91b5",
+          "sha256": "91fd4acf9115be6182becbf2f5289ce6ff0cfe3c20e2a93314c04ee355da3af7",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2558,6 +2580,150 @@
           "sha256": "caea4393f1e85e77f717dbf47f635bc1851b4182b7b4f9d011eb66fddfaf3ddb",
           "kind": "spec-source",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
+        },
+        {
+          "path": "formal/source/polynomial/SOURCE-EVIDENCE.json",
+          "sha256": "18f34b0d35dde93a400367115b4aa1fefcc1929df6a1060c2795d96c663eeae6",
+          "kind": "component-receipt",
+          "role": "actual A portable-package report (proofs, controls, checker scope, erasure, baseline)"
+        },
+        {
+          "path": "formal/source/polynomial/inputs.json",
+          "sha256": "1fce38876c7914e381be81321731957afe2a5194fea8ca34b7f1feaa9c098159",
+          "kind": "input-manifest",
+          "role": "44 explicit package/closure pins"
+        },
+        {
+          "path": "formal/source/polynomial/README.md",
+          "sha256": "00ddfc04c77c10d4eba545df5faec44d6d38e2e8e7f92222fb7b5b12af3a7cd1",
+          "kind": "documentation",
+          "role": "package scope and non-claims"
+        },
+        {
+          "path": "formal/source/polynomial/replay.py",
+          "sha256": "a12dfdbdb3f39a6a0d7ff455b984b5712ee60c716f58b38caf8fac9fb0f24a9e",
+          "kind": "tool-manifest",
+          "role": "pinned runner: roots, ambient selectors, repeated-root guard"
+        },
+        {
+          "path": "formal/source/polynomial/test_replay.py",
+          "sha256": "49c7114ed9306dac2024c33804523780c9b197f9731d32e80031d95c17f5cbe3",
+          "kind": "test-source",
+          "role": "runner negative tests"
+        },
+        {
+          "path": "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+          "sha256": "1493f687e7c276093ec263e6abf5671a3acca0c53952188738775fe43642e3ae",
+          "kind": "proof-receipt",
+          "role": "paired observation harness"
+        },
+        {
+          "path": "formal/source/polynomial/FieldTraceCompatibility.dfy",
+          "sha256": "bc9b68de09d2a356e45dac394f6e605e6e1c2b65c340594bc6b45667856ad014",
+          "kind": "proof-receipt",
+          "role": "field compatibility harness"
+        },
+        {
+          "path": "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "sha256": "bbb8c2f4ab628c46d5eb65364927841783b929d75944640bbedbd15a6c727b1a",
+          "kind": "proof-receipt",
+          "role": "rooted observation graph"
+        },
+        {
+          "path": "formal/source/polynomial/checker/PolynomialSourceCoverage.cs",
+          "sha256": "fc67e059f500a10bf52f978040db92d56edd4c6475a6a21d581e4956dd406910",
+          "kind": "tool-manifest",
+          "role": "trusted resolved-AST checker source"
+        },
+        {
+          "path": "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj",
+          "sha256": "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0",
+          "kind": "tool-manifest",
+          "role": "portable checker project"
+        },
+        {
+          "path": "formal/source/polynomial-baseline.json",
+          "sha256": "77daf19d88d147086717d86f06cda280e9f16d0e7b2ef769472745a77f256ff0",
+          "kind": "input-manifest",
+          "role": "immutable pre-adoption 20-file baseline"
+        },
+        {
+          "path": "scripts/security/prepare_poly_baseline.py",
+          "sha256": "ddd68f0fc08cee485e3e59bb33add97ca0da91a2df263d5b8c0ca93efe7cc637",
+          "kind": "tool-manifest",
+          "role": "git-show baseline materializer"
+        },
+        {
+          "path": "scripts/security/test_crypto_poly_baseline.py",
+          "sha256": "0b0e969cbea82e2e19472bf720735944fdaeb87341a2fb36c97a561edaae8a42",
+          "kind": "test-source",
+          "role": "baseline materializer tests"
+        },
+        {
+          "path": "formal/crypto/NativeMlKem.dfy",
+          "sha256": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+          "kind": "proof-receipt",
+          "role": "composition source verified in the poly report"
+        },
+        {
+          "path": "formal/source/polynomial/controls/BranchObservedHarness.dfy",
+          "sha256": "810ce56eba91912e37905bd730346dc79c7f8686fea5194cebb76cace5197e66",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/ByMethodControl.dfy",
+          "sha256": "63a2042ad2c31bc388eb76f0c6b1adeee520084881b52ea5e8616672e7a0f141",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/ControlHarnesses.dfy",
+          "sha256": "d1b9a0c2422f75edc27a4fef6764f7c5193706ec560015345b5d1de44583b45a",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/FunctionBranchHarness.dfy",
+          "sha256": "9e58499849d13989682767d60b9f457a338a6a9f782330f250ceece9321beafc",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/FunctionIndexHarness.dfy",
+          "sha256": "a981aa749c0b399c32b58b6f1898903f049fd46abbec93c4d6d845cff0996b8d",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy",
+          "sha256": "a106ef37252e0a02fcdd70c51a0673082f945103ef7fc45f2a4b9969acf0b4d8",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/IndexObservedHarness.dfy",
+          "sha256": "ed7743b93805b0f99b79964d1a2aebd0e5aa7d22019b2d94092336cd86b1ccfa",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/LemmaOutControl.dfy",
+          "sha256": "fd699d9bc48b4bf057c98c91848946db44973c54ab332fa5e63780f6a133b295",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/PolynomialControls.dfy",
+          "sha256": "9b4e9b1bcc01894928f2d79c5550f79dad2458e54fff8cfdc539849470d8e77e",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
+        },
+        {
+          "path": "formal/source/polynomial/controls/UnmarkedHarnesses.dfy",
+          "sha256": "280f1c34d4d91996b74404ce1e1ab5a0f9569259ed7426a10f3c3db3c2ca4a57",
+          "kind": "proof-receipt",
+          "role": "reviewed control source"
         }
       ],
       "limitations": [
@@ -3046,6 +3212,18 @@
           "receipt": "formal/source/hkdf/SOURCE-EVIDENCE.json",
           "path": "java.hashes",
           "path_prefix": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf"
+        },
+        {
+          "receipt": "formal/source/polynomial/inputs.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/source/polynomial/SOURCE-EVIDENCE.json",
+          "path": "inputs_before"
+        },
+        {
+          "receipt": "formal/source/polynomial/SOURCE-EVIDENCE.json",
+          "path": "inputs_after"
         }
       ],
       "text_checks": [
@@ -3086,7 +3264,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "0225a76913b14fa77e5ad55d8a8bb07e4a15338247a57a8478389545857522d5",
+          "sha256": "64ffb1e012a9cbd157187b79195ae60258ad623c11562d67a75b7fb3cff1e670",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -3098,13 +3276,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "331ae0564047a6ba937b7d6339bbacd943bd8a37305cbc82732ff0c6c678ccac",
+          "sha256": "aabe77aab75b2b27b587bf1bb6e80eb6dc847518f5dcc478c4afd4729c0fccb2",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "39c50fbc4ce36a9703ac765ef2331872dfae9474c74e3cf3db6924c0db41a529",
+          "sha256": "4ab8438234640991bf52cfe675baeea4a7b68440cd5693806d49fb5ef9ac8e9b",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -3122,7 +3300,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "32afda5a5ebeb24c72acddb6be65472a21267282a8f64a0f87da647bfb9e91b5",
+          "sha256": "91fd4acf9115be6182becbf2f5289ce6ff0cfe3c20e2a93314c04ee355da3af7",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -3140,13 +3318,13 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
           "kind": "delivery-receipt",
           "role": "current delivery/runtime pins"
         },
         {
           "path": "formal/crypto/adoption/stage-receipt.json",
-          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "sha256": "8eca10c5944cc31e5c1c24195bffcb99abd978713833b5d18eea7b612117ea1d",
           "kind": "delivery-receipt",
           "role": "current generated-source/class inventory"
         },
@@ -3674,6 +3852,59 @@
       ],
       "limitations": [
         "Only the standalone local kernel was verified; upstream provenance is attribution for reused structure, not a full graph replay."
+      ]
+    },
+    {
+      "id": "poly-source-trace-ni",
+      "statement": "The adopted NativeField/NativePolynomial Dafny source carries paired ghost observation proofs for 20 resolved method roots and 19 executable pure functions (including forward/inverse NTT and multiplication), whose observations are bound by a separately trusted resolved-AST checker to the actual operations, resolved callees and trace outputs. The reviewed root identities, ambient-selector clearing, repeated-root rejection and negative controls are gated from the actual portable-package report; the claim is scoped to this source component and does not extend to Keccak/Shake, full ML-KEM composition, adapters, invalid-input paths, physical memory or issue #117.",
+      "status": "supported",
+      "strength": "implementation",
+      "production": false,
+      "obligations": [
+        "V5",
+        "V7"
+      ],
+      "assumptions": [
+        "dafny-runtime",
+        "dafny-toolchain",
+        "generated-runtime-discipline",
+        "javac-jvm",
+        "trusted-source-observation-coverage"
+      ],
+      "evidence": [
+        "formal/source/polynomial/SOURCE-EVIDENCE.json",
+        "formal/source/polynomial/inputs.json",
+        "formal/source/polynomial/README.md",
+        "formal/source/polynomial/replay.py",
+        "formal/source/polynomial/test_replay.py",
+        "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "formal/source/polynomial/FieldTraceCompatibility.dfy",
+        "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "formal/source/polynomial/controls/PolynomialControls.dfy",
+        "formal/source/polynomial/controls/ControlHarnesses.dfy",
+        "formal/source/polynomial/controls/BranchObservedHarness.dfy",
+        "formal/source/polynomial/controls/IndexObservedHarness.dfy",
+        "formal/source/polynomial/controls/ByMethodControl.dfy",
+        "formal/source/polynomial/controls/LemmaOutControl.dfy",
+        "formal/source/polynomial/checker/PolynomialSourceCoverage.cs",
+        "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj",
+        "formal/source/polynomial-baseline.json",
+        "scripts/security/prepare_poly_baseline.py",
+        "scripts/security/test_crypto_poly_baseline.py",
+        "formal/source/SourceTrace.dfy",
+        "formal/source/vocabulary/ObservationVocabulary.dfy",
+        "formal/crypto/NativeField.dfy",
+        "formal/crypto/NativePolynomial.dfy",
+        "formal/crypto/NativeSampling.dfy",
+        "formal/crypto/NativeMlKem.dfy",
+        "formal/crypto/native_polynomial_domain.dfy"
+      ],
+      "limitations": [
+        "The C# resolved-AST checker and the Dafny parser/compiler/verifier are trusted; this does not prove the checker or compiler correct.",
+        "Read/write observations are method-local resolved roles and indices, not physical Java heap addresses or an erasure model.",
+        "No JVM/JIT/CPU timing or constant-time claim, and no bytecode-level refinement beyond the recorded ghost-erasure class-identity check.",
+        "Keccak/Shake, full ML-KEM composition, adapter/invalid-input trace composition and the KeyGen rho-failure NI path remain open; this does not close issue #117.",
+        "The Linux 14-control replay and the release/nonce gates are separate; this claim covers only the reviewed source roots and controls."
       ]
     },
     {

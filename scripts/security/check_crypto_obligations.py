@@ -98,6 +98,521 @@ PROOF_EVIDENCE_KINDS = {
     "source-inventory",
 }
 
+# --- Poly source-trace NI (V7 scoped claim) -------------------------------
+# A separate, scoped V7 contribution: NativeField/NativePolynomial source
+# observation proofs bound by a separately trusted resolved-AST checker.  The
+# receipt is the actual full portable-package report (not a summary), so every
+# load-bearing fact below is cross-checked against the repository bytes and the
+# report's own before/after input guards.  All reviewable literals live here:
+# a ledger edit or a renewed receipt JSON cannot add a supportable claim.
+POLY_SOURCE_CLAIM = "poly-source-trace-ni"
+POLY_SOURCE_RECEIPT = "formal/source/polynomial/SOURCE-EVIDENCE.json"
+POLY_SOURCE_INPUTS = "formal/source/polynomial/inputs.json"
+POLY_SOURCE_BASELINE_TEMPLATE = "formal/source/polynomial-baseline.json"
+POLY_SOURCE_BASELINE_HELPER = "scripts/security/prepare_poly_baseline.py"
+POLY_SOURCE_BASELINE_TEST = "scripts/security/test_crypto_poly_baseline.py"
+POLY_SOURCE_TRACKED_INDEX = "formal/crypto/evidence/2026-11-04-poly/source/log-index.json"
+POLY_SOURCE_TRACKED_REPORT = "formal/crypto/evidence/2026-11-04-poly/source/SOURCE-EVIDENCE.json"
+POLY_SOURCE_SCHEMA = "microproxy.native-polynomial-central-port/v1"
+POLY_SOURCE_INPUTS_SCHEMA = "microproxy.native-polynomial-central-port-inputs/v2"
+POLY_SOURCE_BASELINE = {
+    "commit": "5ce660a69a1dd496dda02705bf1e2b1aa7a2be1d",
+    "tree": "df8b49bc8d181be18d78a9db7ab0233f23f7346f",
+    "files": 20,
+    "manifest_sha256": "77daf19d88d147086717d86f06cda280e9f16d0e7b2ef769472745a77f256ff0",
+}
+# Immutable pre-adoption hashes of the four baseline component files (the
+# immutable main closure carries these; the poly domain harness is package-owned
+# and is not part of the 20-file main closure).  The baseline manifest must carry
+# these, which rules out using the post-adoption candidate (or any mutable A
+# state) as its own erasure baseline.
+POLY_SOURCE_BASELINE_COMPONENT_PINS = {
+    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+    "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+    "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+}
+POLY_SOURCE_POLICY = {
+    "composition_case_split": 3,
+    "cores": 2,
+    "native_case_split": 0,
+    "resource": 50000000,
+    "time": 30,
+}
+POLY_SOURCE_PROOFS = (
+    ("field", "formal/crypto/NativeField.dfy", 86),
+    ("polynomial", "formal/crypto/NativePolynomial.dfy", 1001),
+    ("paired-harness", "formal/source/polynomial/NativePolynomialTraceHarness.dfy", 26),
+    ("mlkem-composition", "formal/crypto/NativeMlKem.dfy", 2767),
+    ("field-compatibility", "formal/source/polynomial/FieldTraceCompatibility.dfy", 14),
+    ("source-trace", "formal/source/SourceTrace.dfy", 17),
+    ("observation-vocabulary", "formal/source/vocabulary/ObservationVocabulary.dfy", 29),
+    ("checker-controls", "formal/source/polynomial/controls/PolynomialControls.dfy", 19),
+)
+POLY_SOURCE_AUDIT_FILES = (
+    "formal/source/vocabulary/ObservationVocabulary.dfy",
+    "formal/source/SourceTrace.dfy",
+    "formal/crypto/NativeField.dfy",
+    "formal/crypto/NativePolynomial.dfy",
+    "formal/crypto/NativeMlKem.dfy",
+    "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+    "formal/source/polynomial/FieldTraceCompatibility.dfy",
+    "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+)
+POLY_SOURCE_CANONICAL_CONTROLS = (
+    "canonical-branch-flip", "canonical-erase-address", "canonical-erase-ops",
+    "canonical-dead-branch",
+)
+# Reviewed load-bearing distinction per mutation: a genuine Dafny proof failure, a
+# checker-only rejection whose Dafny proof still verifies (stronger: the checker is
+# doing the work), or the OOR observation that is explicitly not usable as evidence.
+POLY_SOURCE_MUTATIONS = {
+    "leaf-branch-mutation": "observed-not-used-as-proof",
+    "real-path-mutation": "dafny-proof-failure",
+    "child-ghost-mutation": "dafny-proof-failure",
+    "caller-arg-mutation": "dafny-proof-failure",
+    "chunktrace-helper-mutation": "dafny-proof-failure",
+    "branchfalseprefix-helper-mutation": "dafny-proof-failure",
+    "missing-false-prefix": "dafny-proof-failure",
+    "ghost-reorder": "dafny-proof-failure",
+    "fake-ops": "dafny-proof-failure",
+    "synthetic-callee": "checker-only-rejection",
+    "drop-callee-trace": "dafny-proof-failure",
+    "duplicate-projection": "dafny-proof-failure",
+    "wrong-local": "dafny-proof-failure",
+    "rebind-local": "dafny-proof-failure",
+    "rebind-same-model": "checker-only-rejection",
+    "rebind-suchthat": "checker-only-rejection",
+}
+POLY_SOURCE_CANONICAL_NEEDLES = {
+    'canonical-branch-flip': 'positional formal 1: SourceTrace._default.Branch',
+    'canonical-erase-address': 'positional formal 2: SourceTrace._default.Read',
+    'canonical-erase-ops': 'positional formal 4: SourceTrace._default.Ops',
+    'canonical-dead-branch': 'not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch',
+}
+POLY_SOURCE_CANONICAL_DIAGNOSTICS = {
+    'canonical-branch-flip': ((50, 2, 'a postcondition could not be proved on this return path'), (49, 12, 'this is the postcondition that could not be proved')),
+    'canonical-erase-address': ((53, 2, 'a postcondition could not be proved on this return path'), (52, 12, 'this is the postcondition that could not be proved')),
+    'canonical-erase-ops': ((65, 2, 'a postcondition could not be proved on this return path'), (64, 12, 'this is the postcondition that could not be proved')),
+    'canonical-dead-branch': ((50, 2, 'a postcondition could not be proved on this return path'), (49, 12, 'this is the postcondition that could not be proved'), (70, 78, 'a postcondition could not be proved on this return path'), (70, 52, 'this is the postcondition that could not be proved'), (71, 86, 'a postcondition could not be proved on this return path'), (71, 46, 'this is the postcondition that could not be proved')),
+}
+POLY_SOURCE_MUTATION_NEEDLES = {
+    'leaf-branch-mutation': 'arm 0 guard is not exact index<literal',
+    'real-path-mutation': 'real result is not a .0 projection',
+    'child-ghost-mutation': 'ghost is not exactly five ordered leaves',
+    'caller-arg-mutation': 'ghost projection ZetasValue is not immediately after an actual call with the same arguments',
+    'chunktrace-helper-mutation': 'ChunkTrace body is not three leaves',
+    'branchfalseprefix-helper-mutation': 'BranchFalsePrefix else is not two leaves',
+    'missing-false-prefix': 'arm 3 ghost is not exactly five ordered leaves',
+    'ghost-reorder': 'arm 0 true event is not exact',
+    'fake-ops': 'Ops payload is not exact',
+    'synthetic-callee': 'non-approved suffix expression',
+    'drop-callee-trace': 'actual pure call GammasValue has 0 immediate ghost projections',
+    'duplicate-projection': 'actual pure call ZetasValue has 2 immediate ghost projections',
+    'wrong-local': 'callee trace local is not appended immediately after its defining call',
+    'rebind-local': 'ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)',
+    'rebind-same-model': 'ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)',
+    'rebind-suchthat': 'AssignSuchThatStmt',
+}
+POLY_SOURCE_MUTATION_DIAGNOSTICS = {
+    'real-path-mutation': ((566, 19, 'a postcondition could not be proved on this return path'), (556, 12, 'this is the postcondition that could not be proved')),
+    'child-ghost-mutation': ((566, 19, 'a postcondition could not be proved on this return path'), (557, 12, 'this is the postcondition that could not be proved')),
+    'caller-arg-mutation': ((590, 16, 'this invariant could not be proved to be maintained by the loop'), (595, 23, 'function precondition could not be proved'), (554, 18, 'this proposition could not be proved')),
+    'chunktrace-helper-mutation': ((26, 7, 'a postcondition could not be proved on this return path'), (25, 12, 'this is the postcondition that could not be proved')),
+    'branchfalseprefix-helper-mutation': ((22, 27, 'a postcondition could not be proved on this return path'), (20, 12, 'this is the postcondition that could not be proved')),
+    'missing-false-prefix': ((569, 24, 'a postcondition could not be proved on this return path'), (557, 12, 'this is the postcondition that could not be proved')),
+    'ghost-reorder': ((566, 19, 'a postcondition could not be proved on this return path'), (557, 12, 'this is the postcondition that could not be proved')),
+    'fake-ops': ((566, 19, 'a postcondition could not be proved on this return path'), (557, 12, 'this is the postcondition that could not be proved')),
+    'drop-callee-trace': ((838, 16, 'this invariant could not be proved to be maintained by the loop'),),
+    'duplicate-projection': ((590, 16, 'this invariant could not be proved to be maintained by the loop'),),
+    'wrong-local': ((1127, 16, 'this loop invariant could not be proved on entry'),),
+    'rebind-local': ((863, 16, 'this invariant could not be proved to be maintained by the loop'),),
+}
+POLY_SOURCE_DECOY_REJECTION = 'unregistered executable callee NativePolynomial.Decoy._ctor'
+POLY_SOURCE_PROBE_REASON = 'checker-scope-probe-repeated: checker reported duplicate resolved roots'
+POLY_SOURCE_CANONICAL_ANCHORS = {
+    'canonical-branch-flip': 'Branch(site,taken) == O.Encode(O.Branch(site,taken))',
+    'canonical-erase-address': 'Read(site,role,address) == O.Encode(O.Read(site,role,address))',
+    'canonical-erase-ops': 'Ops(a,b,c,d,e,f,g) == O.Encode(O.Ops(a,b,c,d,e,f,g))',
+    'canonical-dead-branch': 'Branch(site,taken) == O.Encode(O.Branch(site,taken))',
+}
+POLY_SOURCE_METHOD_ROOTS = (
+    "NativePolynomial.NewZetas", "NativePolynomial.NewGammas", "NativePolynomial.Add",
+    "NativePolynomial.Sub", "NativePolynomial.Copy", "NativePolynomial.ForwardStage",
+    "NativePolynomial.InverseStage", "NativePolynomial.Scale", "NativePolynomial.Ntt",
+    "NativePolynomial.InverseNtt", "NativePolynomial.BaseCase", "NativePolynomial.NttMul",
+    "NativePolynomial.Wipe", "NativeField.ReduceOnce", "NativeField.Reduce",
+    "NativeField.Add", "NativeField.Sub", "NativeField.Mul", "NativeField.MulSub",
+    "NativeField.AddMul",
+)
+POLY_SOURCE_PURE_FUNCTIONS = (
+    "NativePolynomial.Len", "NativePolynomial.ZetasChunk0", "NativePolynomial.ZetasChunk1",
+    "NativePolynomial.ZetasChunk2", "NativePolynomial.ZetasChunk3", "NativePolynomial.ZetasChunk4",
+    "NativePolynomial.ZetasChunk5", "NativePolynomial.ZetasChunk6", "NativePolynomial.ZetasChunk7",
+    "NativePolynomial.ZetasValue", "NativePolynomial.GammasChunk0", "NativePolynomial.GammasChunk1",
+    "NativePolynomial.GammasChunk2", "NativePolynomial.GammasChunk3", "NativePolynomial.GammasChunk4",
+    "NativePolynomial.GammasChunk5", "NativePolynomial.GammasChunk6", "NativePolynomial.GammasChunk7",
+    "NativePolynomial.GammasValue",
+)
+POLY_SOURCE_CLOSURE_COUNTS = {
+    "field-compatibility": 6,
+    "mlkem": 20,
+    "native-field": 5,
+    "native-polynomial": 7,
+    "paired-harness": 8,
+    "polynomial-domain": 8,
+    "roots": 8,
+}
+POLY_SOURCE_PACKAGE_SCOPE = {
+    "component_overrides": (
+        "formal/crypto/NativeField.dfy", "formal/crypto/NativePolynomial.dfy",
+        "formal/crypto/NativeSampling.dfy", "formal/crypto/NativeMlKem.dfy",
+        "formal/crypto/native_polynomial_domain.dfy"),
+    "helper_dfy": (
+        "formal/crypto/Codec.dfy", "formal/crypto/JdkHash.dfy", "formal/crypto/KemSpec.dfy",
+        "formal/crypto/NativeCodec.dfy", "formal/crypto/NativeJdkHash.dfy",
+        "formal/crypto/NativeKeccak.dfy", "formal/crypto/NativeShake.dfy",
+        "formal/crypto/NativeTypes.dfy", "formal/crypto/Polynomial.dfy",
+        "formal/crypto/Sampling.dfy", "formal/crypto/Shake.dfy", "formal/crypto/SpongeSpec.dfy"),
+    "primitive_files": ("formal/primitives/Field.dfy", "formal/primitives/Keccak.dfy"),
+    "provider_java": ("formal/crypto/kem_hash.java", "formal/crypto/native_kem_hash.java"),
+    "shared_source": ("formal/source/SourceTrace.dfy",
+                      "formal/source/vocabulary/ObservationVocabulary.dfy"),
+    "tool_files": ("formal/dafny/toolchain.py", "formal/dafny/tools.json",
+                   "formal/crypto/delivery.py"),
+}
+POLY_SOURCE_INPUT_KEYS = (
+    "formal/crypto/Codec.dfy", "formal/crypto/JdkHash.dfy", "formal/crypto/KemSpec.dfy",
+    "formal/crypto/NativeCodec.dfy", "formal/crypto/NativeField.dfy",
+    "formal/crypto/NativeJdkHash.dfy", "formal/crypto/NativeKeccak.dfy",
+    "formal/crypto/NativeMlKem.dfy", "formal/crypto/NativePolynomial.dfy",
+    "formal/crypto/NativeSampling.dfy", "formal/crypto/NativeShake.dfy",
+    "formal/crypto/NativeTypes.dfy", "formal/crypto/Polynomial.dfy",
+    "formal/crypto/Sampling.dfy", "formal/crypto/Shake.dfy", "formal/crypto/SpongeSpec.dfy",
+    "formal/crypto/delivery.py", "formal/crypto/kem_hash.java",
+    "formal/crypto/native_kem_hash.java", "formal/crypto/native_polynomial_domain.dfy",
+    "formal/dafny/toolchain.py", "formal/dafny/tools.json", "formal/primitives/Field.dfy",
+    "formal/primitives/Keccak.dfy", "formal/source/SourceTrace.dfy",
+    "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+    "formal/source/polynomial/FieldTraceCompatibility.dfy",
+    "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+    "formal/source/polynomial/README.md",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.cs",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj",
+    "formal/source/polynomial/controls/BranchObservedHarness.dfy",
+    "formal/source/polynomial/controls/ByMethodControl.dfy",
+    "formal/source/polynomial/controls/ControlHarnesses.dfy",
+    "formal/source/polynomial/controls/FunctionBranchHarness.dfy",
+    "formal/source/polynomial/controls/FunctionIndexHarness.dfy",
+    "formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy",
+    "formal/source/polynomial/controls/IndexObservedHarness.dfy",
+    "formal/source/polynomial/controls/LemmaOutControl.dfy",
+    "formal/source/polynomial/controls/PolynomialControls.dfy",
+    "formal/source/polynomial/controls/UnmarkedHarnesses.dfy",
+    "formal/source/polynomial/inputs.json", "formal/source/polynomial/replay.py",
+    "formal/source/polynomial/test_replay.py",
+    "formal/source/vocabulary/ObservationVocabulary.dfy",
+)
+POLY_SOURCE_CHECKER_SOURCE_PIN = "fc67e059f500a10bf52f978040db92d56edd4c6475a6a21d581e4956dd406910"
+POLY_SOURCE_CHECKER_PROJECT_PIN = "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0"
+POLY_SOURCE_CHECKER_SDK = "10.0.400"
+POLY_SOURCE_TOOL = {
+    "version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+    "asset_sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+    "toolchain_sha256": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "tools_manifest_sha256": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+}
+POLY_SOURCE_RUNTIME = {
+    "explicit_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "toolchain_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+}
+POLY_SOURCE_TRUST_BOUNDARIES = (
+    "Dafny verifier and ghost erasure",
+    "trusted resolved-AST C# checker",
+    "javac/JVM and DafnyRuntime",
+    "JCE/provider runtime",
+    "read/write roles are method-local resolved identities",
+)
+POLY_SOURCE_GENERATED_FILES = 66
+POLY_SOURCE_CLASS_COUNT = 65
+POLY_SOURCE_ERASED_JAVA = (
+    "NativeCrypto-java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java",
+)
+POLY_SOURCE_CLAIM_EVIDENCE = (
+    (POLY_SOURCE_RECEIPT, "component-receipt"),
+    (POLY_SOURCE_INPUTS, "input-manifest"),
+    ("formal/source/polynomial/README.md", "documentation"),
+    ("formal/source/polynomial/replay.py", "tool-manifest"),
+    ("formal/source/polynomial/test_replay.py", "test-source"),
+    ("formal/source/polynomial/NativePolynomialTraceHarness.dfy", "proof-receipt"),
+    ("formal/source/polynomial/FieldTraceCompatibility.dfy", "proof-receipt"),
+    ("formal/source/polynomial/AllPolynomialTraceRoots.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/PolynomialControls.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/ControlHarnesses.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/BranchObservedHarness.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/IndexObservedHarness.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/ByMethodControl.dfy", "proof-receipt"),
+    ("formal/source/polynomial/controls/LemmaOutControl.dfy", "proof-receipt"),
+    ("formal/source/polynomial/checker/PolynomialSourceCoverage.cs", "tool-manifest"),
+    ("formal/source/polynomial/checker/PolynomialSourceCoverage.csproj", "tool-manifest"),
+    (POLY_SOURCE_BASELINE_TEMPLATE, "input-manifest"),
+    (POLY_SOURCE_BASELINE_HELPER, "tool-manifest"),
+    (POLY_SOURCE_BASELINE_TEST, "test-source"),
+    ("formal/source/SourceTrace.dfy", "proof-receipt"),
+    ("formal/source/vocabulary/ObservationVocabulary.dfy", "spec-source"),
+    ("formal/crypto/NativeField.dfy", "proof-receipt"),
+    ("formal/crypto/NativePolynomial.dfy", "proof-receipt"),
+    ("formal/crypto/NativeSampling.dfy", "proof-receipt"),
+    ("formal/crypto/NativeMlKem.dfy", "proof-receipt"),
+    ("formal/crypto/native_polynomial_domain.dfy", "spec-source"),
+)
+
+
+POLY_SOURCE_LOG_PATHS = (
+    'logs/audit-formal-crypto-NativeField.dfy.log',
+    'logs/audit-formal-crypto-NativeMlKem.dfy.log',
+    'logs/audit-formal-crypto-NativePolynomial.dfy.log',
+    'logs/audit-formal-source-SourceTrace.dfy.log',
+    'logs/audit-formal-source-polynomial-AllPolynomialTraceRoots.dfy.log',
+    'logs/audit-formal-source-polynomial-FieldTraceCompatibility.dfy.log',
+    'logs/audit-formal-source-polynomial-NativePolynomialTraceHarness.dfy.log',
+    'logs/audit-formal-source-vocabulary-ObservationVocabulary.dfy.log',
+    'checker-build/build.log',
+    'logs/checker-positive.log',
+    'logs/checker-scope-probe-repeated.log',
+    'logs/closure-field-compatibility-dependencies-0.log',
+    'logs/closure-field-compatibility-dependencies-1.log',
+    'logs/closure-field-compatibility-dependencies-2.log',
+    'logs/closure-field-compatibility-dependencies-3.log',
+    'logs/closure-mlkem-dependencies-0.log',
+    'logs/closure-mlkem-dependencies-1.log',
+    'logs/closure-mlkem-dependencies-2.log',
+    'logs/closure-mlkem-dependencies-3.log',
+    'logs/closure-native-field-dependencies-0.log',
+    'logs/closure-native-field-dependencies-1.log',
+    'logs/closure-native-field-dependencies-2.log',
+    'logs/closure-native-polynomial-dependencies-0.log',
+    'logs/closure-native-polynomial-dependencies-1.log',
+    'logs/closure-native-polynomial-dependencies-2.log',
+    'logs/closure-paired-harness-dependencies-0.log',
+    'logs/closure-paired-harness-dependencies-1.log',
+    'logs/closure-paired-harness-dependencies-2.log',
+    'logs/closure-paired-harness-dependencies-3.log',
+    'logs/closure-polynomial-domain-dependencies-0.log',
+    'logs/closure-polynomial-domain-dependencies-1.log',
+    'logs/closure-polynomial-domain-dependencies-2.log',
+    'logs/closure-polynomial-domain-dependencies-3.log',
+    'logs/closure-roots-dependencies-0.log',
+    'logs/closure-roots-dependencies-1.log',
+    'logs/closure-roots-dependencies-2.log',
+    'logs/closure-roots-dependencies-3.log',
+    'logs/controls-BranchObservedHarness.dfy.log',
+    'logs/controls-FunctionBranchHarness.dfy.log',
+    'logs/controls-FunctionIndexHarness.dfy.log',
+    'logs/controls-FunctionUnmarkedHarnesses.dfy.log',
+    'logs/controls-IndexObservedHarness.dfy.log',
+    'logs/controls-UnmarkedHarnesses.dfy.log',
+    'logs/controls/branchfalseprefix-helper-mutation-dafny.log',
+    'logs/controls/branchfalseprefix-helper-mutation.log',
+    'logs/controls/caller-arg-mutation-dafny.log',
+    'logs/controls/caller-arg-mutation.log',
+    'logs/controls/canonical-branch-flip-checker.log',
+    'logs/controls/canonical-branch-flip-verify.log',
+    'logs/controls/canonical-dead-branch-checker.log',
+    'logs/controls/canonical-dead-branch-verify.log',
+    'logs/controls/canonical-erase-address-checker.log',
+    'logs/controls/canonical-erase-address-verify.log',
+    'logs/controls/canonical-erase-ops-checker.log',
+    'logs/controls/canonical-erase-ops-verify.log',
+    'logs/controls/checker-ByMethodProbe-Identity.log',
+    'logs/controls/checker-EventReset.log',
+    'logs/controls/checker-FunctionControl-PrivateBranchObserved.log',
+    'logs/controls/checker-FunctionControl-PrivateBranchReset.log',
+    'logs/controls/checker-FunctionControl-PrivateBranchUnmarked.log',
+    'logs/controls/checker-FunctionControl-PrivateIndexObserved.log',
+    'logs/controls/checker-FunctionControl-PrivateIndexUnmarked.log',
+    'logs/controls/checker-Interposed.log',
+    'logs/controls/checker-LemmaOutControl.log',
+    'logs/controls/checker-RoleShadow.log',
+    'logs/controls/checker-SecretBranchObserved.log',
+    'logs/controls/checker-SecretBranchUnmarked.log',
+    'logs/controls/checker-SecretIndexObserved.log',
+    'logs/controls/checker-SecretIndexUnmarked.log',
+    'logs/controls/checker-ShadowCallee.log',
+    'logs/controls/checker-Unsupported.log',
+    'logs/controls/child-ghost-mutation-dafny.log',
+    'logs/controls/child-ghost-mutation.log',
+    'logs/controls/chunktrace-helper-mutation-dafny.log',
+    'logs/controls/chunktrace-helper-mutation.log',
+    'logs/controls/decoy-class.log',
+    'logs/controls/drop-callee-trace-dafny.log',
+    'logs/controls/drop-callee-trace.log',
+    'logs/controls/duplicate-projection-dafny.log',
+    'logs/controls/duplicate-projection.log',
+    'logs/controls/fake-ops-dafny.log',
+    'logs/controls/fake-ops.log',
+    'logs/controls/ghost-reorder-dafny.log',
+    'logs/controls/ghost-reorder.log',
+    'logs/controls/leaf-branch-mutation-dafny.log',
+    'logs/controls/leaf-branch-mutation.log',
+    'logs/controls/missing-false-prefix-dafny.log',
+    'logs/controls/missing-false-prefix.log',
+    'logs/controls/real-path-mutation-dafny.log',
+    'logs/controls/real-path-mutation.log',
+    'logs/controls/rebind-and-model-swap-body.log',
+    'logs/controls/rebind-and-model-swap-checker.log',
+    'logs/controls/rebind-and-model-swap-generate.log',
+    'logs/controls/rebind-and-model-swap-harness.log',
+    'logs/controls/rebind-local-dafny.log',
+    'logs/controls/rebind-local.log',
+    'logs/controls/rebind-same-model-dafny.log',
+    'logs/controls/rebind-same-model.log',
+    'logs/controls/rebind-suchthat-dafny.log',
+    'logs/controls/rebind-suchthat-model-swap-body.log',
+    'logs/controls/rebind-suchthat-model-swap-checker.log',
+    'logs/controls/rebind-suchthat-model-swap-generate.log',
+    'logs/controls/rebind-suchthat-model-swap-harness.log',
+    'logs/controls/rebind-suchthat.log',
+    'logs/controls/synthetic-callee-dafny.log',
+    'logs/controls/synthetic-callee.log',
+    'logs/controls/verify-LemmaOutControl.log',
+    'logs/controls/wrong-local-dafny.log',
+    'logs/controls/wrong-local.log',
+    'logs/dafny-version.log',
+    'logs/generate-baseline.log',
+    'logs/generate-trace.log',
+    'logs/javac-21-base.argfile',
+    'logs/javac-21-base.log',
+    'logs/javac-21-trace.argfile',
+    'logs/javac-21-trace.log',
+    'logs/javac-25-base.argfile',
+    'logs/javac-25-base.log',
+    'logs/javac-25-trace.argfile',
+    'logs/javac-25-trace.log',
+    'logs/verify-checker-controls.log',
+    'logs/verify-field-compatibility.log',
+    'logs/verify-field.log',
+    'logs/verify-mlkem-composition.log',
+    'logs/verify-observation-vocabulary.log',
+    'logs/verify-paired-harness.log',
+    'logs/verify-polynomial.log',
+    'logs/verify-source-trace.log',
+)
+
+POLY_SOURCE_PROOF_LOGS = {
+    'field': 'logs/verify-field.log',
+    'polynomial': 'logs/verify-polynomial.log',
+    'paired-harness': 'logs/verify-paired-harness.log',
+    'mlkem-composition': 'logs/verify-mlkem-composition.log',
+    'field-compatibility': 'logs/verify-field-compatibility.log',
+    'source-trace': 'logs/verify-source-trace.log',
+    'observation-vocabulary': 'logs/verify-observation-vocabulary.log',
+    'checker-controls': 'logs/verify-checker-controls.log',
+}
+
+POLY_SOURCE_AUDIT_LOGS = {
+    'formal/source/vocabulary/ObservationVocabulary.dfy': 'logs/audit-formal-source-vocabulary-ObservationVocabulary.dfy.log',
+    'formal/source/SourceTrace.dfy': 'logs/audit-formal-source-SourceTrace.dfy.log',
+    'formal/crypto/NativeField.dfy': 'logs/audit-formal-crypto-NativeField.dfy.log',
+    'formal/crypto/NativePolynomial.dfy': 'logs/audit-formal-crypto-NativePolynomial.dfy.log',
+    'formal/crypto/NativeMlKem.dfy': 'logs/audit-formal-crypto-NativeMlKem.dfy.log',
+    'formal/source/polynomial/NativePolynomialTraceHarness.dfy': 'logs/audit-formal-source-polynomial-NativePolynomialTraceHarness.dfy.log',
+    'formal/source/polynomial/FieldTraceCompatibility.dfy': 'logs/audit-formal-source-polynomial-FieldTraceCompatibility.dfy.log',
+    'formal/source/polynomial/AllPolynomialTraceRoots.dfy': 'logs/audit-formal-source-polynomial-AllPolynomialTraceRoots.dfy.log',
+}
+
+POLY_SOURCE_CANONICAL_LOGS = {
+    'canonical-branch-flip': ('logs/controls/canonical-branch-flip-checker.log', 'logs/controls/canonical-branch-flip-verify.log'),
+    'canonical-erase-address': ('logs/controls/canonical-erase-address-checker.log', 'logs/controls/canonical-erase-address-verify.log'),
+    'canonical-erase-ops': ('logs/controls/canonical-erase-ops-checker.log', 'logs/controls/canonical-erase-ops-verify.log'),
+    'canonical-dead-branch': ('logs/controls/canonical-dead-branch-checker.log', 'logs/controls/canonical-dead-branch-verify.log'),
+}
+
+POLY_SOURCE_MUTATION_LOGS = {
+    'leaf-branch-mutation': ('logs/controls/leaf-branch-mutation.log', 'logs/controls/leaf-branch-mutation-dafny.log'),
+    'real-path-mutation': ('logs/controls/real-path-mutation.log', 'logs/controls/real-path-mutation-dafny.log'),
+    'child-ghost-mutation': ('logs/controls/child-ghost-mutation.log', 'logs/controls/child-ghost-mutation-dafny.log'),
+    'caller-arg-mutation': ('logs/controls/caller-arg-mutation.log', 'logs/controls/caller-arg-mutation-dafny.log'),
+    'chunktrace-helper-mutation': ('logs/controls/chunktrace-helper-mutation.log', 'logs/controls/chunktrace-helper-mutation-dafny.log'),
+    'branchfalseprefix-helper-mutation': ('logs/controls/branchfalseprefix-helper-mutation.log', 'logs/controls/branchfalseprefix-helper-mutation-dafny.log'),
+    'missing-false-prefix': ('logs/controls/missing-false-prefix.log', 'logs/controls/missing-false-prefix-dafny.log'),
+    'ghost-reorder': ('logs/controls/ghost-reorder.log', 'logs/controls/ghost-reorder-dafny.log'),
+    'fake-ops': ('logs/controls/fake-ops.log', 'logs/controls/fake-ops-dafny.log'),
+    'synthetic-callee': ('logs/controls/synthetic-callee.log', 'logs/controls/synthetic-callee-dafny.log'),
+    'drop-callee-trace': ('logs/controls/drop-callee-trace.log', 'logs/controls/drop-callee-trace-dafny.log'),
+    'duplicate-projection': ('logs/controls/duplicate-projection.log', 'logs/controls/duplicate-projection-dafny.log'),
+    'wrong-local': ('logs/controls/wrong-local.log', 'logs/controls/wrong-local-dafny.log'),
+    'rebind-local': ('logs/controls/rebind-local.log', 'logs/controls/rebind-local-dafny.log'),
+    'rebind-same-model': ('logs/controls/rebind-same-model.log', 'logs/controls/rebind-same-model-dafny.log'),
+    'rebind-suchthat': ('logs/controls/rebind-suchthat.log', 'logs/controls/rebind-suchthat-dafny.log'),
+}
+
+POLY_SOURCE_N1B_LOGS = {
+    'rebind-and-model-swap': {'body': 'logs/controls/rebind-and-model-swap-body.log', 'checker': 'logs/controls/rebind-and-model-swap-checker.log', 'harness': 'logs/controls/rebind-and-model-swap-harness.log', 'generate': 'logs/controls/rebind-and-model-swap-generate.log'},
+    'rebind-suchthat-model-swap': {'body': 'logs/controls/rebind-suchthat-model-swap-body.log', 'checker': 'logs/controls/rebind-suchthat-model-swap-checker.log', 'harness': 'logs/controls/rebind-suchthat-model-swap-harness.log', 'generate': 'logs/controls/rebind-suchthat-model-swap-generate.log'},
+}
+
+POLY_SOURCE_DECOY_LOG = 'logs/controls/decoy-class.log'
+POLY_SOURCE_PROBE_LOG = 'logs/checker-scope-probe-repeated.log'
+POLY_SOURCE_DEFAULT_CHECKER_LOG = 'logs/checker-positive.log'
+
+POLY_SOURCE_POSITIVE_SCOPES = (
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.SecretBranchObserved"}', ('Control.SecretBranchObserved',), 1, 'logs/controls/checker-SecretBranchObserved.log', 'POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [Control.SecretBranchObserved]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.SecretIndexObserved"}', ('Control.SecretIndexObserved',), 1, 'logs/controls/checker-SecretIndexObserved.log', 'POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [Control.SecretIndexObserved]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed'),
+    ('{"POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchObserved", "POLY_TRACE_ROOTS": null}', ('NativePolynomial.NewZetas', 'NativePolynomial.NewGammas', 'NativePolynomial.Add', 'NativePolynomial.Sub', 'NativePolynomial.Copy', 'NativePolynomial.ForwardStage', 'NativePolynomial.InverseStage', 'NativePolynomial.Scale', 'NativePolynomial.Ntt', 'NativePolynomial.InverseNtt', 'NativePolynomial.BaseCase', 'NativePolynomial.NttMul', 'NativePolynomial.Wipe', 'NativeField.ReduceOnce', 'NativeField.Reduce', 'NativeField.Add', 'NativeField.Sub', 'NativeField.Mul', 'NativeField.MulSub', 'NativeField.AddMul'), 20, 'logs/controls/checker-FunctionControl-PrivateBranchObserved.log', 'POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed'),
+    ('{"POLY_TRACE_FUNCS": "FunctionControl.PrivateIndexObserved", "POLY_TRACE_ROOTS": null}', ('NativePolynomial.NewZetas', 'NativePolynomial.NewGammas', 'NativePolynomial.Add', 'NativePolynomial.Sub', 'NativePolynomial.Copy', 'NativePolynomial.ForwardStage', 'NativePolynomial.InverseStage', 'NativePolynomial.Scale', 'NativePolynomial.Ntt', 'NativePolynomial.InverseNtt', 'NativePolynomial.BaseCase', 'NativePolynomial.NttMul', 'NativePolynomial.Wipe', 'NativeField.ReduceOnce', 'NativeField.Reduce', 'NativeField.Add', 'NativeField.Sub', 'NativeField.Mul', 'NativeField.MulSub', 'NativeField.AddMul'), 20, 'logs/controls/checker-FunctionControl-PrivateIndexObserved.log', 'POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed'),
+)
+
+POLY_SOURCE_REJECTIONS = (
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.SecretBranchUnmarked"}', 'missing Branch observation for branch guard', 'logs/controls/checker-SecretBranchUnmarked.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(30,4): Error: missing Branch observation for branch guard'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.SecretIndexUnmarked"}', 'missing Read observation for array read', 'logs/controls/checker-SecretIndexUnmarked.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(48,10): Error: missing Read observation for array read'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.ShadowCallee"}', 'unregistered executable callee Shadow._default.Add', 'logs/controls/checker-ShadowCallee.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(55,9): Error: unregistered executable callee Shadow._default.Add'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.RoleShadow"}', 'mismatched Read observation for array read', 'logs/controls/checker-RoleShadow.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: mismatched Read observation for array read'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.EventReset"}', 'later trace update must append to the same trace', 'logs/controls/checker-EventReset.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(73,10): Error: EventReset: later trace update must append to the same trace'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.Interposed"}', 'expected exact SourceTrace.Branch for branch guard, found Read', 'logs/controls/checker-Interposed.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: expected exact SourceTrace.Branch for branch guard, found Read'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "Control.Unsupported"}', 'Ops arg 0=0, source executable count=1', 'logs/controls/checker-Unsupported.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(91,20): Error: Unsupported: Ops arg 0=0, source executable count=1'),
+    ('{"POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchUnmarked", "POLY_TRACE_ROOTS": null}', 'arm 0 is missing Branch observation', 'logs/controls/checker-FunctionControl-PrivateBranchUnmarked.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(118,35): Error: PrivateBranchUnmarked: arm 0 is missing Branch observation'),
+    ('{"POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchReset", "POLY_TRACE_ROOTS": null}', 'arm 0 is missing Branch observation', 'logs/controls/checker-FunctionControl-PrivateBranchReset.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(126,29): Error: PrivateBranchReset: arm 0 is missing Branch observation'),
+    ('{"POLY_TRACE_FUNCS": "FunctionControl.PrivateIndexUnmarked", "POLY_TRACE_ROOTS": null}', 'arm 0 is missing exact Read for array address', 'logs/controls/checker-FunctionControl-PrivateIndexUnmarked.log', 'formal/source/polynomial/controls/PolynomialControls.dfy(143,23): Error: PrivateIndexUnmarked: arm 0 is missing exact Read for array address'),
+    ('{"POLY_TRACE_FUNCS": "ByMethodProbe.Identity", "POLY_TRACE_ROOTS": null}', 'function-by-method is unsupported', 'logs/controls/checker-ByMethodProbe-Identity.log', 'formal/source/polynomial/controls/ByMethodControl.dfy(3,11): Error: Identity: function-by-method is unsupported; the actual imperative body is not checked'),
+    ('{"POLY_TRACE_FUNCS": null, "POLY_TRACE_ROOTS": "LemmaOutControl.Use"}', 'ghost lemma-out binding is unsupported', 'logs/controls/checker-LemmaOutControl.log', 'formal/source/polynomial/controls/LemmaOutControl.dfy(11,6): Error: Use: ghost lemma-out binding is unsupported'),
+)
+
+POLY_SOURCE_DAFNY_NEGATIVES = (
+    ('logs/controls-BranchObservedHarness.dfy.log', 'formal/source/polynomial/controls/BranchObservedHarness.dfy(9,11): Error: assertion might not hold', 0, 'assert t1 == t2'),
+    ('logs/controls-IndexObservedHarness.dfy.log', 'formal/source/polynomial/controls/IndexObservedHarness.dfy(9,11): Error: assertion might not hold', 1, 'assert t1 == t2'),
+    ('logs/controls-FunctionBranchHarness.dfy.log', 'formal/source/polynomial/controls/FunctionBranchHarness.dfy(11,11): Error: assertion might not hold', 0, 'assert t1 == t2'),
+    ('logs/controls-FunctionIndexHarness.dfy.log', 'formal/source/polynomial/controls/FunctionIndexHarness.dfy(11,11): Error: assertion might not hold', 1, 'assert t1 == t2'),
+)
+
+POLY_SOURCE_GREEN_CHECKS = (
+    ('logs/controls-UnmarkedHarnesses.dfy.log', 3),
+    ('logs/controls-FunctionUnmarkedHarnesses.dfy.log', 3),
+    ('logs/controls/verify-LemmaOutControl.log', 2),
+)
+
+POLY_SOURCE_DEFAULT_SELECTOR = 'default (both POLY_TRACE_* cleared)'
+POLY_SOURCE_TRACKED_PREFIX = "formal/crypto/evidence/2026-11-04-poly/source/"
+POLY_SOURCE_DEFAULT_FIRST_LINE = (
+    "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots ["
+    + ",".join(POLY_SOURCE_METHOD_ROOTS)
+    + "]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed")
+POLY_SOURCE_POSITIVE_MARKERS = "actual (real,ghost) function tuple paths; ordered flat markers; fail-closed"
+POLY_SOURCE_LOG_SUMMARY = re.compile(
+    r"Dafny program verifier finished with (\d+) verified, (\d+) errors?"
+    r"(?:, (\d+) out of resource)?")
+POLY_SOURCE_AUDIT_SUMMARY = re.compile(r"Dafny auditor completed with (\d+) findings")
+POLY_SOURCE_DIAGNOSTIC = re.compile(r"\(\d+,\d+\): (?:Error|Warning): ")
+POLY_SOURCE_RESOLUTION = re.compile(r"^(\d+) resolution/type errors detected in ", re.M)
+POLY_SOURCE_CHECKER_OK = re.compile(
+    r"^POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots \[(.*?)\]; "
+    + re.escape(POLY_SOURCE_POSITIVE_MARKERS) + r"$", re.M)
+POLY_SOURCE_BAD_LOG = re.compile(
+    r"timeout|timed out|out of resource|resource limit|resource exhaustion|"
+    r"out of memory|OutOfMemory|Unhandled exception|Stack overflow|"
+    r"parse error|Parser error|crashed|Segmentation fault", re.IGNORECASE)
+
+
 REQUIRED_COMPONENT_EVIDENCE = {
     'V0': (
         ('formal/assurance.json', 'component-receipt'),
@@ -245,7 +760,7 @@ REQUIRED_COMPONENT_CHECKS = {
         "control_groups": (
             ('codec-semantic-controls', 'formal/crypto/CODEC-EVIDENCE.json', 'controls'),
             ('polynomial-semantic-controls', 'formal/crypto/POLYNOMIAL-EVIDENCE.json', 'controls'),
-            ('native-codec-semantic-controls', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'reused_evidence.semantic_controls'),
+            ('native-codec-semantic-controls', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'controls'),
             ('native-codec-bytecode-controls', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'bytecode_controls'),
             ('native-polynomial-mac-controls', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.controls'),
             ('native-polynomial-linux-controls', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'linux_controls.receipt.controls'),
@@ -253,11 +768,12 @@ REQUIRED_COMPONENT_CHECKS = {
         "receipt_checks": (
             ('formal/crypto/CODEC-EVIDENCE.json', ('proofs.proof-Codec', 'proofs.proof-Sampling', 'proofs.codec_domain', 'proofs.sampling_domain')),
             ('formal/crypto/POLYNOMIAL-EVIDENCE.json', ('status', 'phase', 'verified', 'dafny_version', 'solver_version')),
-            ('formal/crypto/NATIVE-CODEC-EVIDENCE.json', ('reused_evidence.proofs.proof-NativeField', 'reused_evidence.proofs.proof-NativeCodec', 'reused_evidence.proofs.proof-NativeSampling', 'reused_evidence.proofs.native_codec_domain', 'reused_evidence.proofs.native_sampling_domain')),
-            ('formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', ('status', 'unchanged_policy.negative_control_count', 'unchanged_policy.required_semantic_exit', 'mac_full.receipt.status', 'mac_full.receipt.dependency_verified', 'mac_full.receipt.native_verified', 'linux_controls.receipt.status')),
+            ('formal/crypto/NATIVE-CODEC-EVIDENCE.json', ('proofs.proof-NativeField', 'proofs.proof-NativeCodec', 'proofs.proof-NativeSampling', 'proofs.native_codec_domain', 'proofs.native_sampling_domain')),
+            ('formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', ('status', 'scope', 'unchanged_policy.negative_control_count', 'unchanged_policy.required_semantic_exit', 'mac_full.receipt.status', 'mac_full.receipt.phase', 'mac_full.receipt.dependency_verified', 'mac_full.receipt.native_verified', 'linux_controls.receipt.status', 'linux_controls.receipt.phase')),
         ),
         "hash_maps": (
             ('formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.inputs', (), ()),
+            ('formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'inputs', (), ()),
             ('formal/crypto/adoption/stage-receipt.json', 'sources', (), ()),
         ),
         "entry_hash_checks": (
@@ -280,7 +796,7 @@ REQUIRED_COMPONENT_CHECKS = {
         "receipt_checks": (
             ('formal/crypto/KEM-EVIDENCE.json', ('scope', 'proofs.proof-full', 'proofs.generate-java')),
             ('formal/crypto/NATIVE-KEM-EVIDENCE.json', ('scope', 'proofs.proof-native-composition', 'proofs.proof-reference-graph', 'proofs.proof-native-kernels', 'proofs.generate-java', 'native_runtime_guard.payload_scalar_boxings')),
-            ('formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', ('exit', 'verified', 'platform', 'dafny_version')),
+            ('formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', ('status', 'exit', 'verified', 'platform', 'dafny_version', 'max_resource_count', 'max_obligation_seconds')),
             ('formal/crypto/adoption/stage-receipt.json', ('schema', 'status', 'entry', 'generation.status', 'runtime_sha256')),
             ('formal/crypto/adoption/ACCEPTANCE.json', ('schema', 'status', 'quic_jar_sha256', 'all_jar_sha256')),
             ('formal/crypto/adoption/final-bundle.json', ('schema', 'status', 'artifact_sha256', 'canonical_crypto_classes_matched')),
@@ -604,12 +1120,13 @@ REQUIRED_HASH_MAP_KEYS = {
     ('V2', 'formal/dafny/inputs.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
     ('V3', 'formal/saw/inputs.json', 'inputs', ('formal/',), ''): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/provenance.json'),
     ('V3', 'formal/saw/inputs.json', 'inputs', ('quic/src/',), 'formal/saw/historical'): ('quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java',),
-    ('V4', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.inputs', (), ''): ('formal/crypto/NativeField.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/native_polynomial_checks.py', 'formal/crypto/native_polynomial_domain.dfy', 'formal/crypto/native_polynomial_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy'),
-    ('V5', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'inputs', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_checks.py', 'formal/crypto/native_kem_domain.dfy', 'formal/crypto/native_kem_hash.java', 'formal/crypto/native_kem_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'source_graph', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_domain.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V4', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
+    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.inputs', (), ''): ('formal/crypto/NativeField.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/native_polynomial_checks.py', 'formal/crypto/native_polynomial_domain.dfy', 'formal/crypto/native_polynomial_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
+    ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'inputs', (), ''): ('formal/crypto/NativeTypes.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/Codec.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/native_codec_domain.dfy', 'formal/crypto/native_sampling_domain.dfy', 'formal/crypto/native_codec_checks.py', 'formal/crypto/native_codec_test.java', 'formal/primitives/Field.dfy', 'formal/crypto/reference/provenance.json', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/MlKem768.java'),
+    ('V5', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
+    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'inputs', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_checks.py', 'formal/crypto/native_kem_domain.dfy', 'formal/crypto/native_kem_hash.java', 'formal/crypto/native_kem_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'source_graph', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_domain.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
+    ('V6', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
     ('V7', 'formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), ''): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
     ('V7', 'formal/timing/inputs.json', 'inputs', (), ''): ('formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'formal/timing/HkdfShape.dfy', 'formal/timing/PositiveTraceCheck.dfy', 'formal/timing/README.md', 'formal/timing/SecretTrace.dfy', 'formal/timing/bytecode_trace.py', 'formal/timing/fixtures/CategoryTwo.java', 'formal/timing/fixtures/ClassOracle.java', 'formal/timing/fixtures/ConstantTime.java', 'formal/timing/fixtures/EarlyCompare.java', 'formal/timing/fixtures/ExceptionOracle.java', 'formal/timing/fixtures/FieldAlias.java', 'formal/timing/fixtures/NewIdentity.java', 'formal/timing/fixtures/ResultArrayCall.java', 'formal/timing/fixtures/SecretAlloc.java', 'formal/timing/fixtures/SecretBranch.java', 'formal/timing/fixtures/SecretDigestBranch.java', 'formal/timing/fixtures/SecretIndex.java', 'formal/timing/fixtures/SecretLoopBound.java', 'formal/timing/fixtures/VirtualDispatch.java', 'formal/timing/policy.json', 'formal/timing/run.py', 'formal/timing/test_trace.py', 'formal/timing/test_exception_table.py', 'formal/timing/threat-model.md', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/kem_hash.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java', 'formal/timing/execution_controls.py', 'formal/timing/test_coverage.py'),
 }
@@ -672,16 +1189,16 @@ REQUIRED_RECEIPT_EXACT.update({
     ('V5', 'formal/crypto/POLYNOMIAL-EVIDENCE.json', 'verified'): 1562,
     ('V5', 'formal/crypto/POLYNOMIAL-EVIDENCE.json', 'domain_harness'): 'Dafny program verifier finished with 1 verified, 0 errors',
     ('V5', 'formal/crypto/POLYNOMIAL-EVIDENCE.json', 'java_runs'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)', 'result': 'POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=551008', 'java_sha256': 'd7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770'}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)', 'result': 'POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=551008', 'java_sha256': 'd6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249'}],
-    ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'validation_kind'): 'Fresh Java compilation, bytecode checker and JDK replay; unchanged SMT proofs and generation reused by exact identity; later ghost-only EncodeTen proof split and strict normal-exit gate are separately recorded below',
+    ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'validation_kind'): 'Fresh actual proof, semantic-control, generation, compilation, bytecode and JDK21/JDK25 replay of the adopted source; the pre-Poly proof-reuse lineage is retained under historical only and is not evidence for these source hashes.',
     ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n', 'tests': {'scalars': 40713, 'encodings': 7044, 'malformed': 1820, 'cbd': 384, 'feeds': 19320, 'java_samples': 224, 'assertions': 334753}}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n', 'tests': {'scalars': 40713, 'encodings': 7044, 'malformed': 1820, 'cbd': 384, 'feeds': 19320, 'java_samples': 224, 'assertions': 334753}}],
-    ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'reused_evidence.proofs'): {'proof-NativeField': 84, 'proof-NativeCodec': 1493, 'proof-NativeSampling': 281, 'native_codec_domain': 8, 'native_sampling_domain': 4},
+    ('V5', 'formal/crypto/NATIVE-CODEC-EVIDENCE.json', 'proofs'): {'proof-NativeField': 86, 'proof-NativeCodec': 1503, 'proof-NativeSampling': 281, 'native_codec_domain': 8, 'native_sampling_domain': 4},
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'scope'): 'Full positive-domain proof/translation/runtime replay on macOS ARM64; all 14 strict negative controls on Linux amd64. The Linux replay is control-only, not another proof of the unrestricted positive graph.',
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'status'): 'passed',
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'unchanged_policy'): {'positive_domain': 'Every array of exactly 256 coefficients in [0,3329); input aliasing permitted', 'negative_control_count': 14, 'required_semantic_exit': 4, 'resource_timeout_crash_diagnostics': 'rejected', 'cores': 2, 'verification_time_limit_seconds': 30, 'resource_limit': 50000000, 'native_case_split': 0, 'dependency_case_split': 'unchanged default 3'},
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.status'): 'passed',
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.phase'): 'all',
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.dependency_verified'): 1562,
-    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.native_verified'): 482,
+    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.native_verified'): 1092,
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'linux_controls.receipt.status'): 'passed',
     ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'linux_controls.receipt.phase'): 'controls',
     ('V6', 'formal/crypto/KEM-EVIDENCE.json', 'scope'): 'full',
@@ -689,23 +1206,26 @@ REQUIRED_RECEIPT_EXACT.update({
     ('V6', 'formal/crypto/KEM-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n', 'tests': {'assertions': 5091, 'rounds': 100, 'malformed': 30, 'selections': 3265}}, {'version': 'openjdk version "25.0.4" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 5091, 'rounds': 100, 'malformed': 30, 'selections': 3265}}],
     ('V6', 'formal/crypto/KEM-EVIDENCE.json', 'provider_assumptions'): ['formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.'],
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'scope'): 'full',
-    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'proofs'): {'proof-native-composition': 2776, 'proof-reference-graph': 2649, 'proof-native-kernels': 3487, 'generate-java': 162},
+    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'proofs'): {'proof-native-composition': 2776, 'proof-reference-graph': 2695, 'proof-native-kernels': 4097, 'generate-java': 162},
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'java'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n', 'tests': {'assertions': 7813, 'rounds': 100, 'malformed': 30, 'selections': 3265, 'destroyed': 101}}],
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'provider_assumptions'): {'primitive_count': 2, 'declaration_count': 4, 'declarations': ['formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/NativeJdkHash.dfy(12,4): Warning: Hash: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.', 'formal/crypto/NativeJdkHash.dfy(17,4): Warning: Expand: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.']},
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'bytecode_controls'): {'selector-narrow-helper': {'rejected': 'Unreviewed or payload-sensitive runtime helper'}, 'selector-payload-branch': {'rejected': 'Selector payload branch or changed loop control'}, 'selector-payload-boxing': {'rejected': 'Payload scalar boxing: 47: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;'}},
     ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'native_runtime_guard.payload_scalar_boxings'): 0,
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'status'): 'complete',
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'verified'): 2776,
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'exit'): 0,
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'platform'): 'linux/amd64',
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'dafny_version'): '4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2',
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_resource_count'): 10275514,
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_obligation_seconds'): 18.6739675,
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'max_obligation_seconds'): 10.1399173,
 })
 
 REQUIRED_COMPONENT_CHECKS['V7'] = dict(REQUIRED_COMPONENT_CHECKS['V7'])
 REQUIRED_COMPONENT_CHECKS['V7']['text_checks'] = (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),)
 
-REQUIRED_TRACE_REPORT_SHA256 = 'a4a6d0b4ab5d2bc4124672bb40e6d2468a7a5b388b79d16250a1d1e115161886'
+# Fresh ROOT replay after the one generated-Java text pin moved to the migrated
+# canonical output; the report was regenerated from the actual classes, not renewed.
+REQUIRED_TRACE_REPORT_SHA256 = '07be9330dc2dc183a726f52f255c5895e3f485dab3746c304fe4fe7f367a44c5'
 
 REQUIRED_TRACE_ROOTS = ({'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default',
   'method': 'Select:([B[B[B[B)[B',
@@ -1015,13 +1535,21 @@ REQUIRED_COMPONENT_EVIDENCE.update({
         ('formal/timing/PRODUCTION-EVIDENCE.json', 'component-receipt'),
         ('docs/formal-security.md', 'documentation'),
         ('docs/project/2026-10-28-java-crypto-verification.md', 'documentation'),
+        (POLY_SOURCE_RECEIPT, 'component-receipt'),
+        (POLY_SOURCE_INPUTS, 'input-manifest'),
+        ('formal/source/polynomial/replay.py', 'tool-manifest'),
+        ('formal/source/polynomial/checker/PolynomialSourceCoverage.cs', 'tool-manifest'),
+        ('formal/source/polynomial/checker/PolynomialSourceCoverage.csproj', 'tool-manifest'),
     ),
 })
 REQUIRED_COMPONENT_CHECKS.update({
     'V7': {
         'control_groups': (),
         'receipt_checks': (('formal/saw/evidence/report.json', ('runs.nonce.result',)),),
-        'hash_maps': (('formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), (), ''), ('formal/timing/inputs.json', 'inputs', (), (), '')),
+        'hash_maps': (('formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), (), ''), ('formal/timing/inputs.json', 'inputs', (), (), ''),
+                      ('formal/source/polynomial/inputs.json', 'inputs', (), (), ''),
+                      (POLY_SOURCE_RECEIPT, 'inputs_before', (), (), ''),
+                      (POLY_SOURCE_RECEIPT, 'inputs_after', (), (), '')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': (),
@@ -1030,6 +1558,69 @@ REQUIRED_COMPONENT_CHECKS.update({
     },
 })
 REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = REQUIRED_TRACE_INPUT_KEYS
+for _poly_map in (('formal/source/polynomial/inputs.json', tuple(sorted((
+        'formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy',
+        'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy',
+        'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy',
+        'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy',
+        'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy',
+        'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy',
+        'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/delivery.py',
+        'formal/crypto/kem_hash.java', 'formal/crypto/native_kem_hash.java',
+        'formal/crypto/native_polynomial_domain.dfy', 'formal/dafny/toolchain.py',
+        'formal/dafny/tools.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy',
+        'formal/source/SourceTrace.dfy', 'formal/source/polynomial/AllPolynomialTraceRoots.dfy',
+        'formal/source/polynomial/FieldTraceCompatibility.dfy',
+        'formal/source/polynomial/NativePolynomialTraceHarness.dfy',
+        'formal/source/polynomial/README.md',
+        'formal/source/polynomial/checker/PolynomialSourceCoverage.cs',
+        'formal/source/polynomial/checker/PolynomialSourceCoverage.csproj',
+        'formal/source/polynomial/controls/BranchObservedHarness.dfy',
+        'formal/source/polynomial/controls/ByMethodControl.dfy',
+        'formal/source/polynomial/controls/ControlHarnesses.dfy',
+        'formal/source/polynomial/controls/FunctionBranchHarness.dfy',
+        'formal/source/polynomial/controls/FunctionIndexHarness.dfy',
+        'formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy',
+        'formal/source/polynomial/controls/IndexObservedHarness.dfy',
+        'formal/source/polynomial/controls/LemmaOutControl.dfy',
+        'formal/source/polynomial/controls/PolynomialControls.dfy',
+        'formal/source/polynomial/controls/UnmarkedHarnesses.dfy',
+        'formal/source/polynomial/replay.py', 'formal/source/polynomial/test_replay.py',
+        'formal/source/vocabulary/ObservationVocabulary.dfy',
+    )))) ,
+                  (POLY_SOURCE_RECEIPT, tuple(sorted((
+        'formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy',
+        'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy',
+        'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy',
+        'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy',
+        'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy',
+        'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy',
+        'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/delivery.py',
+        'formal/crypto/kem_hash.java', 'formal/crypto/native_kem_hash.java',
+        'formal/crypto/native_polynomial_domain.dfy', 'formal/dafny/toolchain.py',
+        'formal/dafny/tools.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy',
+        'formal/source/SourceTrace.dfy', 'formal/source/polynomial/AllPolynomialTraceRoots.dfy',
+        'formal/source/polynomial/FieldTraceCompatibility.dfy',
+        'formal/source/polynomial/NativePolynomialTraceHarness.dfy',
+        'formal/source/polynomial/README.md',
+        'formal/source/polynomial/checker/PolynomialSourceCoverage.cs',
+        'formal/source/polynomial/checker/PolynomialSourceCoverage.csproj',
+        'formal/source/polynomial/controls/BranchObservedHarness.dfy',
+        'formal/source/polynomial/controls/ByMethodControl.dfy',
+        'formal/source/polynomial/controls/ControlHarnesses.dfy',
+        'formal/source/polynomial/controls/FunctionBranchHarness.dfy',
+        'formal/source/polynomial/controls/FunctionIndexHarness.dfy',
+        'formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy',
+        'formal/source/polynomial/controls/IndexObservedHarness.dfy',
+        'formal/source/polynomial/controls/LemmaOutControl.dfy',
+        'formal/source/polynomial/controls/PolynomialControls.dfy',
+        'formal/source/polynomial/controls/UnmarkedHarnesses.dfy',
+        'formal/source/polynomial/inputs.json', 'formal/source/polynomial/replay.py',
+        'formal/source/polynomial/test_replay.py',
+        'formal/source/vocabulary/ObservationVocabulary.dfy',
+    ))))):
+    for _path in (('inputs',) if _poly_map[0] == 'formal/source/polynomial/inputs.json' else ('inputs_before', 'inputs_after')):
+        REQUIRED_HASH_MAP_KEYS[('V7', _poly_map[0], _path, (), '')] = _poly_map[1]
 
 
 # Reviewed immutable policies for a claim that is marked supported.  These are
@@ -1314,6 +1905,18 @@ CLAIM_POLICIES = {
             }),
         ),
     },
+    "poly-source-trace-ni": {
+        "obligations": ("V5", "V7"),
+        "strength": "implementation",
+        "production": False,
+        "assumptions": frozenset({
+            "dafny-toolchain", "dafny-runtime", "javac-jvm", "generated-runtime-discipline",
+            "trusted-source-observation-coverage",
+        }),
+        "required_evidence": POLY_SOURCE_CLAIM_EVIDENCE,
+        "required_statuses": {"V5": ("implementation-proof",), "V7": ("partial",)},
+        "component_checks": ("V5", "V7"),
+    },
     "all-v0-v8-complete": {
         "obligations": ("V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8"),
         "strength": "none",
@@ -1349,6 +1952,7 @@ ALLOWED_CLAIMS = {
     "whole-proxy-security",
     "aws-full-upstream-hkdf-replay",
     "packet-nonce-functional-production",
+    "poly-source-trace-ni",
     "all-v0-v8-complete",
 }
 # A metadata/schema recognizer cannot establish a new theorem, expert review or
@@ -1362,6 +1966,7 @@ SEMANTICALLY_VALIDATED_SUPPORTED_CLAIMS = {
     "packet-receive-trace-scoped",
     "v8-nontiming-release-gate",
     "packet-nonce-functional-production",
+    "poly-source-trace-ni",
 }
 COMPLETION_REQUIRED_CLAIMS = {
     "shake-mlkem-functional-production",
@@ -1712,6 +2317,810 @@ REQUIRED_HASH_MAP_KEYS[('V7', HKDF_SOURCE_RECEIPT, 'java.hashes', (), 'quic/src/
  'FailureKind_InvalidLabel.java',
  'FailureKind_InvalidLength.java',
  '__default.java')
+def _poly_require(condition: bool, label: str, message: str) -> None:
+    if not condition:
+        raise LedgerError(f"{label}: {message}")
+
+
+def _poly_sha(value: Any, label: str, what: str) -> str:
+    if not isinstance(value, str) or not HASH_RE.fullmatch(value):
+        raise LedgerError(f"{label}: {what} is not a sha256")
+    return value
+
+
+def _poly_log_text(root: Path, index: dict[str, Any], relative: str, label: str) -> str:
+    """Return the tracked bytes of a pinned producer log, bound by path+digest."""
+    producer = index.get("producer_root")
+    files = index.get("logs")
+    if not isinstance(producer, str) or not producer:
+        raise LedgerError(f"{label}: index producer_root missing")
+    if not isinstance(files, dict):
+        raise LedgerError(f"{label}: index logs missing")
+    if relative not in files:
+        raise LedgerError(f"{label}: required producer log is not indexed: {relative}")
+    tracked = checked_path(root, POLY_SOURCE_TRACKED_PREFIX + relative, label)
+    if digest(tracked) != files[relative]:
+        raise LedgerError(f"{label}: tracked log differs from the index: {relative}")
+    try:
+        return tracked.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise LedgerError(f"{label}: unreadable log {relative}: {error}") from error
+
+
+def _poly_diagnostics(text: str) -> tuple[tuple[int, int, str], ...]:
+    """Parse the ordered (line, column, message) verifier diagnostics."""
+    return tuple((int(line), int(column), message)
+                 for line, column, message in re.findall(
+                     r"\((\d+),(\d+)\): (?:Error|Related location): (.+)", text))
+
+
+def _poly_record_log(root: Path, index: dict[str, Any], record: dict[str, Any],
+                     key: str, relative: str, label: str, *, require_sha: bool = True) -> str:
+    """Bind one record's absolute producer path and digest to the pinned log."""
+    producer = index["producer_root"]
+    expected = producer.rstrip("/") + "/" + relative
+    _poly_require(record.get(key) == expected, label,
+                  f"{label}: log path is not the pinned producer path {relative}")
+    sha_key = key + "_sha256"
+    if sha_key not in record and require_sha:
+        raise LedgerError(f"{label}: {relative} record lacks its {sha_key}")
+    if sha_key in record:
+        _poly_sha(record.get(sha_key), label, f"{sha_key} for {relative}")
+        _poly_require(record.get(sha_key) == index["logs"].get(relative), label,
+                      f"{label}: log digest does not match the index for {relative}")
+    return _poly_log_text(root, index, relative, label)
+
+
+def _poly_summary(text: str, label: str, what: str) -> tuple[int, int, int]:
+    summaries = POLY_SOURCE_LOG_SUMMARY.findall(text)
+    if len(summaries) != 1:
+        raise LedgerError(f"{label}: {what} must contain exactly one verifier summary")
+    verified, errors, oor = summaries[0]
+    return int(verified), int(errors), int(oor or 0)
+
+
+def _poly_dafny_positive(text: str, verified: int, label: str, what: str,
+                         *, minimum: int | None = None) -> None:
+    if POLY_SOURCE_BAD_LOG.search(text):
+        raise LedgerError(f"{label}: {what} contains an inconclusive diagnostic")
+    if POLY_SOURCE_DIAGNOSTIC.search(text):
+        raise LedgerError(f"{label}: {what} contains a verifier diagnostic")
+    resolution = POLY_SOURCE_RESOLUTION.search(text)
+    if resolution and int(resolution.group(1)) != 0:
+        raise LedgerError(f"{label}: {what} contains resolution errors")
+    got, errors, oor = _poly_summary(text, label, what)
+    if errors != 0 or oor != 0:
+        raise LedgerError(f"{label}: {what} is not clean (errors={errors}, oor={oor})")
+    if minimum is not None:
+        if got < minimum:
+            raise LedgerError(f"{label}: {what} did not clear the minimum {minimum}")
+    elif got != verified:
+        raise LedgerError(f"{label}: {what} verified {got}, expected {verified}")
+
+
+def _poly_audit_positive(text: str, findings: int, label: str, what: str) -> None:
+    if POLY_SOURCE_BAD_LOG.search(text):
+        raise LedgerError(f"{label}: {what} contains an inconclusive diagnostic")
+    summaries = POLY_SOURCE_AUDIT_SUMMARY.findall(text)
+    if len(summaries) != 1 or int(summaries[0]) != findings:
+        raise LedgerError(f"{label}: {what} auditor findings do not match the record")
+
+
+def _poly_checker_ok(text: str, roots: tuple[str, ...], label: str, what: str) -> None:
+    if POLY_SOURCE_BAD_LOG.search(text):
+        raise LedgerError(f"{label}: {what} contains an inconclusive diagnostic")
+    if "Error:" in text or "resolution/type errors detected" in text:
+        raise LedgerError(f"{label}: {what} contains a rejection diagnostic")
+    match = POLY_SOURCE_CHECKER_OK.search(text)
+    if match is None:
+        raise LedgerError(f"{label}: {what} lacks the exact positive marker")
+    printed = tuple(part for part in match.group(1).split(",") if part)
+    if printed != tuple(roots):
+        raise LedgerError(f"{label}: {what} printed roots differ from the recorded roots")
+
+
+def _poly_checker_reject(text: str, needle: str, label: str, what: str) -> None:
+    if POLY_SOURCE_BAD_LOG.search(text):
+        raise LedgerError(f"{label}: {what} contains a tool crash/resource diagnostic")
+    if "POLYNOMIAL-SOURCE-COVERAGE OK" in text:
+        raise LedgerError(f"{label}: {what} is a success, not a rejection")
+    if not needle or needle not in text:
+        raise LedgerError(f"{label}: {what} does not contain the named rejection")
+    if not POLY_SOURCE_DIAGNOSTIC.search(text):
+        raise LedgerError(f"{label}: {what} has no Dafny diagnostic line")
+    if not POLY_SOURCE_RESOLUTION.search(text):
+        raise LedgerError(f"{label}: {what} has no resolution-error summary")
+
+
+def _poly_dafny_negative(text: str, verified: int, errors: int, label: str,
+                         what: str, anchor: str | None = None) -> None:
+    if POLY_SOURCE_BAD_LOG.search(text):
+        raise LedgerError(f"{label}: {what} is an inconclusive diagnostic, not a rejection")
+    got, got_errors, oor = _poly_summary(text, label, what)
+    if oor != 0 or got_errors != errors or got != verified:
+        raise LedgerError(
+            f"{label}: {what} summary {got}/{got_errors} does not match {verified}/{errors}")
+    if "Error: " not in text:
+        raise LedgerError(f"{label}: {what} has no named error diagnostic")
+    if anchor and anchor not in text:
+        raise LedgerError(f"{label}: {what} lacks the reviewed named anchor")
+
+
+def _poly_log_index(root: Path, receipt: dict[str, Any], label: str) -> dict[str, Any]:
+    index = load_json(checked_path(root, POLY_SOURCE_TRACKED_INDEX, label))
+    _poly_require(index.get("schema") == "microproxy.crypto-poly-source-log-index/v1", label,
+                  "tracked log index schema changed")
+    report_ref = index.get("report")
+    _poly_require(isinstance(report_ref, dict)
+                  and report_ref.get("path") == POLY_SOURCE_TRACKED_REPORT, label,
+                  "tracked report reference changed")
+    tracked_report = checked_path(root, POLY_SOURCE_TRACKED_REPORT, label)
+    _poly_require(report_ref.get("sha256") == digest(tracked_report), label,
+                  "tracked report copy does not match the index")
+    adopted = checked_path(root, POLY_SOURCE_RECEIPT, label)
+    _poly_require(digest(tracked_report) == digest(adopted), label,
+                  "adopted receipt is not the tracked actual producer report")
+    files = index.get("logs")
+    _poly_require(isinstance(files, dict) and files, label, "tracked log index has no logs")
+    _poly_require(set(files) == set(POLY_SOURCE_LOG_PATHS), label,
+                  "tracked log inventory changed; missing="
+                  f"{sorted(set(POLY_SOURCE_LOG_PATHS) - set(files))} "
+                  f"added={sorted(set(files) - set(POLY_SOURCE_LOG_PATHS))}")
+    for relative, sha in files.items():
+        _poly_sha(sha, label, f"tracked log sha for {relative}")
+    return index
+
+
+def _poly_validate_checks(root: Path, index: dict[str, Any], receipt: dict[str, Any],
+                          label: str) -> int:
+    """Require the exact 64-record inventory, not a 64-dict count."""
+    checks = receipt.get("checks")
+    _poly_require(isinstance(checks, list) and len(checks) == 64, label,
+                  "reviewed check-record count changed")
+    dump = json.dumps
+    remaining = list(checks)
+    top = (list(receipt["proofs"]) + list(receipt["audits"])
+           + list(receipt["controls"]["canonical"]) + [receipt["controls"]["decoy"]]
+           + list(receipt["controls"]["mutations"]) + list(receipt["controls"]["n1b"])
+           + [receipt["controls"]["scope_probe"]])
+    for record in top:
+        wanted = dump(record, sort_keys=True)
+        for position, candidate in enumerate(remaining):
+            if dump(candidate, sort_keys=True) == wanted:
+                remaining.pop(position)
+                break
+        else:
+            name = (record.get("label") or record.get("file") or record.get("control")
+                    or record.get("probe"))
+            raise LedgerError(f"{label}: checks inventory dropped the reviewed record {name!r}")
+
+    default_keys = {"classification", "command", "exit", "expected_pure_functions", "log",
+                    "log_sha256", "root_count", "root_set_sha256", "roots", "selector", "text"}
+    scope_keys = {"classification", "command", "exit", "log", "log_sha256", "root_count",
+                  "root_set_sha256", "roots", "selector", "text"}
+    rejection_keys = {"classification", "command", "exit", "log", "log_sha256", "needle",
+                      "selector", "text"}
+    negative_keys = {"classification", "command", "errors", "exit", "log", "log_sha256", "named",
+                     "text", "verified"}
+    green_keys = {"command", "errors", "exit", "log", "log_sha256", "text", "verified"}
+    green_lemma_keys = {"command", "exit", "log", "log_sha256", "text"}
+    counts = {"default": 0, "scope": 0, "rejection": 0, "negative": 0, "green": 0}
+    seen_scopes: list[str] = []
+    seen_rejections: list[tuple[str, str]] = []
+    seen_negatives: list[tuple[Any, ...]] = []
+    seen_greens: list[tuple[str, int]] = []
+    checked = 0
+    for item in remaining:
+        if not isinstance(item, dict):
+            raise LedgerError(f"{label}: malformed check record")
+        keys = set(item)
+        if keys == default_keys:
+            counts["default"] += 1
+            text = _poly_record_log(root, index, item, "log", POLY_SOURCE_DEFAULT_CHECKER_LOG,
+                                    label)
+            _poly_require(item.get("text") == text, label,
+                          "default checker record text is not its tracked log")
+            _poly_require(item.get("classification") == "resolved-ast-coverage-positive-exact",
+                          label, "default checker classification changed")
+            _poly_require(item.get("selector") == POLY_SOURCE_DEFAULT_SELECTOR, label,
+                          "default checker selector changed")
+            _poly_require(tuple(item.get("roots") or ()) == POLY_SOURCE_METHOD_ROOTS, label,
+                          "default checker roots changed")
+            _poly_require(item.get("root_count") == len(POLY_SOURCE_METHOD_ROOTS), label,
+                          "default checker root count changed")
+            _poly_require(tuple(item.get("expected_pure_functions") or ())
+                          == POLY_SOURCE_PURE_FUNCTIONS, label,
+                          "default checker pure-function identities changed")
+            _poly_require(item.get("root_set_sha256") ==
+                          hashlib.sha256("\n".join(item["roots"]).encode()).hexdigest(), label,
+                          "default checker root-set digest changed")
+            _poly_require(text.split("\n", 1)[0] == POLY_SOURCE_DEFAULT_FIRST_LINE, label,
+                          "default checker printed roots changed")
+            _poly_checker_ok(text, POLY_SOURCE_METHOD_ROOTS, label, "default checker log")
+            checked += 8
+            continue
+        if keys == scope_keys:
+            counts["scope"] += 1
+            selector = dump(item.get("selector"), sort_keys=True)
+            roots = tuple(item.get("roots") or ())
+            matches = [entry for entry in POLY_SOURCE_POSITIVE_SCOPES if entry[0] == selector]
+            _poly_require(len(matches) == 1, label, f"unexpected positive scope {selector}")
+            seen_scopes.append(selector)
+            _, want_roots, want_count, rel, want_first = matches[0]
+            _poly_require(roots == want_roots and item.get("root_count") == want_count, label,
+                          f"positive scope roots/count changed for {selector}")
+            _poly_require(item.get("text", "").split("\n", 1)[0] == want_first, label,
+                          f"positive scope diagnostic changed for {selector}")
+            text = _poly_record_log(root, index, item, "log", rel, label)
+            _poly_require(item.get("text") == text, label,
+                          f"positive scope text is not its tracked log for {selector}")
+            _poly_require(item.get("classification") == "resolved-ast-coverage-positive-exact",
+                          label, f"positive scope classification changed for {selector}")
+            _poly_require(item.get("root_set_sha256") ==
+                          hashlib.sha256("\n".join(item["roots"]).encode()).hexdigest(), label,
+                          f"positive scope root-set digest changed for {selector}")
+            _poly_checker_ok(text, roots, label, f"positive scope log {selector}")
+            checked += 7
+            continue
+        if keys == rejection_keys:
+            counts["rejection"] += 1
+            selector = dump(item.get("selector"), sort_keys=True)
+            needle = item.get("needle")
+            matches = [entry for entry in POLY_SOURCE_REJECTIONS
+                       if entry[0] == selector and entry[1] == needle]
+            _poly_require(len(matches) == 1, label,
+                          f"unexpected checker rejection {selector}: {needle}")
+            seen_rejections.append((selector, needle))
+            _, _, rel, want_first = matches[0]
+            _poly_require(item.get("text", "").split("\n", 1)[0] == want_first, label,
+                          f"checker rejection diagnostic changed for {selector}")
+            text = _poly_record_log(root, index, item, "log", rel, label)
+            _poly_require(item.get("text") == text, label,
+                          f"rejection text is not its tracked log for {selector}")
+            _poly_require(item.get("classification") == "resolved-ast-coverage-rejection", label,
+                          f"rejection classification changed for {selector}")
+            _poly_require(item.get("exit") == 2, label, f"rejection exit changed for {selector}")
+            _poly_checker_reject(text, needle, label, f"rejection log {selector}")
+            checked += 6
+            continue
+        if keys == negative_keys:
+            counts["negative"] += 1
+            first = item.get("text", "").split("\n", 1)[0]
+            matches = [entry for entry in POLY_SOURCE_DAFNY_NEGATIVES
+                       if entry[1] == first and entry[2] == item.get("verified")]
+            _poly_require(len(matches) == 1, label, f"unexpected Dafny negative {first}")
+            seen_negatives.append(matches[0])
+            rel, _, _, anchor = matches[0]
+            _poly_require(item.get("named") == anchor, label,
+                          f"Dafny negative anchor changed for {first}")
+            _poly_require(item.get("classification") == "dafny-assertion-failure", label,
+                          f"Dafny negative classification changed for {first}")
+            _poly_require(item.get("errors") == 1, label, f"Dafny negative errors changed for {first}")
+            text = _poly_record_log(root, index, item, "log", rel, label)
+            _poly_require(item.get("text") == text, label,
+                          f"Dafny negative text is not its tracked log for {first}")
+            _poly_dafny_negative(text, item["verified"], 1, label, f"Dafny negative {first}", anchor)
+            checked += 6
+            continue
+        if keys in (green_keys, green_lemma_keys):
+            counts["green"] += 1
+            producer = index["producer_root"].rstrip("/") + "/"
+            path = item.get("log")
+            _poly_require(isinstance(path, str) and path.startswith(producer), label,
+                          "green check log is not a producer path")
+            relative = path[len(producer):]
+            _poly_require((relative, item.get("verified", 2)) in set(POLY_SOURCE_GREEN_CHECKS),
+                          label, f"green check log is not a reviewed green log: {relative}")
+            text = _poly_record_log(root, index, item, "log", relative, label)
+            _poly_require(item.get("text") == text, label,
+                          f"green check text is not its tracked log {relative}")
+            _poly_dafny_positive(text, item.get("verified", 2), label, f"green check {relative}")
+            seen_greens.append((relative, item.get("verified", 2)))
+            checked += 5
+            continue
+        raise LedgerError(f"{label}: unexpected check record shape: {sorted(keys)}")
+    _poly_require(counts["default"] == 1, label, "default checker record missing or duplicated")
+    _poly_require(counts["scope"] == len(POLY_SOURCE_POSITIVE_SCOPES), label,
+                  "method/function positive scope inventory changed")
+    _poly_require(counts["rejection"] == len(POLY_SOURCE_REJECTIONS), label,
+                  "checker rejection inventory changed")
+    _poly_require(counts["negative"] == len(POLY_SOURCE_DAFNY_NEGATIVES), label,
+                  "Dafny negative control inventory changed")
+    _poly_require(counts["green"] == len(POLY_SOURCE_GREEN_CHECKS), label,
+                  "green control inventory changed")
+    _poly_require(len(seen_scopes) == len(set(seen_scopes))
+                  and set(seen_scopes) == {entry[0] for entry in POLY_SOURCE_POSITIVE_SCOPES},
+                  label, "positive-scope identities are duplicated or incomplete")
+    _poly_require(len(seen_rejections) == len(set(seen_rejections))
+                  and set(seen_rejections) ==
+                  {(entry[0], entry[1]) for entry in POLY_SOURCE_REJECTIONS},
+                  label, "checker-rejection identities are duplicated or incomplete")
+    _poly_require(len(seen_negatives) == len(set(seen_negatives))
+                  and set(seen_negatives) == set(POLY_SOURCE_DAFNY_NEGATIVES),
+                  label, "Dafny-negative identities are duplicated or incomplete")
+    _poly_require(len(seen_greens) == len(set(seen_greens))
+                  and set(seen_greens) == set(POLY_SOURCE_GREEN_CHECKS),
+                  label, "green-control identities are duplicated or incomplete")
+    return checked + len(remaining)
+
+
+def _validate_poly_source_evidence(root: Path, label: str = "V7:poly-source") -> int:
+    """Semantic gate for the actual portable-package report; not a shape check.
+
+    The report is a real run artifact, so this function re-derives every
+    load-bearing property from repository bytes instead of trusting a boolean:
+    before/after guards, the two input maps, exact proof/audit/control
+    inventories, the 20 resolved method identities (uniqueness, not a count),
+    the 19 pure functions, the repeated-root rejection guard, checker pins, the
+    pre-adoption baseline and the 65/65 dual-JDK class identity.
+    """
+    receipt = load_json(checked_path(root, POLY_SOURCE_RECEIPT, label))
+    index = _poly_log_index(root, receipt, label)
+    checked = 1
+    _poly_require(receipt.get("schema") == POLY_SOURCE_SCHEMA, label, "receipt schema changed")
+    _poly_require(receipt.get("status") == "complete", label, "receipt is not complete")
+    _poly_require(receipt.get("all_checks_ok") is True, label, "runner did not report all_checks_ok")
+    _poly_require(str(receipt.get("artifact_claim", "")).startswith("none"), label,
+                  "receipt must not claim a delivery artifact")
+    _poly_require(receipt.get("inputs_unchanged") is True, label, "inputs_unchanged is not true")
+    _poly_require(isinstance(receipt.get("root"), str) and receipt["root"], label,
+                  "producer root is missing")
+    checked += 5
+
+    before = receipt.get("inputs_before")
+    after = receipt.get("inputs_after")
+    _poly_require(isinstance(before, dict) and isinstance(after, dict), label,
+                  "inputs_before/after must be objects")
+    _poly_require(before == after, label, "inputs_before and inputs_after differ")
+    _poly_require(set(before) == set(POLY_SOURCE_INPUT_KEYS), label,
+                  "input inventory changed; missing="
+                  f"{sorted(set(POLY_SOURCE_INPUT_KEYS) - set(before))} "
+                  f"added={sorted(set(before) - set(POLY_SOURCE_INPUT_KEYS))}")
+    for relative in sorted(before):
+        _poly_sha(before[relative], label, f"input hash for {relative}")
+        if checked_path(root, relative, label).is_file():
+            if digest(checked_path(root, relative, label)) != before[relative]:
+                raise LedgerError(f"{label}: stale input hash for {relative}")
+        else:
+            raise LedgerError(f"{label}: missing input {relative}")
+    checked += len(before)
+
+    manifest = load_json(checked_path(root, POLY_SOURCE_INPUTS, label))
+    _poly_require(manifest.get("schema") == POLY_SOURCE_INPUTS_SCHEMA, label,
+                  "inputs.json schema changed")
+    pins = manifest.get("inputs")
+    _poly_require(isinstance(pins, dict) and pins, label, "inputs.json has no pin map")
+    expected_pins = {name: sha for name, sha in before.items() if name != POLY_SOURCE_INPUTS}
+    _poly_require(pins == expected_pins, label,
+                  "inputs.json pins differ from the receipt's before/after guard")
+    _poly_require(receipt.get("inputs_manifest_sha256") == before[POLY_SOURCE_INPUTS], label,
+                  "inputs_manifest_sha256 does not match the pinned inputs.json")
+    checked += 4
+
+    _poly_require(receipt.get("policy") == POLY_SOURCE_POLICY, label, "proof budget policy changed")
+    checked += 1
+
+    proofs = receipt.get("proofs")
+    _poly_require(isinstance(proofs, list) and len(proofs) == len(POLY_SOURCE_PROOFS), label,
+                  "proof inventory changed")
+    by_label = {item.get("label"): item for item in proofs if isinstance(item, dict)}
+    _poly_require(len(by_label) == len(POLY_SOURCE_PROOFS), label, "duplicate proof labels")
+    for proof_label, target, verified in POLY_SOURCE_PROOFS:
+        item = by_label.get(proof_label)
+        _poly_require(isinstance(item, dict), label, f"missing proof {proof_label}")
+        _poly_require(item.get("target") == target, label, f"proof target changed: {proof_label}")
+        _poly_require(item.get("verified") == verified and item.get("expected") == verified, label,
+                      f"proof count changed: {proof_label}")
+        _poly_require(item.get("errors") == 0 and item.get("exit") == 0, label,
+                      f"proof failed: {proof_label}")
+        split = 3 if proof_label == "mlkem-composition" else 0
+        _poly_require(item.get("flags") == ["--verification-time-limit", "30", "--resource-limit",
+                                           "50000000", "--cores", "2", "--solver-option",
+                                           f"O:smt.case_split={split}"], label,
+                      f"proof flags changed: {proof_label}")
+        text = _poly_record_log(root, index, item, "log",
+                                POLY_SOURCE_PROOF_LOGS[proof_label], label)
+        _poly_dafny_positive(text, verified, label, f"proof log {proof_label}")
+        checked += 7
+
+    audits = receipt.get("audits")
+    _poly_require(isinstance(audits, list) and len(audits) == len(POLY_SOURCE_AUDIT_FILES), label,
+                  "audit inventory changed")
+    audit_files = []
+    for item in audits:
+        _poly_require(isinstance(item, dict), label, "malformed audit record")
+        audit_files.append(item.get("file"))
+        _poly_require(item.get("findings") == 0 and item.get("expected") == 0
+                      and item.get("exit") == 0 and item.get("ok") is True, label,
+                      f"audit finding for {item.get('file')}")
+        relative = POLY_SOURCE_AUDIT_LOGS.get(item.get("file"))
+        _poly_require(relative is not None, label, f"unexpected audited file {item.get('file')}")
+        text = _poly_record_log(root, index, item, "log", relative, label)
+        _poly_audit_positive(text, 0, label, f"audit log {item.get('file')}")
+    _poly_require(sorted(audit_files) == sorted(POLY_SOURCE_AUDIT_FILES), label,
+                  "audited file set changed")
+    checked += len(audits) * 7
+
+    checker = receipt.get("checker")
+    _poly_require(isinstance(checker, dict), label, "checker block missing")
+    _poly_require(checker.get("source_pins") == {
+        "PolynomialSourceCoverage.cs": POLY_SOURCE_CHECKER_SOURCE_PIN,
+        "PolynomialSourceCoverage.csproj": POLY_SOURCE_CHECKER_PROJECT_PIN}, label,
+        "checker source pins changed")
+    _poly_require(checker.get("project_pin") == POLY_SOURCE_CHECKER_PROJECT_PIN, label,
+                  "checker project pin changed")
+    _poly_require(checker.get("sdk") == POLY_SOURCE_CHECKER_SDK, label, "checker SDK changed")
+    _poly_require(checker.get("deterministic") is True and checker.get("debug_symbols") is False,
+                  label, "checker build is not deterministic/debug-free")
+    _poly_require(checker.get("directory_build_imports_disabled") is True, label,
+                  "directory build imports are not disabled")
+    commands = checker.get("command")
+    _poly_require(isinstance(commands, list) and commands and commands[0] == "dotnet", label,
+                  "checker build command changed")
+    _poly_require("-p:ImportDirectoryBuildProps=false" in commands
+                  and "-p:ImportDirectoryBuildTargets=false" in commands, label,
+                  "checker build does not disable directory imports")
+    _poly_require(any(str(part).startswith("-p:DafnyHome=") for part in commands), label,
+                  "checker project does not take a portable DafnyHome")
+    _poly_sha(checker.get("assembly_sha256"), label, "checker assembly sha")
+    build_text = _poly_record_log(root, index, checker, "build_log",
+                                  "checker-build/build.log", label)
+    _poly_require("Build FAILED" not in build_text and "error CS" not in build_text, label,
+                  "checker build log reports a failure")
+    _poly_require(not POLY_SOURCE_BAD_LOG.search(build_text), label,
+                  "checker build log is inconclusive")
+    for relative, pin in (("formal/source/polynomial/checker/PolynomialSourceCoverage.cs",
+                           POLY_SOURCE_CHECKER_SOURCE_PIN),
+                          ("formal/source/polynomial/checker/PolynomialSourceCoverage.csproj",
+                           POLY_SOURCE_CHECKER_PROJECT_PIN)):
+        if digest(checked_path(root, relative, label)) != pin:
+            raise LedgerError(f"{label}: checker file changed: {relative}")
+    project_text = checked_path(
+        root, "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj", label).read_text(
+            encoding="utf-8")
+    _poly_require("ImportDirectoryBuild" not in project_text, label,
+                  "checker project imports a directory build file")
+    _poly_require("/Users/" not in project_text and "/opt/" not in project_text, label,
+                  "checker project embeds an absolute toolchain path")
+    checked += 17
+
+    scope = receipt.get("checker_scope")
+    _poly_require(isinstance(scope, dict), label, "checker_scope block missing")
+    _poly_require(scope.get("identity_not_count_gate") is True, label,
+                  "checker scope is a count-only gate")
+    _poly_require(tuple(scope.get("default_method_roots") or ()) == POLY_SOURCE_METHOD_ROOTS, label,
+                  "default resolved method roots changed")
+    _poly_require(scope.get("default_method_root_count") == len(POLY_SOURCE_METHOD_ROOTS), label,
+                  "default method root count changed")
+    _poly_require(len(set(scope["default_method_roots"])) == len(POLY_SOURCE_METHOD_ROOTS), label,
+                  "default method roots are not unique identities")
+    _poly_require(tuple(scope.get("default_pure_functions") or ()) == POLY_SOURCE_PURE_FUNCTIONS,
+                  label, "default pure function identities changed")
+    _poly_require(scope.get("default_pure_function_count") == len(POLY_SOURCE_PURE_FUNCTIONS),
+                  label, "default pure function count changed")
+    _poly_require(set(scope.get("ambient_selectors_cleared") or ()) == {
+        "POLY_TRACE_ROOTS", "POLY_TRACE_FUNCS"}, label, "ambient selector clearing changed")
+    checked += 7
+
+    controls = receipt.get("controls")
+    _poly_require(isinstance(controls, dict), label, "controls block missing")
+    canonical = controls.get("canonical")
+    _poly_require(isinstance(canonical, list) and len(canonical) == 4, label,
+                  "canonical control inventory changed")
+    canonical_names = []
+    for item in canonical:
+        _poly_require(isinstance(item, dict), label, "malformed canonical control")
+        canonical_names.append(item.get("control"))
+        checker_view = item.get("checker") if isinstance(item.get("checker"), dict) else {}
+        dafny_view = item.get("dafny") if isinstance(item.get("dafny"), dict) else {}
+        _poly_require(checker_view.get("classification") == "resolved-ast-coverage-rejection"
+                      and str(checker_view.get("needle") or "").strip(), label,
+                      f"canonical control lacks a named checker rejection: {item.get('control')}")
+        _poly_require(dafny_view.get("classification") == "dafny-proof-failure"
+                      and isinstance(dafny_view.get("errors"), int) and dafny_view["errors"] > 0,
+                      label, f"canonical control lacks a genuine proof failure: {item.get('control')}")
+        _poly_require(item.get("ok") is True and item.get("checker_exit") == 2, label,
+                      f"canonical control not rejected: {item.get('control')}")
+        entry = POLY_SOURCE_CANONICAL_LOGS.get(item.get("control"))
+        _poly_require(entry is not None, label, f"unexpected canonical control {item.get('control')}")
+        dafny_text = _poly_record_log(root, index, item, "dafny_log", entry[1], label)
+        checker_text = _poly_record_log(root, index, item, "checker_log", entry[0], label)
+        _poly_require(item.get("dafny_exit") == 4 and item.get("checker_exit") == 2, label,
+                      f"canonical control exits changed: {item.get('control')}")
+        _poly_require(isinstance(item.get("named_bridge"), str)
+                      and item["named_bridge"].strip(), label,
+                      f"canonical control lacks a named bridge: {item.get('control')}")
+        _poly_require(checker_view.get("needle") ==
+                      POLY_SOURCE_CANONICAL_NEEDLES.get(item.get("control")), label,
+                      f"canonical checker needle changed: {item.get('control')}")
+        _poly_require(dafny_view.get("named") ==
+                      POLY_SOURCE_CANONICAL_ANCHORS.get(item.get("control")), label,
+                      f"canonical Dafny anchor changed: {item.get('control')}")
+        _poly_require(_poly_diagnostics(dafny_text) ==
+                      POLY_SOURCE_CANONICAL_DIAGNOSTICS.get(item.get("control")), label,
+                      f"canonical Dafny diagnostics changed: {item.get('control')}")
+        _poly_dafny_negative(dafny_text, dafny_view["verified"], dafny_view["errors"], label,
+                             f"canonical dafny log {item.get('control')}",
+                             POLY_SOURCE_CANONICAL_ANCHORS[item["control"]])
+        _poly_checker_reject(checker_text, POLY_SOURCE_CANONICAL_NEEDLES[item["control"]], label,
+                             f"canonical checker log {item.get('control')}")
+        checked += 11
+    _poly_require(tuple(canonical_names) == POLY_SOURCE_CANONICAL_CONTROLS, label,
+                  "canonical control names changed")
+
+    mutations = controls.get("mutations")
+    _poly_require(isinstance(mutations, list) and len(mutations) == 16, label,
+                  "mutation control inventory changed")
+    mutation_names = []
+    for item in mutations:
+        _poly_require(isinstance(item, dict), label, "malformed mutation control")
+        name = item.get("control")
+        mutation_names.append(name)
+        kind = POLY_SOURCE_MUTATIONS.get(name)
+        _poly_require(kind is not None, label, f"unexpected mutation control: {name}")
+        checker_view = item.get("checker") if isinstance(item.get("checker"), dict) else {}
+        dafny_view = item.get("dafny") if isinstance(item.get("dafny"), dict) else {}
+        _poly_require(str(checker_view.get("needle") or "").strip(), label,
+                      f"mutation lacks a named checker rejection: {name}")
+        _poly_require(item.get("ok") is True and item.get("checker_exit") == 2, label,
+                      f"mutation not rejected by the checker: {name}")
+        errors = dafny_view.get("errors")
+        verified = dafny_view.get("verified")
+        if kind == "dafny-proof-failure":
+            _poly_require(isinstance(errors, int) and errors > 0, label,
+                          f"reviewed proof failure no longer fails: {name}")
+            _poly_require(item.get("dafny_evidence_usable") is True, label,
+                          f"usable proof failure was downgraded: {name}")
+        elif kind == "checker-only-rejection":
+            _poly_require(errors == 0 and isinstance(verified, int) and verified > 0, label,
+                          f"checker-only rejection no longer has a verifying proof: {name}")
+            _poly_require(item.get("dafny_evidence_usable") is True, label,
+                          f"checker-only rejection changed usability: {name}")
+        else:
+            _poly_require(item.get("dafny_evidence_usable") is False, label,
+                          f"inconclusive mutation is usable as evidence: {name}")
+            _poly_require(dafny_view.get("classification") == "observed-not-used-as-proof", label,
+                          f"inconclusive mutation classification changed: {name}")
+        entry = POLY_SOURCE_MUTATION_LOGS.get(name)
+        _poly_require(entry is not None, label, f"unexpected mutation log for {name}")
+        checker_text = _poly_record_log(root, index, item, "checker_log", entry[0], label)
+        dafny_text = _poly_record_log(root, index, item, "dafny_log", entry[1], label)
+        expected_dafny_exit = 0 if kind == "checker-only-rejection" else 4
+        _poly_require(item.get("checker_exit") == 2
+                      and item.get("dafny_exit") == expected_dafny_exit, label,
+                      f"mutation exits changed: {name}")
+        _poly_require(checker_view.get("needle") == POLY_SOURCE_MUTATION_NEEDLES.get(name), label,
+                      f"mutation checker needle changed: {name}")
+        _poly_checker_reject(checker_text, POLY_SOURCE_MUTATION_NEEDLES[name], label,
+                             f"mutation checker log {name}")
+        if kind == "dafny-proof-failure":
+            _poly_require(_poly_diagnostics(dafny_text) ==
+                          POLY_SOURCE_MUTATION_DIAGNOSTICS.get(name), label,
+                          f"mutation Dafny diagnostics changed: {name}")
+            diagnostics = POLY_SOURCE_MUTATION_DIAGNOSTICS[name]
+            _poly_dafny_negative(dafny_text, verified, errors, label,
+                                 f"mutation dafny log {name}", diagnostics[0][2])
+        elif kind == "checker-only-rejection":
+            _poly_dafny_positive(dafny_text, verified, label, f"mutation dafny log {name}")
+        else:
+            _poly_require("out of resource" in dafny_text
+                          or "out of memory" in dafny_text.lower(), label,
+                          f"unusable mutation log is not an inconclusive resource diagnostic: {name}")
+        checked += 8
+    _poly_require(tuple(sorted(mutation_names)) == tuple(sorted(POLY_SOURCE_MUTATIONS)), label,
+                  "mutation inventory changed")
+
+    decoy = controls.get("decoy")
+    _poly_require(isinstance(decoy, dict), label, "decoy control missing")
+    _poly_require(decoy.get("ok") is True and decoy.get("checker_exit") == 2, label,
+                  "decoy instance-class control was not rejected")
+    _poly_require(decoy.get("rejection") == POLY_SOURCE_DECOY_REJECTION, label,
+                  "decoy rejection is not the reviewed instance-class rejection")
+    decoy_text = _poly_record_log(root, index, decoy, "checker_log",
+                                  POLY_SOURCE_DECOY_LOG, label)
+    _poly_checker_reject(decoy_text, POLY_SOURCE_DECOY_REJECTION, label, "decoy checker log")
+    checked += 6
+
+    n1b = controls.get("n1b")
+    _poly_require(isinstance(n1b, list) and len(n1b) == 2, label, "N1b control inventory changed")
+    for item in n1b:
+        body = item.get("body") if isinstance(item, dict) else None
+        _poly_require(isinstance(body, dict) and body.get("errors") == 0
+                      and isinstance(body.get("verified"), int)
+                      and isinstance(body.get("minimum"), int)
+                      and body["verified"] >= body["minimum"], label,
+                      "N1b proof did not clear its minimum")
+        entry = POLY_SOURCE_N1B_LOGS.get(item.get("control"))
+        _poly_require(entry is not None, label, f"unexpected N1b control {item.get('control')}")
+        _poly_require(item.get("java_files") == POLY_SOURCE_GENERATED_FILES
+                      and item.get("java_identical") is True, label,
+                      f"N1b generated-Java identity changed: {item.get('control')}")
+        body_text = _poly_record_log(root, index, item, "body_log", entry["body"], label,
+                                     require_sha=False)
+        _poly_dafny_positive(body_text, body["verified"], label,
+                             f"N1b body log {item.get('control')}", minimum=body["minimum"])
+        harness = item.get("harness") if isinstance(item.get("harness"), dict) else {}
+        harness_text = _poly_record_log(root, index, item, "harness_log", entry["harness"], label,
+                                        require_sha=False)
+        _poly_dafny_positive(harness_text, harness.get("verified"), label,
+                             f"N1b harness log {item.get('control')}")
+        checker_text = _poly_record_log(root, index, item, "checker_log", entry["checker"], label)
+        checker_view = item.get("checker") if isinstance(item.get("checker"), dict) else {}
+        _poly_checker_reject(checker_text, checker_view.get("needle"), label,
+                             f"N1b checker log {item.get('control')}")
+        _poly_record_log(root, index, item, "generate_log", entry["generate"], label,
+                         require_sha=False)
+        checked += 8
+
+    probe = controls.get("scope_probe")
+    _poly_require(isinstance(probe, dict), label, "repeated-root scope probe missing")
+    _poly_require(probe.get("probe") == "repeated-single-root", label,
+                  "repeated-root scope probe changed")
+    _poly_require(probe.get("rejected") is True and probe.get("ok") is True, label,
+                  "repeated-root duplicate output was not rejected")
+    _poly_require(probe.get("reason") == POLY_SOURCE_PROBE_REASON, label,
+                  "repeated-root rejection reason changed")
+    _poly_require(probe.get("exit") == 0, label,
+                  "scope probe must record the checker's successful exit to prove the guard, not exit")
+    selector = [part for part in str(probe.get("selector") or "").split(",") if part]
+    _poly_require(len(selector) == len(POLY_SOURCE_METHOD_ROOTS), label,
+                  "scope probe did not request as many roots as the default scope")
+    _poly_require(len(set(selector)) == 1, label,
+                  "scope probe selector is not the repeated single-root form")
+    _poly_require(tuple(probe.get("expected_roots") or ()) == POLY_SOURCE_METHOD_ROOTS, label,
+                  "scope probe expected-root identities changed")
+    probe_text = _poly_record_log(root, index, probe, "log", POLY_SOURCE_PROBE_LOG, label)
+    _poly_require(not POLY_SOURCE_BAD_LOG.search(probe_text), label,
+                  "repeated-root probe log is inconclusive")
+    probe_match = POLY_SOURCE_CHECKER_OK.search(probe_text)
+    _poly_require(probe_match is not None, label,
+                  "repeated-root probe log lacks the checker's success line")
+    printed = [part for part in probe_match.group(1).split(",") if part]
+    _poly_require(printed == selector, label,
+                  "repeated-root probe log does not print the repeated selector roots")
+    _poly_require(len(set(printed)) == 1, label,
+                  "repeated-root probe log is not the duplicate-root form")
+    checked += 11
+
+    erasure = receipt.get("erasure")
+    _poly_require(isinstance(erasure, dict), label, "erasure block missing")
+    _poly_require(tuple(erasure.get("changed_java") or ()) == POLY_SOURCE_ERASED_JAVA, label,
+                  "ghost erasure changed a different generated Java file set")
+    _poly_require(erasure.get("generated_files") == POLY_SOURCE_GENERATED_FILES, label,
+                  "generated file count changed")
+    _poly_require(erasure.get("explicit_runtime_sha256") == POLY_SOURCE_RUNTIME["explicit_sha256"],
+                  label, "explicit runtime changed")
+    _poly_require(erasure.get("toolchain_runtime_sha256") == POLY_SOURCE_RUNTIME["toolchain_sha256"],
+                  label, "toolchain runtime changed")
+    _poly_require("approved Maven" in str(erasure.get("runtime_artifact") or ""), label,
+                  "erasure runtime is not the approved Maven artifact")
+    identity = erasure.get("class_bytes_identical")
+    _poly_require(isinstance(identity, dict) and set(identity) == {"21", "25"}, label,
+                  "dual-JDK class identity missing")
+    for major in ("21", "25"):
+        view = identity[major]
+        _poly_require(isinstance(view, dict) and view.get("all_class_bytes_identical") is True
+                      and view.get("changed") == []
+                      and view.get("base_classes") == POLY_SOURCE_CLASS_COUNT
+                      and view.get("trace_classes") == POLY_SOURCE_CLASS_COUNT, label,
+                      f"JDK{major} class identity is not 65/65 identical")
+    homes = erasure.get("java_homes")
+    _poly_require(isinstance(homes, dict) and set(homes) == {"21", "25"}
+                  and all(str(value).endswith(("java", "javac")) for value in homes.values()), label,
+                  "dual-JDK compiler homes changed")
+    checked += 9
+
+    baseline = receipt.get("baseline")
+    _poly_require(isinstance(baseline, dict), label, "baseline block missing")
+    for key in ("commit", "tree", "files", "manifest_sha256"):
+        _poly_require(baseline.get(key) == POLY_SOURCE_BASELINE[key], label,
+                      f"baseline {key} changed")
+    _poly_require(baseline.get("git_show_verified") is True
+                  and baseline.get("baseline_authenticated") is True, label,
+                  "baseline is not authenticated by git show")
+    _poly_require("git" in str(baseline.get("authentication") or "").lower()
+                  and "git show" in str(baseline.get("source_discovery") or "").lower(), label,
+                  "baseline authentication method changed")
+    template_path = checked_path(root, POLY_SOURCE_BASELINE_TEMPLATE, label)
+    _poly_require(digest(template_path) == POLY_SOURCE_BASELINE["manifest_sha256"], label,
+                  "baseline template bytes do not match the reviewed baseline manifest digest")
+    template = load_json(template_path)
+    for key in ("commit", "tree"):
+        _poly_require(template.get(key) == POLY_SOURCE_BASELINE[key], label,
+                      f"baseline template {key} changed")
+    template_files = template.get("files")
+    _poly_require(isinstance(template_files, dict)
+                  and len(template_files) == POLY_SOURCE_BASELINE["files"], label,
+                  "baseline template file count changed")
+    for relative, expected in POLY_SOURCE_BASELINE_COMPONENT_PINS.items():
+        _poly_require(template_files.get(relative) == expected, label,
+                      f"baseline template is not the pre-adoption tree for {relative} "
+                      "(candidate-as-own-baseline is rejected)")
+    _poly_require("ghost" in str(template.get("scope") or "").lower(), label,
+                  "baseline template scope changed")
+    for relative in (POLY_SOURCE_BASELINE_HELPER, POLY_SOURCE_BASELINE_TEST):
+        if not checked_path(root, relative, label).is_file():
+            raise LedgerError(f"{label}: missing baseline tooling {relative}")
+    checked += 12
+
+    closure = receipt.get("official_source_closure")
+    _poly_require(isinstance(closure, dict) and set(closure) == set(POLY_SOURCE_CLOSURE_COUNTS),
+                  label, "official source closure set changed")
+    for name, expected in POLY_SOURCE_CLOSURE_COUNTS.items():
+        files = closure[name]
+        _poly_require(isinstance(files, dict) and len(files) == expected, label,
+                      f"source closure count changed: {name}")
+        for relative, sha in files.items():
+            _poly_require(relative in before and before[relative] == sha, label,
+                          f"source closure file is not a pinned input: {relative}")
+        checked += 1 + len(files)
+
+    package_scope = receipt.get("package_scope")
+    _poly_require(isinstance(package_scope, dict), label, "package_scope block missing")
+    for key, expected in POLY_SOURCE_PACKAGE_SCOPE.items():
+        _poly_require(tuple(package_scope.get(key) or ()) == expected, label,
+                      f"package scope changed: {key}")
+        for relative in expected:
+            _poly_require(relative in before, label, f"package file is not a pinned input: {relative}")
+        checked += 1 + len(expected)
+    _poly_require(package_scope.get("top_level_fixture_readme_pinned") is False
+                  and package_scope.get("top_level_port_manifest_pinned") is False, label,
+                  "package pins prototype scaffold metadata")
+    checked += 2
+
+    runtime = receipt.get("runtime")
+    _poly_require(isinstance(runtime, dict), label, "runtime block missing")
+    _poly_require(runtime.get("explicit_sha256") == POLY_SOURCE_RUNTIME["explicit_sha256"]
+                  and runtime.get("toolchain_sha256") == POLY_SOURCE_RUNTIME["toolchain_sha256"],
+                  label, "runtime hashes changed")
+    _poly_require("approved Maven" in str(runtime.get("approved_artifact") or ""), label,
+                  "runtime is not the approved Maven artifact")
+    _poly_require(str(runtime.get("path") or "").endswith("DafnyRuntime-4.9.1.jar"), label,
+                  "runtime path is not the pinned Maven jar")
+    checked += 5
+
+    tool = receipt.get("tool")
+    _poly_require(isinstance(tool, dict), label, "tool block missing")
+    for key, expected in POLY_SOURCE_TOOL.items():
+        _poly_require(tool.get(key) == expected, label, f"tool {key} changed")
+    _poly_require(tool.get("explicit_runtime_sha256") == POLY_SOURCE_RUNTIME["explicit_sha256"]
+                  and tool.get("toolchain_runtime_sha256") == POLY_SOURCE_RUNTIME["toolchain_sha256"],
+                  label, "tool runtime hashes changed")
+    _poly_require(str(tool.get("tools_manifest") or "").endswith("formal/dafny/tools.json"), label,
+                  "tool manifest path changed")
+    checked += len(POLY_SOURCE_TOOL) + 3
+
+    boundaries = receipt.get("trust_boundaries")
+    _poly_require(isinstance(boundaries, list)
+                  and tuple(boundaries) == POLY_SOURCE_TRUST_BOUNDARIES, label,
+                  "trust boundary list changed")
+    checked += len(boundaries)
+
+    checked += _poly_validate_checks(root, index, receipt, label)
+
+    baseline_manifest = index.get("baseline")
+    _poly_require(isinstance(baseline_manifest, dict), label,
+                  "tracked baseline manifest reference missing")
+    _poly_require(baseline_manifest.get("manifest_sha256") == POLY_SOURCE_BASELINE["manifest_sha256"],
+                  label, "tracked baseline manifest sha changed")
+    component = baseline_manifest.get("components")
+    _poly_require(isinstance(component, dict), label, "tracked baseline lacks component pins")
+    for relative, sha in POLY_SOURCE_BASELINE_COMPONENT_PINS.items():
+        if component.get(relative) != sha:
+            raise LedgerError(
+                f"{label}: baseline is not the pre-adoption tree for {relative} "
+                "(candidate-as-own-baseline is rejected)")
+    checked += 6
+    return checked
+
+
+def _validate_poly_source_claim(root: Path, claim: dict[str, Any], label: str) -> int:
+    """A supported poly claim must cite every reviewed input and pass the gate."""
+    missing = [path for path, _kind in POLY_SOURCE_CLAIM_EVIDENCE if path not in claim["evidence"]]
+    if missing:
+        raise LedgerError(f"{label}: poly source claim does not cite {missing[0]}")
+    return _validate_poly_source_evidence(root, label)
+
 
 BAD_CONTROL_RE = re.compile(
     r"\b(timeout|timed out|out of resource|resource limit|resource exhaustion|"
@@ -2860,25 +4269,25 @@ KECCAK_MODEL_ARTIFACTS = {'PublicProvider': {'source_sha256': '0b974605e8c43276b
                           'log_sha256': '3f70ba253123bed848ea5673ef78da6828f7f543eff36fc835390796c904a726'},
  'WordArithmetic': {'source_sha256': '76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a',
                     'log_sha256': '77a8844ef1f1bca3553a87f7c7991a556402b4e8df81beea956eda4a294217b9'}}
-KECCAK_PROOF_ARTIFACTS = {'Rotate': {'source_sha256': '717d5c3f3598d4a6994ce816963516cb630df9b5ed269bde9ef6c1bae72575ce',
+KECCAK_PROOF_ARTIFACTS = {'Rotate': {'source_sha256': 'eef997dc7cb976f2fa62ac87de3f316c1a73aba4da35a1d0ff03c9aedab15950',
             'log_sha256': 'ceb555bd2c219d803843ffa7a9d05df4e0088ecb328d43dfd119639a4e48781c',
             'oracle_sha256': '0a07658fcbf4c453134a830066ae61d591ca734adafb94cd5bec4b097033562e'},
- 'Theta': {'source_sha256': '194f760a776dc557c480731416e078452f6973d4e6bbc71a1c98b0d922aff0e6',
+ 'Theta': {'source_sha256': 'c50c846fa00f4e64d174c82bff7333561ff079d39735d78a85919608cf309f19',
            'log_sha256': '6c46b70d5da52196aeff921183529d91d9e20ef050f623476a8f6142fb1e7d23',
            'oracle_sha256': '0c090b9bb08e5d70fc0a7dd5173e3cff5034648b68acf97c354151c0597073ac'},
- 'RhoPi': {'source_sha256': '7b4b40f6363a22689a775c824a2199e017e7e07e15cc3fd69b8a34eb67cbbde1',
+ 'RhoPi': {'source_sha256': 'bb77b4f8d0abb1fc1a733da4bc25dcb3c5c1829db8b9d9050a24ae39ae9c9422',
            'log_sha256': '8a627c10412758918e8163071fa096df30bdc46c786cffa53fffda9ffe3f08f8',
            'oracle_sha256': '19e792d293aeb73295df86e0b956e435f862c1a3165e5c745b8f8baf13182780'},
- 'Iota': {'source_sha256': '3b8d492b9adad219e76a195c625bf0d4f1bcea2d00ed5a463c7449a19ad82f75',
+ 'Iota': {'source_sha256': 'b36004f2d7c1439afc5f14f62fd993a6ca87f5dae306f6657dc0e14be9f6be21',
           'log_sha256': '25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2',
           'oracle_sha256': 'e3b50f9f5f67c6f90a069c86d3e5fd783749f411b8f39b83d1cfc889e2f343f5'},
- 'Chi': {'source_sha256': 'c762283f8073e67b7bc5626e00cd801dfe7562f054849fc894d218380891853b',
+ 'Chi': {'source_sha256': '6a08088a64c8b48ef7ed38c9fc8654bd11959f2019e1f1390e4ab0a04e2bb807',
          'log_sha256': '3772eb42a41cd32b59b3a418580302f4c962af9af75bcb4bc0178469263e4388',
          'oracle_sha256': 'ac223683bcbdbe1c47524da543bf0d33bd6c246e0130b6ecefdb262cf71de17f'},
- 'Round': {'source_sha256': '815c6d38692f17dff1c9f12b048f331522f936907430d8d8b841b2bdccd7b77d',
+ 'Round': {'source_sha256': 'acc5005e76490bedca2b197f085a9a2a9ea244396813b9194a065adea1201f69',
            'log_sha256': 'ec9d2793da03e07b435131e9d9709f3b567b27d4518aa275b41311f929429960',
            'oracle_sha256': '9e63157ef6922aaba41fc6ec0c7c4f44114b9cfe1c123ae5ae7a58db48ddacd7'},
- 'PermuteScratch': {'source_sha256': '8eec97b6d1aada713706ebd1d1593dc8a04d596c11b1cc37b14331215d481e35',
+ 'PermuteScratch': {'source_sha256': '0b5fba293e975849002321c9195c1e4f4165c7e5582ef55a35b9531de359c16b',
                     'log_sha256': 'be5c46f34dfdad01a2d5d2e76ccf552ff2e59db0a93ef45a58a5c9f3e9f5c3b9',
                     'oracle_sha256': '05f24c6cee1734399a5672a29ddb53f64d885626c83e5985a3d089b38897aa2d'}}
 KECCAK_AUXILIARY_IDENTITIES = {'Rotate': 'c976146b84b7ec025d24082a42d9a62e6c92e6d1026cdfbcbda0e98d843fe65f',
@@ -2889,9 +4298,9 @@ KECCAK_AUXILIARY_IDENTITIES = {'Rotate': 'c976146b84b7ec025d24082a42d9a62e6c92e6
  'Round': '4fd807a2cab08c969a3472c1e5bd9b52b77955ee8f351124bf06e7c26c333b81',
  'PermuteScratch': 'db42052c2916ecd8ed279b7b22c50801ec930f25afc556b5876ca3fc870392ba'}
 KECCAK_COMPONENT_IDENTITIES = {'overlay': 'fdf47c5f53e92046dae2b0bdb28ce636c8f0152fc2229260489bac1bb75f5602',
- 'actual_tables': '8efe9a2ca482fcfc2bd74851d93a6c0117171f67541b91fa9995f8c0030644f9',
+ 'actual_tables': '5eff4b5add19676b45ef1bdaf89c82d16fbb538af9accadbd6d05774c0f44ee5',
  'binding_controls': '9eed7c0225af69042779625f8484b1758300927fa0e5653308516ffeb142748a',
- 'oracle_kats': '1e3e096681185e05c97f57ace623a9b67f1ae1d797f73d45adaa09c4b85405ae'}
+ 'oracle_kats': '98226aad7a4d544b4eedbcbe111f8474c097486ad766e9900df2c075d5cc0a2e'}
 
 
 def _validate_trace_keccak(report: dict[str, Any], label: str) -> int:
@@ -3548,8 +4957,12 @@ PACKET_NONCE_INPUT_PINS = {
     "VerifiedNonce/__default.java":
         "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
 }
+# Fresh actual component replay produced by the ROOT nonce run after the
+# delivery-manifest renewal; the field is provenance-only and the typed checks
+# below recompute every repository hash.  Producer path (absolute, not tracked):
+# P/a-poly-delivery-v1/nonce/report.json
 PACKET_NONCE_ACCEPTED_REPORT_SHA256 = (
-    "4c11918847dec99181cd317cad3092f8e5df118f2ce6e07ea6863e73175c617f")
+    "130d82c0c3960447557ff255dae13739e322ca54bf8169370f685c9641d2f148")
 PACKET_NONCE_GENERATED_CLASS_KEY = (
     "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class")
 PACKET_NONCE_GENERATED_CLASS_SHA256 = (
@@ -3989,6 +5402,8 @@ def _validate_supported_claim(root: Path, claim: dict[str, Any], policy: dict[st
             raise LedgerError(f"{claim_id}: required claims are not supported: {missing}")
     if claim_id == "packet-nonce-functional-production":
         checked += _validate_packet_nonce_functional(root)
+    if claim_id == POLY_SOURCE_CLAIM:
+        checked += _validate_poly_source_claim(root, claim, f"{claim_id}:poly-source")
     return checked
 
 

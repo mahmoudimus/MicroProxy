@@ -1,0 +1,12 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/missing-failure-wipe.dfy(302,11): Error: assertion might not hold
+    |
+302 |     assert ZeroInts(sample.coeffs);
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/missing-failure-wipe.dfy(57,4): Related location: this proposition could not be proved
+   |
+57 |   { forall i | 0 <= i < a.Length :: a[i] == 0 }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

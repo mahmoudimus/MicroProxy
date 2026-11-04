@@ -1,0 +1,3750 @@
+{
+  "all_checks_ok": true,
+  "artifact_claim": "none; this is a prototype validation package, not a delivery artifact",
+  "audits": [
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/vocabulary/ObservationVocabulary.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/vocabulary/ObservationVocabulary.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-vocabulary-ObservationVocabulary.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/SourceTrace.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/SourceTrace.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-SourceTrace.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeField.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativeField.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativeField.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativePolynomial.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativePolynomial.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativePolynomial.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeMlKem.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativeMlKem.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativeMlKem.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-NativePolynomialTraceHarness.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/FieldTraceCompatibility.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/FieldTraceCompatibility.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-FieldTraceCompatibility.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-AllPolynomialTraceRoots.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    }
+  ],
+  "baseline": {
+    "authentication": "git-show",
+    "baseline_authenticated": true,
+    "commit": "5ce660a69a1dd496dda02705bf1e2b1aa7a2be1d",
+    "files": 20,
+    "git_show_verified": true,
+    "manifest_sha256": "77daf19d88d147086717d86f06cda280e9f16d0e7b2ef769472745a77f256ff0",
+    "root": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-baseline-ci-probe",
+    "source_discovery": "formal/crypto/delivery.py source_closure officialDafny parser; all frozen bytes verified against git show exactHEAD",
+    "tree": "df8b49bc8d181be18d78a9db7ab0233f23f7346f"
+  },
+  "checker": {
+    "assembly_sha256": "6b316ac7ad476dc0c7db4958e2bcd806d847e10cc13ec1085e54110c54ed757c",
+    "build_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/build.log",
+    "build_log_sha256": "2f6369e95afa199c9d870ecc21a13a776b18be4ad966a8999246bd04a1740bbd",
+    "build_root": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build",
+    "command": [
+      "dotnet",
+      "build",
+      "-v:q",
+      "-c",
+      "Release",
+      "PolynomialSourceCoverage.csproj",
+      "-p:DafnyHome=/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny",
+      "-p:ImportDirectoryBuildProps=false",
+      "-p:ImportDirectoryBuildTargets=false"
+    ],
+    "debug_symbols": false,
+    "deterministic": true,
+    "directory_build_imports_disabled": true,
+    "project_pin": "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0",
+    "sdk": "10.0.400",
+    "source_pins": {
+      "PolynomialSourceCoverage.cs": "fc67e059f500a10bf52f978040db92d56edd4c6475a6a21d581e4956dd406910",
+      "PolynomialSourceCoverage.csproj": "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0"
+    }
+  },
+  "checker_scope": {
+    "ambient_selectors_cleared": [
+      "POLY_TRACE_ROOTS",
+      "POLY_TRACE_FUNCS"
+    ],
+    "default_method_root_count": 20,
+    "default_method_roots": [
+      "NativePolynomial.NewZetas",
+      "NativePolynomial.NewGammas",
+      "NativePolynomial.Add",
+      "NativePolynomial.Sub",
+      "NativePolynomial.Copy",
+      "NativePolynomial.ForwardStage",
+      "NativePolynomial.InverseStage",
+      "NativePolynomial.Scale",
+      "NativePolynomial.Ntt",
+      "NativePolynomial.InverseNtt",
+      "NativePolynomial.BaseCase",
+      "NativePolynomial.NttMul",
+      "NativePolynomial.Wipe",
+      "NativeField.ReduceOnce",
+      "NativeField.Reduce",
+      "NativeField.Add",
+      "NativeField.Sub",
+      "NativeField.Mul",
+      "NativeField.MulSub",
+      "NativeField.AddMul"
+    ],
+    "default_pure_function_count": 19,
+    "default_pure_functions": [
+      "NativePolynomial.Len",
+      "NativePolynomial.ZetasChunk0",
+      "NativePolynomial.ZetasChunk1",
+      "NativePolynomial.ZetasChunk2",
+      "NativePolynomial.ZetasChunk3",
+      "NativePolynomial.ZetasChunk4",
+      "NativePolynomial.ZetasChunk5",
+      "NativePolynomial.ZetasChunk6",
+      "NativePolynomial.ZetasChunk7",
+      "NativePolynomial.ZetasValue",
+      "NativePolynomial.GammasChunk0",
+      "NativePolynomial.GammasChunk1",
+      "NativePolynomial.GammasChunk2",
+      "NativePolynomial.GammasChunk3",
+      "NativePolynomial.GammasChunk4",
+      "NativePolynomial.GammasChunk5",
+      "NativePolynomial.GammasChunk6",
+      "NativePolynomial.GammasChunk7",
+      "NativePolynomial.GammasValue"
+    ],
+    "identity_not_count_gate": true
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeField.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 86,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "field",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-field.log",
+      "log_sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+      "target": "formal/crypto/NativeField.dfy",
+      "verified": 86
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 1001,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "polynomial",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-polynomial.log",
+      "log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+      "target": "formal/crypto/NativePolynomial.dfy",
+      "verified": 1001
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 26,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "paired-harness",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-paired-harness.log",
+      "log_sha256": "66548af863fc5122af940a3666f4eb79c5c629af89c169b32b09faae6fff5549",
+      "target": "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+      "verified": 26
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeMlKem.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=3"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 2767,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=3"
+      ],
+      "label": "mlkem-composition",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-mlkem-composition.log",
+      "log_sha256": "435e8f1b0640a104b6e83802ca6209a98ac4d0b44340910f022ec3ab7de3e736",
+      "target": "formal/crypto/NativeMlKem.dfy",
+      "verified": 2767
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/FieldTraceCompatibility.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 14,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "field-compatibility",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-field-compatibility.log",
+      "log_sha256": "d28a9e7a26e410815a36baa5fb6c5bbc5417aabc74215b5bfd2462f90db346a2",
+      "target": "formal/source/polynomial/FieldTraceCompatibility.dfy",
+      "verified": 14
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 17,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "source-trace",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-source-trace.log",
+      "log_sha256": "b835334821d0fb87300f4c9f7c9462ed66053b744b36a94273bf625eda3eb4a0",
+      "target": "formal/source/SourceTrace.dfy",
+      "verified": 17
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/vocabulary/ObservationVocabulary.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 29,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "observation-vocabulary",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-observation-vocabulary.log",
+      "log_sha256": "25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2",
+      "target": "formal/source/vocabulary/ObservationVocabulary.dfy",
+      "verified": 29
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 19,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "checker-controls",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-checker-controls.log",
+      "log_sha256": "4d5a1cd64d4003d936a404e4aa8aa2be63d1c23d058b1b77299c7ba9f8180435",
+      "target": "formal/source/polynomial/controls/PolynomialControls.dfy",
+      "verified": 19
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/vocabulary/ObservationVocabulary.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/vocabulary/ObservationVocabulary.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-vocabulary-ObservationVocabulary.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/SourceTrace.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/SourceTrace.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-SourceTrace.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeField.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativeField.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativeField.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativePolynomial.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativePolynomial.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativePolynomial.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeMlKem.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/crypto/NativeMlKem.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-crypto-NativeMlKem.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-NativePolynomialTraceHarness.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/FieldTraceCompatibility.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/FieldTraceCompatibility.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-FieldTraceCompatibility.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--allow-external-contracts"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "file": "formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+      "findings": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/audit-formal-source-polynomial-AllPolynomialTraceRoots.dfy.log",
+      "log_sha256": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "ok": true
+    },
+    {
+      "classification": "resolved-ast-coverage-positive-exact",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 0,
+      "expected_pure_functions": [
+        "NativePolynomial.Len",
+        "NativePolynomial.ZetasChunk0",
+        "NativePolynomial.ZetasChunk1",
+        "NativePolynomial.ZetasChunk2",
+        "NativePolynomial.ZetasChunk3",
+        "NativePolynomial.ZetasChunk4",
+        "NativePolynomial.ZetasChunk5",
+        "NativePolynomial.ZetasChunk6",
+        "NativePolynomial.ZetasChunk7",
+        "NativePolynomial.ZetasValue",
+        "NativePolynomial.GammasChunk0",
+        "NativePolynomial.GammasChunk1",
+        "NativePolynomial.GammasChunk2",
+        "NativePolynomial.GammasChunk3",
+        "NativePolynomial.GammasChunk4",
+        "NativePolynomial.GammasChunk5",
+        "NativePolynomial.GammasChunk6",
+        "NativePolynomial.GammasChunk7",
+        "NativePolynomial.GammasValue"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/checker-positive.log",
+      "log_sha256": "e00a3d4aebc16ea78b0f07b29c7f2eae5314932f9cb99d0315e18f0ffd604baa",
+      "root_count": 20,
+      "root_set_sha256": "a5703c89f7fb7c42468664ff93d8014b71fa0505ac90d564fbf84db3111dc1e6",
+      "roots": [
+        "NativePolynomial.NewZetas",
+        "NativePolynomial.NewGammas",
+        "NativePolynomial.Add",
+        "NativePolynomial.Sub",
+        "NativePolynomial.Copy",
+        "NativePolynomial.ForwardStage",
+        "NativePolynomial.InverseStage",
+        "NativePolynomial.Scale",
+        "NativePolynomial.Ntt",
+        "NativePolynomial.InverseNtt",
+        "NativePolynomial.BaseCase",
+        "NativePolynomial.NttMul",
+        "NativePolynomial.Wipe",
+        "NativeField.ReduceOnce",
+        "NativeField.Reduce",
+        "NativeField.Add",
+        "NativeField.Sub",
+        "NativeField.Mul",
+        "NativeField.MulSub",
+        "NativeField.AddMul"
+      ],
+      "selector": "default (both POLY_TRACE_* cleared)",
+      "text": "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed\n\nDafny program verifier did not attempt verification\n"
+    },
+    {
+      "exit": 0,
+      "expected_roots": [
+        "NativePolynomial.NewZetas",
+        "NativePolynomial.NewGammas",
+        "NativePolynomial.Add",
+        "NativePolynomial.Sub",
+        "NativePolynomial.Copy",
+        "NativePolynomial.ForwardStage",
+        "NativePolynomial.InverseStage",
+        "NativePolynomial.Scale",
+        "NativePolynomial.Ntt",
+        "NativePolynomial.InverseNtt",
+        "NativePolynomial.BaseCase",
+        "NativePolynomial.NttMul",
+        "NativePolynomial.Wipe",
+        "NativeField.ReduceOnce",
+        "NativeField.Reduce",
+        "NativeField.Add",
+        "NativeField.Sub",
+        "NativeField.Mul",
+        "NativeField.MulSub",
+        "NativeField.AddMul"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/checker-scope-probe-repeated.log",
+      "log_sha256": "4b779ee5dcce977de6142b76fe9df1da43bad14370502793138c5214e218b3cd",
+      "ok": true,
+      "probe": "repeated-single-root",
+      "reason": "checker-scope-probe-repeated: checker reported duplicate resolved roots",
+      "rejected": true,
+      "selector": "NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas"
+    },
+    {
+      "classification": "resolved-ast-coverage-positive-exact",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-SecretBranchObserved.log",
+      "log_sha256": "3e94d04bf85e9e1f16ef07bb948e4580dbf057c3a4aac4c1802dd4ea6ba14ce0",
+      "root_count": 1,
+      "root_set_sha256": "445d9c714ee74c21b5261b595e3bdfc9abac496c9ded97804fffcbeb2b434e35",
+      "roots": [
+        "Control.SecretBranchObserved"
+      ],
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.SecretBranchObserved"
+      },
+      "text": "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [Control.SecretBranchObserved]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed\n\nDafny program verifier did not attempt verification\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-positive-exact",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-SecretIndexObserved.log",
+      "log_sha256": "5cec53e0cc8d7f794ef58137c03a7460653b7e0f4e0396bb4f2a6862dc9d6035",
+      "root_count": 1,
+      "root_set_sha256": "5708659cc5276e5b81f53fdcd02f812ee291c3433c0e5b078908a6382642cd5f",
+      "roots": [
+        "Control.SecretIndexObserved"
+      ],
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.SecretIndexObserved"
+      },
+      "text": "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [Control.SecretIndexObserved]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed\n\nDafny program verifier did not attempt verification\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-SecretBranchUnmarked.log",
+      "log_sha256": "cebf0390e79fbedfdfba3cef28b3eed857655d1d1ee87fc4a9e66f442ace76c4",
+      "needle": "missing Branch observation for branch guard",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.SecretBranchUnmarked"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(30,4): Error: missing Branch observation for branch guard\n   |\n30 |     if x == 0 { r := 1; } else { r := 2; }\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-SecretIndexUnmarked.log",
+      "log_sha256": "9cdcfa9370890f7834ff78830905e2b35a5f3694a5cab786bd8085d1d18ddc6e",
+      "needle": "missing Read observation for array read",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.SecretIndexUnmarked"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(48,10): Error: missing Read observation for array read\n   |\n48 |     r := a[i];\n   |           ^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-ShadowCallee.log",
+      "log_sha256": "75abc498b68da3cadee160c59c78119d5009d9ad4e24f895e77ea0e9f4340cd4",
+      "needle": "unregistered executable callee Shadow._default.Add",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.ShadowCallee"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(55,9): Error: unregistered executable callee Shadow._default.Add\n   |\n55 |     r := SH.Add(a,b);\n   |          ^^^^^^^^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(54,40): Error: ShadowCallee: stale observation Call\n   |\n54 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Call(1,3,2) + ST.Ops(1,0,0,0,0,0,0);\n   |                                         ^^^^\n\n2 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-RoleShadow.log",
+      "log_sha256": "93558068bee28db86574aa3a3ddd8527a5c70fc77d9c113a0a93b4b053dadeac",
+      "needle": "mismatched Read observation for array read",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.RoleShadow"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: mismatched Read observation for array read\n   |\n64 |     trace := trace + ST.Read(2,0,0);\n   |                         ^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: expected exact SourceTrace.Write for array write, found Read\n   |\n64 |     trace := trace + ST.Read(2,0,0);\n   |                         ^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(64,24): Error: RoleShadow: stale observation Read\n   |\n64 |     trace := trace + ST.Read(2,0,0);\n   |                         ^^^^\n\n3 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-EventReset.log",
+      "log_sha256": "ac9db54d1b424a4ec9455386c211e5903429133a9b2cff585c16147cc832b611",
+      "needle": "later trace update must append to the same trace",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.EventReset"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(73,10): Error: EventReset: later trace update must append to the same trace\n   |\n73 |     trace := ST.Branch(1, x == 0);\n   |           ^^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-Interposed.log",
+      "log_sha256": "1001cacbc154f93bf363744f1ab2bbda904f47258eaf153a5e0529227b6d7b5d",
+      "needle": "expected exact SourceTrace.Branch for branch guard, found Read",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.Interposed"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: expected exact SourceTrace.Branch for branch guard, found Read\n   |\n82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);\n   |                                         ^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: marker is outside the executable block of array read\n   |\n82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);\n   |                                         ^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: marker is outside the executable block of array read\n   |\n82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);\n   |                                         ^^^^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(82,40): Error: Interposed: stale observation Read\n   |\n82 |     trace := ST.Ops(0,0,0,0,0,0,0) + ST.Read(1,1,i) + ST.Branch(2, i == 0);\n   |                                         ^^^^\n\n4 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-Unsupported.log",
+      "log_sha256": "6a5462c53055d58244badba7bb061161f09d685fe6e846cb70cac8286fce6975",
+      "needle": "Ops arg 0=0, source executable count=1",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "Control.Unsupported"
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(91,20): Error: Unsupported: Ops arg 0=0, source executable count=1\n   |\n91 |     trace := ST.Ops(0,0,0,0,0,0,0);\n   |                     ^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(91,22): Error: Unsupported: Ops arg 1=0, source executable count=1\n   |\n91 |     trace := ST.Ops(0,0,0,0,0,0,0);\n   |                       ^\n\nformal/source/polynomial/controls/PolynomialControls.dfy(93,4): Error: unimplemented executable loop observation: WhileStmt\n   |\n93 |     while i < n\n   |     ^^^^^^^^^^^\n\n3 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-positive-exact",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-FunctionControl-PrivateBranchObserved.log",
+      "log_sha256": "e00a3d4aebc16ea78b0f07b29c7f2eae5314932f9cb99d0315e18f0ffd604baa",
+      "root_count": 20,
+      "root_set_sha256": "a5703c89f7fb7c42468664ff93d8014b71fa0505ac90d564fbf84db3111dc1e6",
+      "roots": [
+        "NativePolynomial.NewZetas",
+        "NativePolynomial.NewGammas",
+        "NativePolynomial.Add",
+        "NativePolynomial.Sub",
+        "NativePolynomial.Copy",
+        "NativePolynomial.ForwardStage",
+        "NativePolynomial.InverseStage",
+        "NativePolynomial.Scale",
+        "NativePolynomial.Ntt",
+        "NativePolynomial.InverseNtt",
+        "NativePolynomial.BaseCase",
+        "NativePolynomial.NttMul",
+        "NativePolynomial.Wipe",
+        "NativeField.ReduceOnce",
+        "NativeField.Reduce",
+        "NativeField.Add",
+        "NativeField.Sub",
+        "NativeField.Mul",
+        "NativeField.MulSub",
+        "NativeField.AddMul"
+      ],
+      "selector": {
+        "POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchObserved",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed\n\nDafny program verifier did not attempt verification\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-positive-exact",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-FunctionControl-PrivateIndexObserved.log",
+      "log_sha256": "e00a3d4aebc16ea78b0f07b29c7f2eae5314932f9cb99d0315e18f0ffd604baa",
+      "root_count": 20,
+      "root_set_sha256": "a5703c89f7fb7c42468664ff93d8014b71fa0505ac90d564fbf84db3111dc1e6",
+      "roots": [
+        "NativePolynomial.NewZetas",
+        "NativePolynomial.NewGammas",
+        "NativePolynomial.Add",
+        "NativePolynomial.Sub",
+        "NativePolynomial.Copy",
+        "NativePolynomial.ForwardStage",
+        "NativePolynomial.InverseStage",
+        "NativePolynomial.Scale",
+        "NativePolynomial.Ntt",
+        "NativePolynomial.InverseNtt",
+        "NativePolynomial.BaseCase",
+        "NativePolynomial.NttMul",
+        "NativePolynomial.Wipe",
+        "NativeField.ReduceOnce",
+        "NativeField.Reduce",
+        "NativeField.Add",
+        "NativeField.Sub",
+        "NativeField.Mul",
+        "NativeField.MulSub",
+        "NativeField.AddMul"
+      ],
+      "selector": {
+        "POLY_TRACE_FUNCS": "FunctionControl.PrivateIndexObserved",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "POLYNOMIAL-SOURCE-COVERAGE OK: exact resolved roots [NativePolynomial.NewZetas,NativePolynomial.NewGammas,NativePolynomial.Add,NativePolynomial.Sub,NativePolynomial.Copy,NativePolynomial.ForwardStage,NativePolynomial.InverseStage,NativePolynomial.Scale,NativePolynomial.Ntt,NativePolynomial.InverseNtt,NativePolynomial.BaseCase,NativePolynomial.NttMul,NativePolynomial.Wipe,NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul]; actual (real,ghost) function tuple paths; ordered flat markers; fail-closed\n\nDafny program verifier did not attempt verification\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-FunctionControl-PrivateBranchUnmarked.log",
+      "log_sha256": "a75390d6cd7c456466ba45aea949683601ee88d38a42c3f6435d58e5a2dd9a54",
+      "needle": "arm 0 is missing Branch observation",
+      "selector": {
+        "POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchUnmarked",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(118,35): Error: PrivateBranchUnmarked: arm 0 is missing Branch observation\n    |\n118 |     if v == 0 then (1, ghost ST.Ops(0,0,0,0,0,0,0))\n    |                                    ^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-FunctionControl-PrivateBranchReset.log",
+      "log_sha256": "f5441169bc3eb9b073abc6d7505446fb3acf74808d676d9755013543cfe6318a",
+      "needle": "arm 0 is missing Branch observation",
+      "selector": {
+        "POLY_TRACE_FUNCS": "FunctionControl.PrivateBranchReset",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(126,29): Error: PrivateBranchReset: arm 0 is missing Branch observation\n    |\n126 |     if v == 0 then (1, ghost [])\n    |                              ^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-FunctionControl-PrivateIndexUnmarked.log",
+      "log_sha256": "75beaaa00bb43d9bb24eb5e045f877993186a6041c7bea8b022ed63289bf5da6",
+      "needle": "arm 0 is missing exact Read for array address",
+      "selector": {
+        "POLY_TRACE_FUNCS": "FunctionControl.PrivateIndexUnmarked",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "formal/source/polynomial/controls/PolynomialControls.dfy(143,23): Error: PrivateIndexUnmarked: arm 0 is missing exact Read for array address\n    |\n143 |     (a[i], ghost ST.Ops(0,0,0,0,0,0,0))\n    |                        ^\n\n1 resolution/type errors detected in PolynomialControls.dfy\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/ByMethodControl.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-ByMethodProbe-Identity.log",
+      "log_sha256": "b69463ddaa8c8d9618ffccfeb12bd605cccb0e9e4ed0a3359484682f5d50c45c",
+      "needle": "function-by-method is unsupported",
+      "selector": {
+        "POLY_TRACE_FUNCS": "ByMethodProbe.Identity",
+        "POLY_TRACE_ROOTS": null
+      },
+      "text": "formal/source/polynomial/controls/ByMethodControl.dfy(3,11): Error: Identity: function-by-method is unsupported; the actual imperative body is not checked\n  |\n3 |   function Identity(v: bv64): (bv64, ghost seq<int>) {\n  |            ^^^^^^^^\n\n1 resolution/type errors detected in ByMethodControl.dfy\n"
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/LemmaOutControl.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/verify-LemmaOutControl.log",
+      "log_sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c",
+      "text": "\nDafny program verifier finished with 2 verified, 0 errors\n"
+    },
+    {
+      "classification": "resolved-ast-coverage-rejection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/LemmaOutControl.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "exit": 2,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/checker-LemmaOutControl.log",
+      "log_sha256": "215bff70d5109506c4a80d696f41b140d7d9966b9cb24c4dfb438cf220eb7f98",
+      "needle": "ghost lemma-out binding is unsupported",
+      "selector": {
+        "POLY_TRACE_FUNCS": null,
+        "POLY_TRACE_ROOTS": "LemmaOutControl.Use"
+      },
+      "text": "formal/source/polynomial/controls/LemmaOutControl.dfy(11,6): Error: Use: ghost lemma-out binding is unsupported\n   |\n11 |     x := Produce();\n   |       ^^\n\n1 resolution/type errors detected in LemmaOutControl.dfy\n"
+    },
+    {
+      "classification": "dafny-assertion-failure",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/BranchObservedHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 1,
+      "exit": 4,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-BranchObservedHarness.dfy.log",
+      "log_sha256": "dde8a52ab01f8564bfae48a5b1dccd3443f861c0ee7b666397b8782219b3a5ee",
+      "named": "assert t1 == t2",
+      "text": "formal/source/polynomial/controls/BranchObservedHarness.dfy(9,11): Error: assertion might not hold\n  |\n9 |     assert t1 == t2;\n  |            ^^^^^^^^\n\n\nDafny program verifier finished with 0 verified, 1 error\n",
+      "verified": 0
+    },
+    {
+      "classification": "dafny-assertion-failure",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/IndexObservedHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 1,
+      "exit": 4,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-IndexObservedHarness.dfy.log",
+      "log_sha256": "9ff1bb4219b37054a0fb20c2ff31af5ee5a78e58485fe9e97b480217f4830c98",
+      "named": "assert t1 == t2",
+      "text": "formal/source/polynomial/controls/IndexObservedHarness.dfy(9,11): Error: assertion might not hold\n  |\n9 |     assert t1 == t2;\n  |            ^^^^^^^^\n\n\nDafny program verifier finished with 1 verified, 1 error\n",
+      "verified": 1
+    },
+    {
+      "classification": "dafny-assertion-failure",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/FunctionBranchHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 1,
+      "exit": 4,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-FunctionBranchHarness.dfy.log",
+      "log_sha256": "542ac93bd048a9f8d657098067fa9260cbcdfd905ba24d85578ddb1045695208",
+      "named": "assert t1 == t2",
+      "text": "formal/source/polynomial/controls/FunctionBranchHarness.dfy(11,11): Error: assertion might not hold\n   |\n11 |     assert t1 == t2;\n   |            ^^^^^^^^\n\n\nDafny program verifier finished with 0 verified, 1 error\n",
+      "verified": 0
+    },
+    {
+      "classification": "dafny-assertion-failure",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/FunctionIndexHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 1,
+      "exit": 4,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-FunctionIndexHarness.dfy.log",
+      "log_sha256": "1978d6dcd868023e4c28c85845d72d488862d186b0b862dc779645cc1b709e5f",
+      "named": "assert t1 == t2",
+      "text": "formal/source/polynomial/controls/FunctionIndexHarness.dfy(11,11): Error: assertion might not hold\n   |\n11 |     assert t1 == t2;\n   |            ^^^^^^^^\n\n\nDafny program verifier finished with 1 verified, 1 error\n",
+      "verified": 1
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/UnmarkedHarnesses.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-UnmarkedHarnesses.dfy.log",
+      "log_sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2",
+      "text": "\nDafny program verifier finished with 3 verified, 0 errors\n",
+      "verified": 3
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls-FunctionUnmarkedHarnesses.dfy.log",
+      "log_sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2",
+      "text": "\nDafny program verifier finished with 3 verified, 0 errors\n",
+      "verified": 3
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "positional formal 1: SourceTrace._default.Branch"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-branch-flip-checker.log",
+      "checker_log_sha256": "ba2faf8c2167631f80575c029188552b7fa65adbb64e5076577a180f02f2bdda",
+      "control": "canonical-branch-flip",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+        "verified": 16
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-branch-flip-verify.log",
+      "dafny_log_sha256": "b292d843a10a43a7ed0522519e4a56878f3c83ac9ae1b625816b135281bb51b9",
+      "named_bridge": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "positional formal 2: SourceTrace._default.Read"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-address-jszadc9d/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-address-checker.log",
+      "checker_log_sha256": "6c451aa573f9092c8a735f575dd65f618e23c862362614755aa1511e46d03bb1",
+      "control": "canonical-erase-address",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Read(site,role,address) == O.Encode(O.Read(site,role,address))",
+        "verified": 16
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-address-jszadc9d/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-address-verify.log",
+      "dafny_log_sha256": "8941e82fc513f8e78c0d09478a6258a4872c0e9d29d122802f4c6b623a087b23",
+      "named_bridge": "Read(site,role,address) == O.Encode(O.Read(site,role,address))",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "positional formal 4: SourceTrace._default.Ops"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-rhf_w1te/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-ops-checker.log",
+      "checker_log_sha256": "16dd8f1049fc0be05bde00482934456fef0568dd4a1c7f29f944ea65cf142e83",
+      "control": "canonical-erase-ops",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Ops(a,b,c,d,e,f,g) == O.Encode(O.Ops(a,b,c,d,e,f,g))",
+        "verified": 16
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-rhf_w1te/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-ops-verify.log",
+      "dafny_log_sha256": "1f95948a69e00056820d2d97a26674211e57730e35c02ef69a60f986b0dc4240",
+      "named_bridge": "Ops(a,b,c,d,e,f,g) == O.Encode(O.Ops(a,b,c,d,e,f,g))",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-7t9d93ay/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-dead-branch-checker.log",
+      "checker_log_sha256": "90eca347396080721097ceb9968ccc0ddd8403c6f2e0928d7219ce245892c585",
+      "control": "canonical-dead-branch",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 3,
+        "named": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+        "verified": 14
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-7t9d93ay/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-dead-branch-verify.log",
+      "dafny_log_sha256": "647256dcf1141caf6d9ccf17eaf941a0c59e14abd8eaead6d29f225bf6ec54a6",
+      "named_bridge": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+      "ok": true
+    },
+    {
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-z2vxy5ub/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/decoy-class.log",
+      "checker_log_sha256": "af84f6c8c9f7019a6c75d3520644cc4f11ef05a223fb6baa9034c8006c5efae7",
+      "note": "R2: exact FullName default registry rejects an instance-class shadow before its function can be used.",
+      "ok": true,
+      "rejection": "unregistered executable callee NativePolynomial.Decoy._ctor",
+      "schema": "microproxy.native-polynomial-decoy-control/v1"
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "arm 0 guard is not exact index<literal"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-leaf-branch-mutation-35vxrfcv/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/leaf-branch-mutation.log",
+      "checker_log_sha256": "42c4d0b3846eb9f41de21719b2069a28a6255f0d4dbae32dadb2e5c5b1ae8d2e",
+      "control": "leaf-branch-mutation",
+      "dafny": {
+        "classification": "observed-not-used-as-proof",
+        "dafny_rc": 4,
+        "errors": null,
+        "note": "checker rejection is the load-bearing control; resource/parse output is never evidence",
+        "verified": null
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-leaf-branch-mutation-35vxrfcv/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": false,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/leaf-branch-mutation-dafny.log",
+      "dafny_log_sha256": "2c63c4ad7f0e93c48767b1ec1e8df5ad5346d7aaa2831d16f710287b6b03f5b8",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "real result is not a .0 projection"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-real-path-mutation-d2sw0xmf/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/real-path-mutation.log",
+      "checker_log_sha256": "1da75cdb4b33061cc6eeb3e63023d1068c5e25207674dd6762f6617df9f1fc93",
+      "control": "real-path-mutation",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-real-path-mutation-d2sw0xmf/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/real-path-mutation-dafny.log",
+      "dafny_log_sha256": "900637346574de759a27097fad65944fcbc6dc33e8c1182d047c6db262bb28b0",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ghost is not exactly five ordered leaves"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-child-ghost-mutation-bu1qdp4l/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/child-ghost-mutation.log",
+      "checker_log_sha256": "f50d1e42298925ca56f5c240f6dd960afccb575ff4fad82f0ecb924c44a8a8d2",
+      "control": "child-ghost-mutation",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-child-ghost-mutation-bu1qdp4l/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/child-ghost-mutation-dafny.log",
+      "dafny_log_sha256": "8c208c84f04a2ce597be0812cc92487c49747d9f8c54fac0f00c71c55c61fae3",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ghost projection ZetasValue is not immediately after an actual call with the same arguments"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/caller-arg-mutation.log",
+      "checker_log_sha256": "c3f6854ae7451d3de3f4168c7cd992d19aceecab1258286478dad8c412000601",
+      "control": "caller-arg-mutation",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 2,
+        "named": "Error:",
+        "verified": 1001
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/caller-arg-mutation-dafny.log",
+      "dafny_log_sha256": "e6fd09b954e3dfb6eba3c932bd4bc1b64b8ccb216c00c9b12e7de9ca05117257",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ChunkTrace body is not three leaves"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-chunktrace-helper-mutation-o8sgx10n/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/chunktrace-helper-mutation.log",
+      "checker_log_sha256": "4275c0baacdc0453054619d940168e505f83edda331f3b3c39a4dfe7763af0ad",
+      "control": "chunktrace-helper-mutation",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-chunktrace-helper-mutation-o8sgx10n/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/chunktrace-helper-mutation-dafny.log",
+      "dafny_log_sha256": "4dbb3b2d4dacc88604831537b42e4579b2c76352b22d5dc531b36b24b5f74212",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "BranchFalsePrefix else is not two leaves"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/branchfalseprefix-helper-mutation.log",
+      "checker_log_sha256": "bc02bca85a7c4d463888ee5e8d907b5f561b74e6e44af0956e901399cf5c72c7",
+      "control": "branchfalseprefix-helper-mutation",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/branchfalseprefix-helper-mutation-dafny.log",
+      "dafny_log_sha256": "e581b3bd5df7986287ad70caba37e091909a3b709c98824aed8707846b7ffb95",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "arm 3 ghost is not exactly five ordered leaves"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-missing-false-prefix-t008v9b0/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/missing-false-prefix.log",
+      "checker_log_sha256": "7592a20f1946d36d5317b2882e94bd62a0b55669cf6483a376f3d34aaedf2627",
+      "control": "missing-false-prefix",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-missing-false-prefix-t008v9b0/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/missing-false-prefix-dafny.log",
+      "dafny_log_sha256": "f7fdc3ad8973ab02e436ca477aed2fe186c305feccc4a777b219ef87fe416d00",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "arm 0 true event is not exact"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-ghost-reorder-0983x6i1/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/ghost-reorder.log",
+      "checker_log_sha256": "59e57f6bab86d8cf541cb7264d67305ddef9880dc7f6cb313fd7e006dda8fd94",
+      "control": "ghost-reorder",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-ghost-reorder-0983x6i1/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/ghost-reorder-dafny.log",
+      "dafny_log_sha256": "640f64967ad3a3546ea55fc96ac53b5145314bf8c08ad8ccdd3887359324db6e",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "Ops payload is not exact"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-fake-ops-tpajweti/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/fake-ops.log",
+      "checker_log_sha256": "eb9b7d045bed31f39fc0ac4ca8f2973e72297197db874aba6d7537b86b2e9aa8",
+      "control": "fake-ops",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-fake-ops-tpajweti/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/fake-ops-dafny.log",
+      "dafny_log_sha256": "fe7011cf293d1821e9d1be11f9e315129a315dc68efe95fd6c6f42f84d570e8e",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "non-approved suffix expression"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-synthetic-callee-38dwhwe8/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/synthetic-callee.log",
+      "checker_log_sha256": "75a295af8791014097ebe7d03ff97bb916d7989ea76e12096403bccd88bd294b",
+      "control": "synthetic-callee",
+      "dafny": {
+        "errors": 0,
+        "minimum": 900,
+        "verified": 1001
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-synthetic-callee-38dwhwe8/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 0,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/synthetic-callee-dafny.log",
+      "dafny_log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "actual pure call GammasValue has 0 immediate ghost projections"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/drop-callee-trace.log",
+      "checker_log_sha256": "5ec114f8854dc211f7c0d2f7323932f236da4e847840864d9b3a16e2c52618ac",
+      "control": "drop-callee-trace",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 998
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/drop-callee-trace-dafny.log",
+      "dafny_log_sha256": "f5908cba9eebc0533916930ccc5e2c197b75748a25a8d72fd2c70999c2e4c64d",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "actual pure call ZetasValue has 2 immediate ghost projections"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-duplicate-projection-e6etsery/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/duplicate-projection.log",
+      "checker_log_sha256": "8170bb00a89d56687848ca3ea1b210d8996c0059657afa5fc21d648e6ae98569",
+      "control": "duplicate-projection",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1002
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-duplicate-projection-e6etsery/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/duplicate-projection-dafny.log",
+      "dafny_log_sha256": "4304f2079d0af945c49a566358329bd9bdac2221d79cf7e3e798dfabb29d7a74",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "callee trace local is not appended immediately after its defining call"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-wrong-local-eag4q9mh/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/wrong-local.log",
+      "checker_log_sha256": "8e3b93561370f66f91c34a782691de17b81bfdfc8e357e21d54bee4ec0b1bc08",
+      "control": "wrong-local",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-wrong-local-eag4q9mh/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/wrong-local-dafny.log",
+      "dafny_log_sha256": "d0bdbc1089518acaee281d5673af24d0fb8dbea8d2f02201d2bf05eb4e59b1be",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-local-bag5ypgi/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-local.log",
+      "checker_log_sha256": "938e9fb7e41f980923b952a91410f5c54dab2aae24008d0706e096e7658b1a65",
+      "control": "rebind-local",
+      "dafny": {
+        "classification": "dafny-proof-failure",
+        "errors": 1,
+        "named": "Error:",
+        "verified": 999
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-local-bag5ypgi/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 4,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-local-dafny.log",
+      "dafny_log_sha256": "1fad31e7b15ed22f9e902acacb78fe25ed864da120ccbf84124365a2be5b01d5",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-same-model-fv88k6js/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-same-model.log",
+      "checker_log_sha256": "fabe3944d112296012cd8d23fe57aa6ba9f105b416ba441f69e65207a99fb763",
+      "control": "rebind-same-model",
+      "dafny": {
+        "errors": 0,
+        "minimum": 900,
+        "verified": 1000
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-same-model-fv88k6js/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 0,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-same-model-dafny.log",
+      "dafny_log_sha256": "0a4f846766bce9620e189e392ca7a6d17cb5f04c3842596e81b2a476c445350f",
+      "ok": true
+    },
+    {
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "AssignSuchThatStmt"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-suchthat-v1_pm0x_/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat.log",
+      "checker_log_sha256": "17c3efc8453a29ded08a8d1ce3751c9c6904e67f283b3108fabd57e73de95bb4",
+      "control": "rebind-suchthat",
+      "dafny": {
+        "errors": 0,
+        "minimum": 900,
+        "verified": 1001
+      },
+      "dafny_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-suchthat-v1_pm0x_/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "dafny_evidence_usable": true,
+      "dafny_exit": 0,
+      "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-dafny.log",
+      "dafny_log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+      "ok": true
+    },
+    {
+      "body": {
+        "errors": 0,
+        "minimum": 900,
+        "verified": 1000
+      },
+      "body_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "body_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-body.log",
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "ghost trace local has 2 assignments"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-checker.log",
+      "checker_log_sha256": "fa55f65e8c246264da79b7c1c5d7ea2f3783f865ec09c06f57c4b8db016abaa3",
+      "control": "rebind-and-model-swap",
+      "generate_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "translate",
+        "java",
+        "formal/crypto/NativeMlKem.dfy",
+        "--no-verify",
+        "--outer-module",
+        "io.github.mahmoudimus.quic.internal.verifiedcrypto",
+        "--output",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/rebind-and-model-swap-java/NativeCrypto"
+      ],
+      "generate_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-generate.log",
+      "harness": {
+        "errors": 0,
+        "verified": 26
+      },
+      "harness_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "harness_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-harness.log",
+      "java_files": 66,
+      "java_identical": true,
+      "ok": true
+    },
+    {
+      "body": {
+        "errors": 0,
+        "minimum": 900,
+        "verified": 1001
+      },
+      "body_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "body_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-body.log",
+      "checker": {
+        "classification": "resolved-ast-coverage-rejection",
+        "needle": "AssignSuchThatStmt"
+      },
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-checker.log",
+      "checker_log_sha256": "080155571e3e669f2192b4fd7ca189a05a6df4a2c1c114ce4d470a33d3020df9",
+      "control": "rebind-suchthat-model-swap",
+      "generate_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "translate",
+        "java",
+        "formal/crypto/NativeMlKem.dfy",
+        "--no-verify",
+        "--outer-module",
+        "io.github.mahmoudimus.quic.internal.verifiedcrypto",
+        "--output",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/rebind-suchthat-model-swap-java/NativeCrypto"
+      ],
+      "generate_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-generate.log",
+      "harness": {
+        "errors": 0,
+        "verified": 26
+      },
+      "harness_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "harness_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-harness.log",
+      "java_files": 66,
+      "java_identical": true,
+      "ok": true
+    }
+  ],
+  "controls": {
+    "canonical": [
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "positional formal 1: SourceTrace._default.Branch"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-branch-flip-checker.log",
+        "checker_log_sha256": "ba2faf8c2167631f80575c029188552b7fa65adbb64e5076577a180f02f2bdda",
+        "control": "canonical-branch-flip",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+          "verified": 16
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-branch-flip-slxrpf25/formal/source/SourceTrace.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-branch-flip-verify.log",
+        "dafny_log_sha256": "b292d843a10a43a7ed0522519e4a56878f3c83ac9ae1b625816b135281bb51b9",
+        "named_bridge": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "positional formal 2: SourceTrace._default.Read"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-address-jszadc9d/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-address-checker.log",
+        "checker_log_sha256": "6c451aa573f9092c8a735f575dd65f618e23c862362614755aa1511e46d03bb1",
+        "control": "canonical-erase-address",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Read(site,role,address) == O.Encode(O.Read(site,role,address))",
+          "verified": 16
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-address-jszadc9d/formal/source/SourceTrace.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-address-verify.log",
+        "dafny_log_sha256": "8941e82fc513f8e78c0d09478a6258a4872c0e9d29d122802f4c6b623a087b23",
+        "named_bridge": "Read(site,role,address) == O.Encode(O.Read(site,role,address))",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "positional formal 4: SourceTrace._default.Ops"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-rhf_w1te/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-ops-checker.log",
+        "checker_log_sha256": "16dd8f1049fc0be05bde00482934456fef0568dd4a1c7f29f944ea65cf142e83",
+        "control": "canonical-erase-ops",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Ops(a,b,c,d,e,f,g) == O.Encode(O.Ops(a,b,c,d,e,f,g))",
+          "verified": 16
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-rhf_w1te/formal/source/SourceTrace.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-erase-ops-verify.log",
+        "dafny_log_sha256": "1f95948a69e00056820d2d97a26674211e57730e35c02ef69a60f986b0dc4240",
+        "named_bridge": "Ops(a,b,c,d,e,f,g) == O.Encode(O.Ops(a,b,c,d,e,f,g))",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-7t9d93ay/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-dead-branch-checker.log",
+        "checker_log_sha256": "90eca347396080721097ceb9968ccc0ddd8403c6f2e0928d7219ce245892c585",
+        "control": "canonical-dead-branch",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 3,
+          "named": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+          "verified": 14
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-7t9d93ay/formal/source/SourceTrace.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/canonical-dead-branch-verify.log",
+        "dafny_log_sha256": "647256dcf1141caf6d9ccf17eaf941a0c59e14abd8eaead6d29f225bf6ec54a6",
+        "named_bridge": "Branch(site,taken) == O.Encode(O.Branch(site,taken))",
+        "ok": true
+      }
+    ],
+    "decoy": {
+      "checker_command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "resolve",
+        "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-z2vxy5ub/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+        "--plugin",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+      ],
+      "checker_exit": 2,
+      "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/decoy-class.log",
+      "checker_log_sha256": "af84f6c8c9f7019a6c75d3520644cc4f11ef05a223fb6baa9034c8006c5efae7",
+      "note": "R2: exact FullName default registry rejects an instance-class shadow before its function can be used.",
+      "ok": true,
+      "rejection": "unregistered executable callee NativePolynomial.Decoy._ctor",
+      "schema": "microproxy.native-polynomial-decoy-control/v1"
+    },
+    "mutations": [
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "arm 0 guard is not exact index<literal"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-leaf-branch-mutation-35vxrfcv/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/leaf-branch-mutation.log",
+        "checker_log_sha256": "42c4d0b3846eb9f41de21719b2069a28a6255f0d4dbae32dadb2e5c5b1ae8d2e",
+        "control": "leaf-branch-mutation",
+        "dafny": {
+          "classification": "observed-not-used-as-proof",
+          "dafny_rc": 4,
+          "errors": null,
+          "note": "checker rejection is the load-bearing control; resource/parse output is never evidence",
+          "verified": null
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-leaf-branch-mutation-35vxrfcv/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": false,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/leaf-branch-mutation-dafny.log",
+        "dafny_log_sha256": "2c63c4ad7f0e93c48767b1ec1e8df5ad5346d7aaa2831d16f710287b6b03f5b8",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "real result is not a .0 projection"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-real-path-mutation-d2sw0xmf/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/real-path-mutation.log",
+        "checker_log_sha256": "1da75cdb4b33061cc6eeb3e63023d1068c5e25207674dd6762f6617df9f1fc93",
+        "control": "real-path-mutation",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-real-path-mutation-d2sw0xmf/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/real-path-mutation-dafny.log",
+        "dafny_log_sha256": "900637346574de759a27097fad65944fcbc6dc33e8c1182d047c6db262bb28b0",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ghost is not exactly five ordered leaves"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-child-ghost-mutation-bu1qdp4l/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/child-ghost-mutation.log",
+        "checker_log_sha256": "f50d1e42298925ca56f5c240f6dd960afccb575ff4fad82f0ecb924c44a8a8d2",
+        "control": "child-ghost-mutation",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-child-ghost-mutation-bu1qdp4l/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/child-ghost-mutation-dafny.log",
+        "dafny_log_sha256": "8c208c84f04a2ce597be0812cc92487c49747d9f8c54fac0f00c71c55c61fae3",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ghost projection ZetasValue is not immediately after an actual call with the same arguments"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/caller-arg-mutation.log",
+        "checker_log_sha256": "c3f6854ae7451d3de3f4168c7cd992d19aceecab1258286478dad8c412000601",
+        "control": "caller-arg-mutation",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 2,
+          "named": "Error:",
+          "verified": 1001
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/caller-arg-mutation-dafny.log",
+        "dafny_log_sha256": "e6fd09b954e3dfb6eba3c932bd4bc1b64b8ccb216c00c9b12e7de9ca05117257",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ChunkTrace body is not three leaves"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-chunktrace-helper-mutation-o8sgx10n/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/chunktrace-helper-mutation.log",
+        "checker_log_sha256": "4275c0baacdc0453054619d940168e505f83edda331f3b3c39a4dfe7763af0ad",
+        "control": "chunktrace-helper-mutation",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-chunktrace-helper-mutation-o8sgx10n/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/chunktrace-helper-mutation-dafny.log",
+        "dafny_log_sha256": "4dbb3b2d4dacc88604831537b42e4579b2c76352b22d5dc531b36b24b5f74212",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "BranchFalsePrefix else is not two leaves"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/branchfalseprefix-helper-mutation.log",
+        "checker_log_sha256": "bc02bca85a7c4d463888ee5e8d907b5f561b74e6e44af0956e901399cf5c72c7",
+        "control": "branchfalseprefix-helper-mutation",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-branchfalseprefix-helper-mutation-p55gko48/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/branchfalseprefix-helper-mutation-dafny.log",
+        "dafny_log_sha256": "e581b3bd5df7986287ad70caba37e091909a3b709c98824aed8707846b7ffb95",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "arm 3 ghost is not exactly five ordered leaves"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-missing-false-prefix-t008v9b0/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/missing-false-prefix.log",
+        "checker_log_sha256": "7592a20f1946d36d5317b2882e94bd62a0b55669cf6483a376f3d34aaedf2627",
+        "control": "missing-false-prefix",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-missing-false-prefix-t008v9b0/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/missing-false-prefix-dafny.log",
+        "dafny_log_sha256": "f7fdc3ad8973ab02e436ca477aed2fe186c305feccc4a777b219ef87fe416d00",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "arm 0 true event is not exact"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-ghost-reorder-0983x6i1/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/ghost-reorder.log",
+        "checker_log_sha256": "59e57f6bab86d8cf541cb7264d67305ddef9880dc7f6cb313fd7e006dda8fd94",
+        "control": "ghost-reorder",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-ghost-reorder-0983x6i1/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/ghost-reorder-dafny.log",
+        "dafny_log_sha256": "640f64967ad3a3546ea55fc96ac53b5145314bf8c08ad8ccdd3887359324db6e",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "Ops payload is not exact"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-fake-ops-tpajweti/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/fake-ops.log",
+        "checker_log_sha256": "eb9b7d045bed31f39fc0ac4ca8f2973e72297197db874aba6d7537b86b2e9aa8",
+        "control": "fake-ops",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-fake-ops-tpajweti/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/fake-ops-dafny.log",
+        "dafny_log_sha256": "fe7011cf293d1821e9d1be11f9e315129a315dc68efe95fd6c6f42f84d570e8e",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "non-approved suffix expression"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-synthetic-callee-38dwhwe8/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/synthetic-callee.log",
+        "checker_log_sha256": "75a295af8791014097ebe7d03ff97bb916d7989ea76e12096403bccd88bd294b",
+        "control": "synthetic-callee",
+        "dafny": {
+          "errors": 0,
+          "minimum": 900,
+          "verified": 1001
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-synthetic-callee-38dwhwe8/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 0,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/synthetic-callee-dafny.log",
+        "dafny_log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "actual pure call GammasValue has 0 immediate ghost projections"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/drop-callee-trace.log",
+        "checker_log_sha256": "5ec114f8854dc211f7c0d2f7323932f236da4e847840864d9b3a16e2c52618ac",
+        "control": "drop-callee-trace",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 998
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/drop-callee-trace-dafny.log",
+        "dafny_log_sha256": "f5908cba9eebc0533916930ccc5e2c197b75748a25a8d72fd2c70999c2e4c64d",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "actual pure call ZetasValue has 2 immediate ghost projections"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-duplicate-projection-e6etsery/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/duplicate-projection.log",
+        "checker_log_sha256": "8170bb00a89d56687848ca3ea1b210d8996c0059657afa5fc21d648e6ae98569",
+        "control": "duplicate-projection",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1002
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-duplicate-projection-e6etsery/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/duplicate-projection-dafny.log",
+        "dafny_log_sha256": "4304f2079d0af945c49a566358329bd9bdac2221d79cf7e3e798dfabb29d7a74",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "callee trace local is not appended immediately after its defining call"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-wrong-local-eag4q9mh/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/wrong-local.log",
+        "checker_log_sha256": "8e3b93561370f66f91c34a782691de17b81bfdfc8e357e21d54bee4ec0b1bc08",
+        "control": "wrong-local",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-wrong-local-eag4q9mh/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/wrong-local-dafny.log",
+        "dafny_log_sha256": "d0bdbc1089518acaee281d5673af24d0fb8dbea8d2f02201d2bf05eb4e59b1be",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-local-bag5ypgi/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-local.log",
+        "checker_log_sha256": "938e9fb7e41f980923b952a91410f5c54dab2aae24008d0706e096e7658b1a65",
+        "control": "rebind-local",
+        "dafny": {
+          "classification": "dafny-proof-failure",
+          "errors": 1,
+          "named": "Error:",
+          "verified": 999
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-local-bag5ypgi/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 4,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-local-dafny.log",
+        "dafny_log_sha256": "1fad31e7b15ed22f9e902acacb78fe25ed864da120ccbf84124365a2be5b01d5",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-same-model-fv88k6js/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-same-model.log",
+        "checker_log_sha256": "fabe3944d112296012cd8d23fe57aa6ba9f105b416ba441f69e65207a99fb763",
+        "control": "rebind-same-model",
+        "dafny": {
+          "errors": 0,
+          "minimum": 900,
+          "verified": 1000
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-same-model-fv88k6js/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 0,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-same-model-dafny.log",
+        "dafny_log_sha256": "0a4f846766bce9620e189e392ca7a6d17cb5f04c3842596e81b2a476c445350f",
+        "ok": true
+      },
+      {
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "AssignSuchThatStmt"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-suchthat-v1_pm0x_/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_exit": 2,
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat.log",
+        "checker_log_sha256": "17c3efc8453a29ded08a8d1ce3751c9c6904e67f283b3108fabd57e73de95bb4",
+        "control": "rebind-suchthat",
+        "dafny": {
+          "errors": 0,
+          "minimum": 900,
+          "verified": 1001
+        },
+        "dafny_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-rebind-suchthat-v1_pm0x_/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "dafny_evidence_usable": true,
+        "dafny_exit": 0,
+        "dafny_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-dafny.log",
+        "dafny_log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+        "ok": true
+      }
+    ],
+    "n1b": [
+      {
+        "body": {
+          "errors": 0,
+          "minimum": 900,
+          "verified": 1000
+        },
+        "body_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "body_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-body.log",
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "ghost trace local has 2 assignments"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-checker.log",
+        "checker_log_sha256": "fa55f65e8c246264da79b7c1c5d7ea2f3783f865ec09c06f57c4b8db016abaa3",
+        "control": "rebind-and-model-swap",
+        "generate_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "translate",
+          "java",
+          "formal/crypto/NativeMlKem.dfy",
+          "--no-verify",
+          "--outer-module",
+          "io.github.mahmoudimus.quic.internal.verifiedcrypto",
+          "--output",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/rebind-and-model-swap-java/NativeCrypto"
+        ],
+        "generate_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-generate.log",
+        "harness": {
+          "errors": 0,
+          "verified": 26
+        },
+        "harness_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "harness_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-and-model-swap-harness.log",
+        "java_files": 66,
+        "java_identical": true,
+        "ok": true
+      },
+      {
+        "body": {
+          "errors": 0,
+          "minimum": 900,
+          "verified": 1001
+        },
+        "body_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/crypto/NativePolynomial.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "body_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-body.log",
+        "checker": {
+          "classification": "resolved-ast-coverage-rejection",
+          "needle": "AssignSuchThatStmt"
+        },
+        "checker_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "resolve",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/source/polynomial/AllPolynomialTraceRoots.dfy",
+          "--plugin",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/checker-build/src/bin/Release/net6.0/PolynomialSourceCoverage.dll"
+        ],
+        "checker_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-checker.log",
+        "checker_log_sha256": "080155571e3e669f2192b4fd7ca189a05a6df4a2c1c114ce4d470a33d3020df9",
+        "control": "rebind-suchthat-model-swap",
+        "generate_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "translate",
+          "java",
+          "formal/crypto/NativeMlKem.dfy",
+          "--no-verify",
+          "--outer-module",
+          "io.github.mahmoudimus.quic.internal.verifiedcrypto",
+          "--output",
+          "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/rebind-suchthat-model-swap-java/NativeCrypto"
+        ],
+        "generate_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-generate.log",
+        "harness": {
+          "errors": 0,
+          "verified": 26
+        },
+        "harness_command": [
+          "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+          "verify",
+          "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-suchthat-model-swap-90f7ixzz/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+          "--verification-time-limit",
+          "30",
+          "--resource-limit",
+          "50000000",
+          "--cores",
+          "2",
+          "--solver-option",
+          "O:smt.case_split=0"
+        ],
+        "harness_log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/controls/rebind-suchthat-model-swap-harness.log",
+        "java_files": 66,
+        "java_identical": true,
+        "ok": true
+      }
+    ],
+    "scope_probe": {
+      "exit": 0,
+      "expected_roots": [
+        "NativePolynomial.NewZetas",
+        "NativePolynomial.NewGammas",
+        "NativePolynomial.Add",
+        "NativePolynomial.Sub",
+        "NativePolynomial.Copy",
+        "NativePolynomial.ForwardStage",
+        "NativePolynomial.InverseStage",
+        "NativePolynomial.Scale",
+        "NativePolynomial.Ntt",
+        "NativePolynomial.InverseNtt",
+        "NativePolynomial.BaseCase",
+        "NativePolynomial.NttMul",
+        "NativePolynomial.Wipe",
+        "NativeField.ReduceOnce",
+        "NativeField.Reduce",
+        "NativeField.Add",
+        "NativeField.Sub",
+        "NativeField.Mul",
+        "NativeField.MulSub",
+        "NativeField.AddMul"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/checker-scope-probe-repeated.log",
+      "log_sha256": "4b779ee5dcce977de6142b76fe9df1da43bad14370502793138c5214e218b3cd",
+      "ok": true,
+      "probe": "repeated-single-root",
+      "reason": "checker-scope-probe-repeated: checker reported duplicate resolved roots",
+      "rejected": true,
+      "selector": "NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas,NativePolynomial.NewZetas"
+    }
+  },
+  "erasure": {
+    "changed_java": [
+      "NativeCrypto-java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java"
+    ],
+    "class_bytes_identical": {
+      "21": {
+        "all_class_bytes_identical": true,
+        "base": {
+          "exit": 0,
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/javac-21-base.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "base_classes": 65,
+        "changed": [],
+        "javac": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "trace": {
+          "exit": 0,
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/javac-21-trace.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "trace_classes": 65
+      },
+      "25": {
+        "all_class_bytes_identical": true,
+        "base": {
+          "exit": 0,
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/javac-25-base.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "base_classes": 65,
+        "changed": [],
+        "javac": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/javac",
+        "trace": {
+          "exit": 0,
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/javac-25-trace.log",
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "trace_classes": 65
+      }
+    },
+    "explicit_runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "generated_files": 66,
+    "java_homes": {
+      "21": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+      "25": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/javac"
+    },
+    "runtime_artifact": "approved Maven org.dafny:DafnyRuntime:4.9.1 (dc62d345...)",
+    "text_identical": false,
+    "toolchain_runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+  },
+  "inputs_after": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+    "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/crypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/crypto/native_polynomial_domain.dfy": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/polynomial/AllPolynomialTraceRoots.dfy": "bbb8c2f4ab628c46d5eb65364927841783b929d75944640bbedbd15a6c727b1a",
+    "formal/source/polynomial/FieldTraceCompatibility.dfy": "bc9b68de09d2a356e45dac394f6e605e6e1c2b65c340594bc6b45667856ad014",
+    "formal/source/polynomial/NativePolynomialTraceHarness.dfy": "1493f687e7c276093ec263e6abf5671a3acca0c53952188738775fe43642e3ae",
+    "formal/source/polynomial/README.md": "00ddfc04c77c10d4eba545df5faec44d6d38e2e8e7f92222fb7b5b12af3a7cd1",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.cs": "fc67e059f500a10bf52f978040db92d56edd4c6475a6a21d581e4956dd406910",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj": "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0",
+    "formal/source/polynomial/controls/BranchObservedHarness.dfy": "810ce56eba91912e37905bd730346dc79c7f8686fea5194cebb76cace5197e66",
+    "formal/source/polynomial/controls/ByMethodControl.dfy": "63a2042ad2c31bc388eb76f0c6b1adeee520084881b52ea5e8616672e7a0f141",
+    "formal/source/polynomial/controls/ControlHarnesses.dfy": "d1b9a0c2422f75edc27a4fef6764f7c5193706ec560015345b5d1de44583b45a",
+    "formal/source/polynomial/controls/FunctionBranchHarness.dfy": "9e58499849d13989682767d60b9f457a338a6a9f782330f250ceece9321beafc",
+    "formal/source/polynomial/controls/FunctionIndexHarness.dfy": "a981aa749c0b399c32b58b6f1898903f049fd46abbec93c4d6d845cff0996b8d",
+    "formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy": "a106ef37252e0a02fcdd70c51a0673082f945103ef7fc45f2a4b9969acf0b4d8",
+    "formal/source/polynomial/controls/IndexObservedHarness.dfy": "ed7743b93805b0f99b79964d1a2aebd0e5aa7d22019b2d94092336cd86b1ccfa",
+    "formal/source/polynomial/controls/LemmaOutControl.dfy": "fd699d9bc48b4bf057c98c91848946db44973c54ab332fa5e63780f6a133b295",
+    "formal/source/polynomial/controls/PolynomialControls.dfy": "9b4e9b1bcc01894928f2d79c5550f79dad2458e54fff8cfdc539849470d8e77e",
+    "formal/source/polynomial/controls/UnmarkedHarnesses.dfy": "280f1c34d4d91996b74404ce1e1ab5a0f9569259ed7426a10f3c3db3c2ca4a57",
+    "formal/source/polynomial/inputs.json": "1fce38876c7914e381be81321731957afe2a5194fea8ca34b7f1feaa9c098159",
+    "formal/source/polynomial/replay.py": "a12dfdbdb3f39a6a0d7ff455b984b5712ee60c716f58b38caf8fac9fb0f24a9e",
+    "formal/source/polynomial/test_replay.py": "49c7114ed9306dac2024c33804523780c9b197f9731d32e80031d95c17f5cbe3",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+  },
+  "inputs_before": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+    "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/crypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/crypto/native_polynomial_domain.dfy": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+    "formal/source/polynomial/AllPolynomialTraceRoots.dfy": "bbb8c2f4ab628c46d5eb65364927841783b929d75944640bbedbd15a6c727b1a",
+    "formal/source/polynomial/FieldTraceCompatibility.dfy": "bc9b68de09d2a356e45dac394f6e605e6e1c2b65c340594bc6b45667856ad014",
+    "formal/source/polynomial/NativePolynomialTraceHarness.dfy": "1493f687e7c276093ec263e6abf5671a3acca0c53952188738775fe43642e3ae",
+    "formal/source/polynomial/README.md": "00ddfc04c77c10d4eba545df5faec44d6d38e2e8e7f92222fb7b5b12af3a7cd1",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.cs": "fc67e059f500a10bf52f978040db92d56edd4c6475a6a21d581e4956dd406910",
+    "formal/source/polynomial/checker/PolynomialSourceCoverage.csproj": "b37f0a8aadee87bc0c0191352311cc656b21e0e0fbc61cf0e71e4d4e49dfb2c0",
+    "formal/source/polynomial/controls/BranchObservedHarness.dfy": "810ce56eba91912e37905bd730346dc79c7f8686fea5194cebb76cace5197e66",
+    "formal/source/polynomial/controls/ByMethodControl.dfy": "63a2042ad2c31bc388eb76f0c6b1adeee520084881b52ea5e8616672e7a0f141",
+    "formal/source/polynomial/controls/ControlHarnesses.dfy": "d1b9a0c2422f75edc27a4fef6764f7c5193706ec560015345b5d1de44583b45a",
+    "formal/source/polynomial/controls/FunctionBranchHarness.dfy": "9e58499849d13989682767d60b9f457a338a6a9f782330f250ceece9321beafc",
+    "formal/source/polynomial/controls/FunctionIndexHarness.dfy": "a981aa749c0b399c32b58b6f1898903f049fd46abbec93c4d6d845cff0996b8d",
+    "formal/source/polynomial/controls/FunctionUnmarkedHarnesses.dfy": "a106ef37252e0a02fcdd70c51a0673082f945103ef7fc45f2a4b9969acf0b4d8",
+    "formal/source/polynomial/controls/IndexObservedHarness.dfy": "ed7743b93805b0f99b79964d1a2aebd0e5aa7d22019b2d94092336cd86b1ccfa",
+    "formal/source/polynomial/controls/LemmaOutControl.dfy": "fd699d9bc48b4bf057c98c91848946db44973c54ab332fa5e63780f6a133b295",
+    "formal/source/polynomial/controls/PolynomialControls.dfy": "9b4e9b1bcc01894928f2d79c5550f79dad2458e54fff8cfdc539849470d8e77e",
+    "formal/source/polynomial/controls/UnmarkedHarnesses.dfy": "280f1c34d4d91996b74404ce1e1ab5a0f9569259ed7426a10f3c3db3c2ca4a57",
+    "formal/source/polynomial/inputs.json": "1fce38876c7914e381be81321731957afe2a5194fea8ca34b7f1feaa9c098159",
+    "formal/source/polynomial/replay.py": "a12dfdbdb3f39a6a0d7ff455b984b5712ee60c716f58b38caf8fac9fb0f24a9e",
+    "formal/source/polynomial/test_replay.py": "49c7114ed9306dac2024c33804523780c9b197f9731d32e80031d95c17f5cbe3",
+    "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+  },
+  "inputs_manifest_sha256": "1fce38876c7914e381be81321731957afe2a5194fea8ca34b7f1feaa9c098159",
+  "inputs_unchanged": true,
+  "official_source_closure": {
+    "field-compatibility": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/polynomial/FieldTraceCompatibility.dfy": "bc9b68de09d2a356e45dac394f6e605e6e1c2b65c340594bc6b45667856ad014",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "mlkem": {
+      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+      "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+      "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+      "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+      "formal/crypto/NativeMlKem.dfy": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+      "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+      "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+      "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "native-field": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "native-polynomial": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "paired-harness": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/polynomial/NativePolynomialTraceHarness.dfy": "1493f687e7c276093ec263e6abf5671a3acca0c53952188738775fe43642e3ae",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "polynomial-domain": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/crypto/native_polynomial_domain.dfy": "bb384bf4e5ede214d5159d28ef096fa4db31b8dd888ffc4eb1a8c66de2e8b1e5",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    },
+    "roots": {
+      "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+      "formal/crypto/NativePolynomial.dfy": "44bfa09b0473b9c3f5885567c2647e1ead0d26cef2a1329d5d2d43d44b58e54e",
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+      "formal/source/SourceTrace.dfy": "adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866",
+      "formal/source/polynomial/AllPolynomialTraceRoots.dfy": "bbb8c2f4ab628c46d5eb65364927841783b929d75944640bbedbd15a6c727b1a",
+      "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5"
+    }
+  },
+  "package_scope": {
+    "component_overrides": [
+      "formal/crypto/NativeField.dfy",
+      "formal/crypto/NativePolynomial.dfy",
+      "formal/crypto/NativeSampling.dfy",
+      "formal/crypto/NativeMlKem.dfy",
+      "formal/crypto/native_polynomial_domain.dfy"
+    ],
+    "helper_dfy": [
+      "formal/crypto/Codec.dfy",
+      "formal/crypto/JdkHash.dfy",
+      "formal/crypto/KemSpec.dfy",
+      "formal/crypto/NativeCodec.dfy",
+      "formal/crypto/NativeJdkHash.dfy",
+      "formal/crypto/NativeKeccak.dfy",
+      "formal/crypto/NativeShake.dfy",
+      "formal/crypto/NativeTypes.dfy",
+      "formal/crypto/Polynomial.dfy",
+      "formal/crypto/Sampling.dfy",
+      "formal/crypto/Shake.dfy",
+      "formal/crypto/SpongeSpec.dfy"
+    ],
+    "primitive_files": [
+      "formal/primitives/Field.dfy",
+      "formal/primitives/Keccak.dfy"
+    ],
+    "provider_java": [
+      "formal/crypto/kem_hash.java",
+      "formal/crypto/native_kem_hash.java"
+    ],
+    "shared_source": [
+      "formal/source/SourceTrace.dfy",
+      "formal/source/vocabulary/ObservationVocabulary.dfy"
+    ],
+    "tool_files": [
+      "formal/dafny/toolchain.py",
+      "formal/dafny/tools.json",
+      "formal/crypto/delivery.py"
+    ],
+    "top_level_fixture_readme_pinned": false,
+    "top_level_port_manifest_pinned": false
+  },
+  "policy": {
+    "composition_case_split": 3,
+    "cores": 2,
+    "native_case_split": 0,
+    "resource": 50000000,
+    "time": 30
+  },
+  "proofs": [
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeField.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 86,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "field",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-field.log",
+      "log_sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548",
+      "target": "formal/crypto/NativeField.dfy",
+      "verified": 86
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativePolynomial.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 1001,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "polynomial",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-polynomial.log",
+      "log_sha256": "d485090dbce40756ca66aed1f7c71e5a5ee7d5f3d3dbda5d0401865d5a1f69aa",
+      "target": "formal/crypto/NativePolynomial.dfy",
+      "verified": 1001
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 26,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "paired-harness",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-paired-harness.log",
+      "log_sha256": "66548af863fc5122af940a3666f4eb79c5c629af89c169b32b09faae6fff5549",
+      "target": "formal/source/polynomial/NativePolynomialTraceHarness.dfy",
+      "verified": 26
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/crypto/NativeMlKem.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=3"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 2767,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=3"
+      ],
+      "label": "mlkem-composition",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-mlkem-composition.log",
+      "log_sha256": "435e8f1b0640a104b6e83802ca6209a98ac4d0b44340910f022ec3ab7de3e736",
+      "target": "formal/crypto/NativeMlKem.dfy",
+      "verified": 2767
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/FieldTraceCompatibility.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 14,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "field-compatibility",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-field-compatibility.log",
+      "log_sha256": "d28a9e7a26e410815a36baa5fb6c5bbc5417aabc74215b5bfd2462f90db346a2",
+      "target": "formal/source/polynomial/FieldTraceCompatibility.dfy",
+      "verified": 14
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/SourceTrace.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 17,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "source-trace",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-source-trace.log",
+      "log_sha256": "b835334821d0fb87300f4c9f7c9462ed66053b744b36a94273bf625eda3eb4a0",
+      "target": "formal/source/SourceTrace.dfy",
+      "verified": 17
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/vocabulary/ObservationVocabulary.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 29,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "observation-vocabulary",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-observation-vocabulary.log",
+      "log_sha256": "25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2",
+      "target": "formal/source/vocabulary/ObservationVocabulary.dfy",
+      "verified": 29
+    },
+    {
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/frozen/formal/source/polynomial/controls/PolynomialControls.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "errors": 0,
+      "exit": 0,
+      "expected": 19,
+      "flags": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "label": "checker-controls",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-source-v1/logs/verify-checker-controls.log",
+      "log_sha256": "4d5a1cd64d4003d936a404e4aa8aa2be63d1c23d058b1b77299c7ba9f8180435",
+      "target": "formal/source/polynomial/controls/PolynomialControls.dfy",
+      "verified": 19
+    }
+  ],
+  "root": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy",
+  "runtime": {
+    "approved_artifact": "approved Maven org.dafny:DafnyRuntime:4.9.1 (dc62d345...)",
+    "explicit_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "path": "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+    "toolchain_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+  },
+  "schema": "microproxy.native-polynomial-central-port/v1",
+  "scope": "NativePolynomial/Field source observation prototype; 20 method roots + 19 pure helpers; not whole issue #117, not whole-crypto, not JVM timing",
+  "status": "complete",
+  "tool": {
+    "asset_sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+    "explicit_runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "name": "dafny",
+    "toolchain_runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+    "toolchain_sha256": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "tools_manifest": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/dafny/tools.json",
+    "tools_manifest_sha256": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2"
+  },
+  "trust_boundaries": [
+    "Dafny verifier and ghost erasure",
+    "trusted resolved-AST C# checker",
+    "javac/JVM and DafnyRuntime",
+    "JCE/provider runtime",
+    "read/write roles are method-local resolved identities"
+  ]
+}

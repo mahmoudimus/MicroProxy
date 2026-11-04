@@ -1,0 +1,16 @@
+{
+  "purpose": "Byte-identical pre-adoption Java comparison baseline; validation only, never shipped. Production correctness is checked separately against generated artifacts and external vectors.",
+  "source_commit": "edb8357d101223b0a2bcc3d13dcca3defb50083a",
+  "files": [
+    {
+      "original": "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java",
+      "reference": "formal/crypto/reference/MlKem768.java",
+      "sha256": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+    },
+    {
+      "original": "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java",
+      "reference": "formal/crypto/reference/Shake.java",
+      "sha256": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697"
+    }
+  ]
+}

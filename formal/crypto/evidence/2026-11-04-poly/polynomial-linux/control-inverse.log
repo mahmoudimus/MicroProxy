@@ -1,0 +1,7 @@
+/tmp/native-polynomial-_6tjra83/native_polynomial_inverse.dfy(1059,27): Error: assertion might not hold
+     |
+1059 |         if i == 0 { assert r[2] as int == S.InverseLane(T.Ints(f),s as int,2); }
+     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 9 assertions verified, 1 error

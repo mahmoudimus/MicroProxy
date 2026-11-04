@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/wrong-fallback-seed.dfy(1076,11): Error: assertion might not hold
+     |
+1076 |     assert z[..] == dk.seed[32..64];
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 5 assertions verified, 1 error

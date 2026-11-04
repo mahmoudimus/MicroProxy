@@ -97,7 +97,7 @@
     "generated_java_sha256": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
     "generated_class_key": "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class",
     "generated_class_sha256": "64ba6bbcccba2bc0f519b60ba090e11cf164544e98e24e73cd4699f9481c7069",
-    "external_replay_report_sha256": "4c11918847dec99181cd317cad3092f8e5df118f2ce6e07ea6863e73175c617f",
+    "external_replay_report_sha256": "130d82c0c3960447557ff255dae13739e322ca54bf8169370f685c9641d2f148",
     "external_replay_report_role": "provenance only; the typed validator recomputes every repository hash and does not trust the external report or a receipt checksum"
   },
   "bridge": {
@@ -110,7 +110,7 @@
   },
   "delivery": {
     "manifest": "formal/crypto/delivery.json",
-    "manifest_sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+    "manifest_sha256": "644b20103de40c29be5d335651df75ad6c9b3c1982414e1675a2dd1689f35c21",
     "existing_generated_sources_key": "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
     "existing_generated_sources_sha256": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
     "crypto_scope_prefixes": [

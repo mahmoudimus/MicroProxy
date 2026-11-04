@@ -1,0 +1,12 @@
+/tmp/native-polynomial-_6tjra83/native_polynomial_reduce.dfy(71,2): Error: a postcondition could not be proved on this return path
+   |
+71 |   {
+   |   ^
+
+/tmp/native-polynomial-_6tjra83/native_polynomial_reduce.dfy(69,26): Related location: this is the postcondition that could not be proved
+   |
+69 |     ensures 0 <= r < Q && r as int == (a as int)%3329
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 33 verified, 1 error

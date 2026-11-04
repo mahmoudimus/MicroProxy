@@ -1,0 +1,12 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-order/NativeSampling.dfy(92,13): Error: assertion might not hold
+   |
+92 |       assert x as int == S.First(bytes,off as int) && y as int == S.Second(bytes,off as int);
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/feed-order/NativeSampling.dfy(92,54): Error: assertion might not hold
+   |
+92 |       assert x as int == S.First(bytes,off as int) && y as int == S.Second(bytes,off as int);
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 274 verified, 2 errors

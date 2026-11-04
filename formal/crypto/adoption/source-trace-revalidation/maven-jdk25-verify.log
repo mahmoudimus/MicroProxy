@@ -1,0 +1,1376 @@
+BBR, 2 kB every 50 ms: modes [STARTUP], estimate 59800, window 454801
+50 Mbit/s, 40 ms, 1% loss: CUBIC 0.45 MB/s (22.32 s, 69 lost, 0 queue drops); BBR 5.98 MB/s (1.67 s, 65 lost, 0 queue drops); BBR without loss 6.02 MB/s (1.66 s, 0 lost, 0 queue drops)
+BBR on 20 Mbit/s, 40 ms, 20 seeds: estimate 2.5000 to 2.5000 MB/s, 4 MB transfers at 2.402 to 2.405 MB/s, 244 to 246 queue drops
+BBR, 50 then 10 Mbit/s at 2 s: estimate 6.250 MB/s before, down after 13 rounds (3895 ms), 1.250 MB/s at the end; 2.36 MB/s (8.46 s, 0 lost, 0 queue drops)
+BBR modes, RTT 40 then 60 ms: [STARTUP@0ms, DRAIN@525ms, PROBE_BW@642ms, PROBE_RTT@10729ms, PROBE_BW@11004ms]
+BBR modes, 100 Mbit/s, 40 ms: [STARTUP@0ms, DRAIN@525ms, PROBE_BW@642ms, PROBE_RTT@10729ms, PROBE_BW@10940ms, PROBE_RTT@20980ms, PROBE_BW@21191ms], estimate 12500000 B/s, utilization 0.9947077033463154, PROBE_RTT after minimum RTT ages of [10000 ms, 10000 ms]
+BBR, 50 then 10 Mbit/s: estimate and pacing rate down after 12 rounds (4276 ms), estimate 1250000 B/s
+BBR, then 200 Mbit/s: estimate up after 22 rounds
+loopback echo: 32 streams, 67 MB moved in 0.61 s = 110.8 MB/s; Stats[rtt=PT0.000945087S, minRtt=PT0.00007325S, rttVariance=PT0.000296063S, congestionWindow=22344264, bytesInFlight=37, mtu=8192, sentPackets=4425, sentBytes=33767404, receivedPackets=4422, receivedBytes=33767680, lostPackets=0, lostBytes=0, probeTimeouts=0, congestionEvents=0, keyUpdates=1, migrations=0, natRebindings=0, strayDatagrams=0, pathValidations=0, pathValidationFailures=0, zeroRttAccepted=false, zeroRttRejected=false, congestionController=cubic, droppedDatagrams=0]
+loopback upload: 24 MB in 0.04 s = 605.0 MB/s; Stats[rtt=PT0.000628754S, minRtt=PT0.00008775S, rttVariance=PT0.000308533S, congestionWindow=25199935, bytesInFlight=0, mtu=8192, sentPackets=3103, sentBytes=25334122, receivedPackets=539, receivedBytes=85703, lostPackets=0, lostBytes=0, probeTimeouts=0, congestionEvents=0, keyUpdates=1, migrations=0, natRebindings=0, strayDatagrams=0, pathValidations=0, pathValidationFailures=0, zeroRttAccepted=false, zeroRttRejected=false, congestionController=cubic, droppedDatagrams=0]
+loopback echo with BBR: 16 MB each way in 0.04 s = 798.4 MB/s; Stats[rtt=PT0.000563414S, minRtt=PT0.000160625S, rttVariance=PT0.000438974S, congestionWindow=1047467, bytesInFlight=32, mtu=8192, sentPackets=2203, sentBytes=16916914, receivedPackets=2136, receivedBytes=16914235, lostPackets=0, lostBytes=0, probeTimeouts=0, congestionEvents=0, keyUpdates=1, migrations=0, natRebindings=0, strayDatagrams=0, pathValidations=0, pathValidationFailures=0, zeroRttAccepted=false, zeroRttRejected=false, congestionController=bbr, droppedDatagrams=0]; ControllerMetrics[congestionWindow=1047467, slowStartThreshold=-1, pacingRate=7729675160, bandwidthEstimate=6183740128]
+Nov 03, 2026 10:51:02 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 189] TLS handshake with server failed: peer=localhost/127.0.0.1:59004 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:02 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 192] TLS handshake with server failed: peer=localhost/127.0.0.1:59018 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:02 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 195] TLS handshake with server failed: peer=localhost/127.0.0.1:59030 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:02 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 200] TLS handshake with server failed: peer=localhost/127.0.0.1:59046 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 202] TLS handshake with server failed: peer=localhost/127.0.0.1:59052 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 202] TLS handshake with server failed: peer=localhost/127.0.0.1:59054 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 208] TLS handshake with server failed: peer=localhost/127.0.0.1:59073 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 208] TLS handshake with server failed: peer=localhost/127.0.0.1:59075 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 208] TLS handshake with server failed: peer=localhost/127.0.0.1:59077 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 212] TLS handshake with server failed: peer=localhost/127.0.0.1:59087 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 216] TLS handshake with server failed: peer=localhost/127.0.0.1:59087 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 219] TLS handshake with server failed: peer=localhost/127.0.0.1:59121 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 222] TLS handshake with server failed: peer=localhost/127.0.0.1:59132 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 224] TLS handshake with server failed: peer=localhost/127.0.0.1:59132 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 226] TLS handshake with server failed: peer=localhost/127.0.0.1:59141 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 229] TLS handshake with server failed: peer=localhost/127.0.0.1:59155 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:04 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 231] TLS handshake with server failed: peer=localhost/127.0.0.1:59161 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 237] TLS handshake with client started: peer=/127.0.0.1:59253 mode=server clientAuth=none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog succeeded
+FINE: [conn 237] TLS handshake with client succeeded in 2 ms: peer=/127.0.0.1:59253 sni=proxy.test mode=server protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 239] TLS handshake with client started: peer=/127.0.0.1:59257 mode=server clientAuth=none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 238] TLS handshake with chained proxy started: peer=localhost/127.0.0.1:59254 host=localhost mode=client
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 238] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:59254 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog failed
+FINE: [conn 239] TLS handshake with client failed: peer=/127.0.0.1:59257 sni=localhost mode=server protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 error="SSLHandshakeException: (certificate_unknown) Received fatal alert: certificate_unknown"; local cert: [subject="CN=localhost,O=MicroProxy" issuer="CN=localhost,O=MicroProxy" notAfter=2036-11-01T06:51:08Z san=[DNS:localhost, IP:127.0.0.1, IP:0:0:0:0:0:0:0:1]]; peer chain: none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.ClientConnection connect
+FINE: [conn 238] connection to 127.0.0.1:1 via localhost/127.0.0.1:59254 failed: javax.net.ssl.SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.ClientConnection run
+FINE: [conn 239] client connection failed: javax.net.ssl.SSLHandshakeException: (certificate_unknown) Received fatal alert: certificate_unknown
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.ClientConnection proxyRequest
+FINE: [conn 238] unable to connect to 127.0.0.1:1: javax.net.ssl.SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog diagnosticsFailed
+FINE: [conn 0] TLS diagnostics failed: java.lang.IllegalStateException: no address
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog diagnosticsFailed
+FINE: [conn 0] TLS diagnostics failed: java.lang.IllegalStateException: no address
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.ClientConnection serveRequests
+FINE: [conn 240] bad request from client: malformed request line
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 241] TLS handshake with server started: peer=/127.0.0.1:59260 host=127.0.0.1 mode=client
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog succeeded
+FINE: [conn 241] TLS handshake with server succeeded in 4 ms: peer=/127.0.0.1:59260 host=127.0.0.1 mode=client protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 241] TLS handshake with client started: peer=/127.0.0.1:59262 host=127.0.0.1 mode=server clientAuth=none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog succeeded
+FINE: [conn 241] TLS handshake with client succeeded in 3 ms: peer=/127.0.0.1:59262 host=127.0.0.1 mode=server protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog started
+FINE: [conn 242] TLS handshake with client started: peer=/127.0.0.1:59265 mode=server clientAuth=none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.TlsLog failed
+FINE: [conn 242] TLS handshake with client failed: peer=/127.0.0.1:59265 sni=proxy.test mode=server protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 error="SSLHandshakeException: (certificate_unknown) Received fatal alert: certificate_unknown"; local cert: [subject="CN=localhost,O=MicroProxy" issuer="CN=localhost,O=MicroProxy" notAfter=2036-11-01T06:51:08Z san=[DNS:localhost, IP:127.0.0.1, IP:0:0:0:0:0:0:0:1]]; peer chain: none
+Nov 03, 2026 10:51:08 PM org.microproxy.impl.ClientConnection run
+FINE: [conn 242] client connection failed: javax.net.ssl.SSLHandshakeException: (certificate_unknown) Received fatal alert: certificate_unknown
+Nov 03, 2026 10:51:15 PM org.microproxy.impl.ClientConnection retryBackoff
+WARNING: [conn 247] chainedProxyRetryBackoff threw; using the server's
+java.lang.IllegalStateException: broken filter
+	at org.microproxy.impl.ChainedProxyBackoffTest$5.chainedProxyRetryBackoff(ChainedProxyBackoffTest.java:207)
+	at org.microproxy.impl.ClientConnection.retryBackoff(ClientConnection.java:5496)
+	at org.microproxy.impl.ClientConnection.connect(ClientConnection.java:5370)
+	at org.microproxy.impl.ClientConnection.connect(ClientConnection.java:5342)
+	at org.microproxy.impl.ClientConnection.connect(ClientConnection.java:5333)
+	at org.microproxy.impl.ClientConnection.proxyRequest(ClientConnection.java:2242)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1980)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:15 PM org.microproxy.impl.Http2Support defaultsFallBack
+INFO: HTTP/2 is on by default but the http2-codec module (io.github.mahmoudimus:http2-codec) is not on the class path: clients and servers get HTTP/1.1; add its jar for HTTP/2, or turn it off (withHttp2(false) and withHttp2Upstream(false), --no-http2 and --no-http2-upstream) to silence this
+Nov 03, 2026 10:51:15 PM org.microproxy.impl.Http2Support defaultsFallBack
+FINE: HTTP/2 is on by default but the http2-codec module (io.github.mahmoudimus:http2-codec) is not on the class path: clients and servers get HTTP/1.1; add its jar for HTTP/2, or turn it off (withHttp2(false) and withHttp2Upstream(false), --no-http2 and --no-http2-upstream) to silence this
+Nov 03, 2026 10:51:15 PM org.microproxy.impl.Http2Support defaultsFallBack
+FINE: HTTP/2 is on by default but the http2-codec module (io.github.mahmoudimus:http2-codec) is not on the class path: clients and servers get HTTP/1.1; add its jar for HTTP/2, or turn it off (withHttp2(false) and withHttp2Upstream(false), --no-http2 and --no-http2-upstream) to silence this
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: HEADERS on stream 3; stream ids are read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: HEADERS can only be replaced by HEADERS, not DATA; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: DATA in place of HEADERS; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: invalid header block: field X-Upper: upper-case name; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 from_server: invalid header block: connection-specific field connection; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: invalid header block: pseudo-header :path after a regular field; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for HEADERS on stream 1 to_client: invalid header block: field x: NUL, CR or LF in value; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: not an HTTP/2 frame: DATA[1 bytes]; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: HEADERS after DATA that does not end the stream; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: DATA after the trailers; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: a frame on the stream after the one that ends it; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: an extension frame on another stream (9); passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for DATA on stream 1 to_client: an extension frame of more than 16376 bytes; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for RST_STREAM on stream 1 to_client: RST_STREAM cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for RST_STREAM on stream 1 to_client: RST_STREAM on stream 3; stream ids are read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for GOAWAY on stream 0 to_client: the last stream id is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for GOAWAY on stream 0 from_server: GOAWAY cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 from_server: SETTINGS ACK is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for WINDOW_UPDATE on stream 0 to_client: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for PING on stream 0 to_client: PING is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for PING on stream 0 to_client: PING is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for PRIORITY on stream 3 from_server: a stream that depends on itself; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 to_client: the proxy's own MAX_CONCURRENT_STREAMS is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 from_server: a larger INITIAL_WINDOW_SIZE than the peer's; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 from_server: a larger INITIAL_WINDOW_SIZE than the peer's; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 from_server: invalid SETTINGS: connection error PROTOCOL_ERROR: SETTINGS_MAX_FRAME_SIZE must be 2^14 to 2^24-1, got 100; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor result rejected for SETTINGS on stream 0 from_server: ENABLE_CONNECT_PROTOCOL turned on; passing the frame on unchanged
+Nov 03, 2026 10:51:18 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [test] frame interceptor failed on DATA on stream 1 from_server; passing the frame on unchanged
+java.lang.IllegalStateException: boom
+	at org.microproxy.impl.Http2FramesTest.lambda$illegalResultsAreReplacedByTheOriginal$43(Http2FramesTest.java:253)
+	at org.microproxy.impl.Http2FramesTest.lambda$new$1(Http2FramesTest.java:92)
+	at org.microproxy.impl.Http2Frames.intercept(Http2Frames.java:121)
+	at org.microproxy.impl.Http2FramesTest.run(Http2FramesTest.java:96)
+	at org.microproxy.impl.Http2FramesTest.illegalResultsAreReplacedByTheOriginal(Http2FramesTest.java:256)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:24 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 381] TLS handshake with server failed: peer=/127.0.0.1:60115 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:24 PM org.microproxy.impl.ClientConnection run
+WARNING: [conn 388] unexpected error on client connection
+java.lang.IllegalStateException: a broken filter
+	at org.microproxy.WebSocketStatsTest$3.clientToProxyRequest(WebSocketStatsTest.java:98)
+	at org.microproxy.impl.ClientConnection.requestHook(ClientConnection.java:315)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1918)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:24 PM org.microproxy.impl.ClientConnection run
+WARNING: [conn 389] unexpected error on client connection
+java.lang.IllegalStateException: a broken filter
+	at org.microproxy.WebSocketStatsTest$3.clientToProxyRequest(WebSocketStatsTest.java:98)
+	at org.microproxy.impl.ClientConnection.requestHook(ClientConnection.java:315)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1918)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:25 PM org.microproxy.extras.ServerReplay$Filters clientToProxyRequest
+WARNING: server replay: returned 404 for non-replay request http://127.0.0.1:60189/recorded?q=1
+Nov 03, 2026 10:51:25 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 409] TLS handshake with server failed: peer=localhost/127.0.0.1:60225 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative DNS name matching localhost found." root="CertificateException: No subject alternative DNS name matching localhost found."; local cert: none; peer chain: none
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.WebSocketRelay finishMessage
+WARNING: [conn 431] WebSocket message filter threw
+java.lang.IllegalStateException: boom
+	at org.microproxy.WebSocketMessageTest$6.filterWebSocketMessage(WebSocketMessageTest.java:303)
+	at org.microproxy.HttpFilters.filterWebSocketMessages(HttpFilters.java:515)
+	at org.microproxy.impl.WebSocketRelay.finishMessage(WebSocketRelay.java:327)
+	at org.microproxy.impl.WebSocketRelay.pump(WebSocketRelay.java:229)
+	at org.microproxy.impl.WebSocketRelay.pump(WebSocketRelay.java:136)
+	at org.microproxy.impl.Tunnel.run(Tunnel.java:127)
+	at org.microproxy.impl.Tunnel.lambda$relay$3(Tunnel.java:94)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.WebSocketRelay finishMessage
+WARNING: [conn 431] WebSocket message filter threw
+java.lang.IllegalStateException: boom
+	at org.microproxy.WebSocketMessageTest$6.filterWebSocketMessage(WebSocketMessageTest.java:303)
+	at org.microproxy.HttpFilters.filterWebSocketMessages(HttpFilters.java:515)
+	at org.microproxy.impl.WebSocketRelay.finishMessage(WebSocketRelay.java:327)
+	at org.microproxy.impl.WebSocketRelay.pump(WebSocketRelay.java:229)
+	at org.microproxy.impl.WebSocketRelay.pump(WebSocketRelay.java:136)
+	at org.microproxy.impl.Tunnel.run(Tunnel.java:127)
+	at org.microproxy.impl.Tunnel.relay(Tunnel.java:95)
+	at org.microproxy.impl.Http1ClientChannel.relay(Http1ClientChannel.java:526)
+	at org.microproxy.impl.ClientConnection.relayCounted(ClientConnection.java:354)
+	at org.microproxy.impl.ClientConnection.relayResponse(ClientConnection.java:2906)
+	at org.microproxy.impl.ClientConnection.send(ClientConnection.java:2510)
+	at org.microproxy.impl.ClientConnection.exchange(ClientConnection.java:2375)
+	at org.microproxy.impl.ClientConnection.proxyRequest(ClientConnection.java:2303)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1980)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 442] TLS handshake with server failed: peer=localhost/127.0.0.1:60385 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative DNS name matching localhost found." root="CertificateException: No subject alternative DNS name matching localhost found."; local cert: none; peer chain: none
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 443] TLS handshake with server failed: peer=localhost/127.0.0.1:60389 host=localhost mode=client error="SSLHandshakeException: (certificate_revoked) PKIX path validation failed: java.security.cert.CertPathValidatorException: Certificate has been revoked, reason: UNSPECIFIED, revocation date: Tue Nov 03 21:51:27 PST 2026, authority: CN=TLS Failure Origin CA, O=MicroProxy, extension OIDs: []" root="CertificateRevokedException: Certificate has been revoked, reason: UNSPECIFIED, revocation date: Tue Nov 03 21:51:27 PST 2026, authority: CN=TLS Failure Origin CA, O=MicroProxy, extension OIDs: []"; local cert: none; peer chain: [subject="CN=localhost,O=MicroProxy" issuer="CN=TLS Failure Origin CA,O=MicroProxy" notAfter=2026-12-04T06:51:27Z san=[DNS:localhost]]
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 444] TLS handshake with server failed: peer=localhost/127.0.0.1:60393 host=localhost mode=client error="SSLHandshakeException: (certificate_expired) PKIX path validation failed: java.security.cert.CertPathValidatorException: validity check failed" root="CertificateExpiredException: NotAfter: Mon Nov 02 22:51:27 PST 2026"; local cert: none; peer chain: [subject="CN=localhost,O=MicroProxy" issuer="CN=TLS Failure Origin CA,O=MicroProxy" notAfter=2026-11-03T06:51:27Z san=[DNS:localhost]]
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 445] TLS handshake with server failed: peer=localhost/127.0.0.1:60399 host=localhost mode=client error="SSLHandshakeException: (certificate_revoked) PKIX path validation failed: java.security.cert.CertPathValidatorException: Certificate has been revoked, reason: UNSPECIFIED, revocation date: Tue Nov 03 21:51:27 PST 2026, authority: CN=TLS Failure Origin CA, O=MicroProxy, extension OIDs: []" root="CertificateRevokedException: Certificate has been revoked, reason: UNSPECIFIED, revocation date: Tue Nov 03 21:51:27 PST 2026, authority: CN=TLS Failure Origin CA, O=MicroProxy, extension OIDs: []"; local cert: none; peer chain: [subject="CN=localhost,O=MicroProxy" issuer="CN=TLS Failure Origin CA,O=MicroProxy" notAfter=2026-12-04T06:51:27Z san=[DNS:localhost]]
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 446] TLS handshake with server failed: peer=localhost/127.0.0.1:60403 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TcpSession message
+WARNING: [conn 452] TCP interceptor's tcpMessage threw; passing the bytes on
+java.lang.IllegalStateException: broken hook
+	at org.microproxy.TcpInterceptorTest.lambda$aThrowingHookPassesTheBytesOn$12(TcpInterceptorTest.java:461)
+	at org.microproxy.impl.TcpSession.message(TcpSession.java:187)
+	at org.microproxy.impl.Tunnel.pumpTcp(Tunnel.java:165)
+	at org.microproxy.impl.Tunnel.run(Tunnel.java:120)
+	at org.microproxy.impl.Tunnel.lambda$relay$3(Tunnel.java:94)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:27 PM org.microproxy.impl.TcpSession message
+WARNING: [conn 452] TCP interceptor's tcpMessage threw; passing the bytes on
+java.lang.IllegalStateException: broken hook
+	at org.microproxy.TcpInterceptorTest.lambda$aThrowingHookPassesTheBytesOn$12(TcpInterceptorTest.java:461)
+	at org.microproxy.impl.TcpSession.message(TcpSession.java:187)
+	at org.microproxy.impl.Tunnel.pumpTcp(Tunnel.java:165)
+	at org.microproxy.impl.Tunnel.run(Tunnel.java:120)
+	at org.microproxy.impl.Tunnel.relay(Tunnel.java:95)
+	at org.microproxy.impl.Http1ClientChannel.relay(Http1ClientChannel.java:526)
+	at org.microproxy.impl.ClientConnection.relayCounted(ClientConnection.java:354)
+	at org.microproxy.impl.ClientConnection.serveEstablished(ClientConnection.java:3557)
+	at org.microproxy.impl.ClientConnection.answerConnect(ClientConnection.java:3522)
+	at org.microproxy.impl.ClientConnection.handleConnect(ClientConnection.java:3182)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1941)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:28 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 472] TLS handshake with server failed: peer=/127.0.0.1:60503 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:28 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 501] frame interceptor result rejected for PING on stream 0 from_client: PING is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:28 PM org.microproxy.impl.TcpSession message
+WARNING: [conn 502] TCP interceptor's tcpMessage threw; passing the bytes on
+java.lang.IllegalStateException: a broken hook
+	at org.microproxy.HookStatsTest$1.tcpMessage(HookStatsTest.java:54)
+	at org.microproxy.impl.TcpSession.message(TcpSession.java:187)
+	at org.microproxy.impl.Tunnel.pumpTcp(Tunnel.java:165)
+	at org.microproxy.impl.Tunnel.run(Tunnel.java:120)
+	at org.microproxy.impl.Tunnel.lambda$relay$3(Tunnel.java:94)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:40 PM org.microproxy.cache.DiskCacheStore <init>
+WARNING: dropping unreadable cache file /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-9530771850296306112/e4c98556f62f77dcd1c06ce344ae7d5d8aad565d.entry: java.io.EOFException
+Nov 03, 2026 10:51:40 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 651] TLS handshake with server failed: peer=/127.0.0.1:61147 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative names matching IP address 127.0.0.1 found" root="CertificateException: No subject alternative names matching IP address 127.0.0.1 found"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:40 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 656] TLS handshake with server failed: peer=/127.0.0.1:61158 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:40 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 659] TLS handshake with server failed: peer=/127.0.0.1:61171 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:40 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 660 stream 1] TLS handshake with server failed: peer=/127.0.0.1:61171 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:40 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 667] TLS handshake with server failed: peer=localhost/127.0.0.1:61198 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor result rejected for WINDOW_UPDATE on stream 0 to_server: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor result rejected for SETTINGS on stream 0 from_server: a larger INITIAL_WINDOW_SIZE than the peer's; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for SETTINGS on stream 0 to_client: the proxy's own MAX_CONCURRENT_STREAMS is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for WINDOW_UPDATE on stream 0 to_client: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for HEADERS on stream 1 from_client: HEADERS on stream 99; stream ids are read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor result rejected for HEADERS on stream 1 to_server: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor result rejected for WINDOW_UPDATE on stream 0 from_server: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor result rejected for WINDOW_UPDATE on stream 1 from_server: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [h2 localhost:61360] frame interceptor failed on HEADERS on stream 1 from_server; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.Http2FrameInterceptorTest.lambda$illegalResultsAreLoggedAndTheFrameGoesOnUnchanged$13(Http2FrameInterceptorTest.java:348)
+	at org.microproxy.Http2FrameInterceptorTest.lambda$new$1(Http2FrameInterceptorTest.java:67)
+	at org.microproxy.impl.Http2Frames.intercept(Http2Frames.java:121)
+	at org.microproxy.impl.Http2Endpoint.received(Http2Endpoint.java:167)
+	at org.microproxy.impl.Http2UpstreamConnection.onHeaders(Http2UpstreamConnection.java:563)
+	at org.microproxy.impl.Http2UpstreamConnection.intercepted(Http2UpstreamConnection.java:499)
+	at org.microproxy.impl.Http2UpstreamConnection.onFrame(Http2UpstreamConnection.java:465)
+	at org.microproxy.impl.Http2UpstreamConnection.readFrames(Http2UpstreamConnection.java:454)
+	at org.microproxy.impl.Http2UpstreamConnection.run(Http2UpstreamConnection.java:424)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for HEADERS on stream 1 to_client: invalid header block: field X-Upper: upper-case name; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for DATA on stream 1 to_client: not an HTTP/2 frame: DATA[16 bytes]; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for DATA on stream 1 to_client: not an HTTP/2 frame: DATA[0 bytes]; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.impl.Http2Frames intercept
+WARNING: [conn 713] frame interceptor result rejected for WINDOW_UPDATE on stream 0 to_client: WINDOW_UPDATE is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:41 PM org.microproxy.extras.HttpLogger emit
+WARNING: HttpLogger sink failed; later failures are not reported
+java.lang.IllegalStateException: sink down
+	at org.microproxy.HttpLoggerTest.lambda$failingSinksAndPredicatesNeverDisturbTheProxy$16(HttpLoggerTest.java:513)
+	at org.microproxy.extras.HttpLogger.emit(HttpLogger.java:234)
+	at org.microproxy.extras.HttpLogger$Exchange.logRequest(HttpLogger.java:510)
+	at org.microproxy.extras.HttpLogger$Exchange.proxyToServerRequestSent(HttpLogger.java:446)
+	at org.microproxy.impl.ClientConnection.send(ClientConnection.java:2507)
+	at org.microproxy.impl.ClientConnection.exchange(ClientConnection.java:2375)
+	at org.microproxy.impl.ClientConnection.proxyRequest(ClientConnection.java:2303)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1980)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:41 PM org.microproxy.extras.HttpLogger failed
+WARNING: HttpLogger failed to log an exchange; later failures are not reported
+java.lang.IllegalStateException: predicate down
+	at org.microproxy.HttpLoggerTest.lambda$failingSinksAndPredicatesNeverDisturbTheProxy$17(HttpLoggerTest.java:523)
+	at org.microproxy.extras.HttpLogger.filterRequest(HttpLogger.java:214)
+	at org.microproxy.extras.HttpLogger.filterRequest(HttpLogger.java:93)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1624)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:42 PM org.microproxy.impl.ClientConnection webSocketRelay
+WARNING: [conn 791] WebSocket extensions the proxy cannot read (unsupported extension x-mystery); frames are only watched
+Nov 03, 2026 10:51:51 PM sun.net.httpserver.ExchangeImpl sendResponseHeaders
+WARNING: sendResponseHeaders: being invoked with a content length for a HEAD request
+Nov 03, 2026 10:51:52 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1767] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:63504 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:56 PM org.microproxy.impl.DefaultHttpProxyServer shutdown
+WARNING: connections still open after PT0.3S; closing
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.QuicSession$Stream message
+WARNING: [conn 1960] QUIC interceptor's streamData threw; passing the bytes on
+java.lang.IllegalStateException: broken hook
+	at org.microproxy.QuicStreamHooksTest.lambda$aThrowingHookPassesTheDataOn$10(QuicStreamHooksTest.java:434)
+	at org.microproxy.impl.QuicSession$Stream.message(QuicSession.java:616)
+	at org.microproxy.impl.QuicSession$Stream.pump(QuicSession.java:581)
+	at org.microproxy.impl.QuicSession$Stream.lambda$start$0(QuicSession.java:561)
+	at org.microproxy.impl.QuicSession.lambda$start$6(QuicSession.java:317)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.QuicSession$Stream message
+WARNING: [conn 1960] QUIC interceptor's streamData threw; passing the bytes on
+java.lang.IllegalStateException: broken hook
+	at org.microproxy.QuicStreamHooksTest.lambda$aThrowingHookPassesTheDataOn$10(QuicStreamHooksTest.java:434)
+	at org.microproxy.impl.QuicSession$Stream.message(QuicSession.java:616)
+	at org.microproxy.impl.QuicSession$Stream.pump(QuicSession.java:581)
+	at org.microproxy.impl.QuicSession$Stream.lambda$start$0(QuicSession.java:561)
+	at org.microproxy.impl.QuicSession.lambda$start$6(QuicSession.java:317)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: invalid field section: field Upper: upper-case name; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: invalid field section: field Upper: upper-case name; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: invalid field section: connection-specific field connection; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: invalid field section: connection-specific field connection; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: HEADERS can only be replaced by HEADERS, not DATA; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: HEADERS can only be replaced by HEADERS, not DATA; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 DATA on stream 0: SETTINGS in place of DATA; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 DATA on stream 0: SETTINGS in place of DATA; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 DATA on stream 0: not an HTTP/3 frame: DATA[stream 1, 0 bytes]; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 DATA on stream 0: not an HTTP/3 frame: DATA[stream 1, 0 bytes]; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: DATA in place of HEADERS; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor failed on HTTP/3 HEADERS on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.frames.Http3FramePipelineTest.lambda$illegalResultsAreReplacedByTheOriginal$17(Http3FramePipelineTest.java:248)
+	at org.microproxy.frames.Http3Streams.intercept(Http3Streams.java:231)
+	at org.microproxy.frames.Http3Streams.requestStream(Http3Streams.java:90)
+	at org.microproxy.frames.Http3FramePipeline.requestStream(Http3FramePipeline.java:231)
+	at org.microproxy.frames.Http3FramePipelineTest.runRequest(Http3FramePipelineTest.java:102)
+	at org.microproxy.frames.Http3FramePipelineTest.illegalResultsAreReplacedByTheOriginal(Http3FramePipelineTest.java:252)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor failed on HTTP/3 UNKNOWN on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.frames.Http3FramePipelineTest.lambda$illegalResultsAreReplacedByTheOriginal$17(Http3FramePipelineTest.java:248)
+	at org.microproxy.frames.Http3Streams.intercept(Http3Streams.java:231)
+	at org.microproxy.frames.Http3Streams.requestStream(Http3Streams.java:90)
+	at org.microproxy.frames.Http3FramePipeline.requestStream(Http3FramePipeline.java:231)
+	at org.microproxy.frames.Http3FramePipelineTest.runRequest(Http3FramePipelineTest.java:102)
+	at org.microproxy.frames.Http3FramePipelineTest.illegalResultsAreReplacedByTheOriginal(Http3FramePipelineTest.java:252)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor failed on HTTP/3 DATA on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.frames.Http3FramePipelineTest.lambda$illegalResultsAreReplacedByTheOriginal$17(Http3FramePipelineTest.java:248)
+	at org.microproxy.frames.Http3Streams.intercept(Http3Streams.java:231)
+	at org.microproxy.frames.Http3Streams.requestStream(Http3Streams.java:90)
+	at org.microproxy.frames.Http3FramePipeline.requestStream(Http3FramePipeline.java:231)
+	at org.microproxy.frames.Http3FramePipelineTest.runRequest(Http3FramePipelineTest.java:102)
+	at org.microproxy.frames.Http3FramePipelineTest.illegalResultsAreReplacedByTheOriginal(Http3FramePipelineTest.java:252)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor failed on HTTP/3 DATA on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.frames.Http3FramePipelineTest.lambda$illegalResultsAreReplacedByTheOriginal$17(Http3FramePipelineTest.java:248)
+	at org.microproxy.frames.Http3Streams.intercept(Http3Streams.java:231)
+	at org.microproxy.frames.Http3Streams.requestStream(Http3Streams.java:90)
+	at org.microproxy.frames.Http3FramePipeline.requestStream(Http3FramePipeline.java:231)
+	at org.microproxy.frames.Http3FramePipelineTest.runRequest(Http3FramePipelineTest.java:102)
+	at org.microproxy.frames.Http3FramePipelineTest.illegalResultsAreReplacedByTheOriginal(Http3FramePipelineTest.java:252)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor failed on HTTP/3 HEADERS on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: interceptor bug
+	at org.microproxy.frames.Http3FramePipelineTest.lambda$illegalResultsAreReplacedByTheOriginal$17(Http3FramePipelineTest.java:248)
+	at org.microproxy.frames.Http3Streams.intercept(Http3Streams.java:231)
+	at org.microproxy.frames.Http3Streams.requestStream(Http3Streams.java:90)
+	at org.microproxy.frames.Http3FramePipeline.requestStream(Http3FramePipeline.java:231)
+	at org.microproxy.frames.Http3FramePipelineTest.runRequest(Http3FramePipelineTest.java:102)
+	at org.microproxy.frames.Http3FramePipelineTest.illegalResultsAreReplacedByTheOriginal(Http3FramePipelineTest.java:252)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 SETTINGS on stream 2: invalid SETTINGS: connection error H3_SETTINGS_ERROR: HTTP/2 setting 0x2 is reserved in HTTP/3; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 SETTINGS on stream 2: invalid SETTINGS: connection error H3_SETTINGS_ERROR: SETTINGS_ENABLE_CONNECT_PROTOCOL must be 0 or 1, got 2; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 SETTINGS on stream 2: SETTINGS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 MAX_PUSH_ID on stream 2: MAX_PUSH_ID is read-only; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.frames.Http3Streams intercept
+WARNING: frame interceptor result rejected for HTTP/3 DATA on stream 0: DATA after trailers; passing the frame on unchanged
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1963] TLS handshake with server failed: peer=/127.0.0.1:64079 host=wrong.test sni=example.test mode=client protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 error="SSLHandshakeException: the server's certificate is not valid for the verification host wrong.test (SNI example.test)" root="CertificateException: No subject alternative names matching DNS name wrong.test found"; local cert: none; peer chain: [subject="CN=example.test,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2027-11-04T06:51:57Z san=[DNS:example.test]] <- [subject="CN=TLS Identity Origin CA,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2036-11-01T06:51:57Z san=[]]
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1964] TLS handshake with server failed: peer=/127.0.0.1:64079 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative names matching IP address 127.0.0.1 found" root="CertificateException: No subject alternative names matching IP address 127.0.0.1 found"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1966] TLS handshake with server failed: peer=/127.0.0.1:64089 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative names matching IP address 127.0.0.1 found" root="CertificateException: No subject alternative names matching IP address 127.0.0.1 found"; local cert: none; peer chain: none
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1967] TLS handshake with server failed: peer=/127.0.0.1:64093 host=wrong.test sni=example.test mode=client protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 error="SSLHandshakeException: the server's certificate is not valid for the verification host wrong.test (SNI example.test)" root="CertificateException: No subject alternative names matching DNS name wrong.test found"; local cert: none; peer chain: [subject="CN=example.test,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2027-11-04T06:51:57Z san=[DNS:example.test]] <- [subject="CN=TLS Identity Origin CA,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2036-11-01T06:51:57Z san=[]]
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1970] TLS handshake with server failed: peer=/127.0.0.1:64107 host=wrong.test sni=example.test mode=client protocol=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 error="SSLHandshakeException: the server's certificate is not valid for the verification host wrong.test (SNI example.test)" root="CertificateException: No subject alternative names matching DNS name wrong.test found"; local cert: none; peer chain: [subject="CN=example.test,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2027-11-04T06:51:57Z san=[DNS:example.test]] <- [subject="CN=TLS Identity Origin CA,O=MicroProxy" issuer="CN=TLS Identity Origin CA,O=MicroProxy" notAfter=2036-11-01T06:51:57Z san=[]]
+Nov 03, 2026 10:51:57 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 1971] TLS handshake with server failed: peer=/127.0.0.1:64107 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) No subject alternative names matching IP address 127.0.0.1 found" root="CertificateException: No subject alternative names matching IP address 127.0.0.1 found"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:01 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2109] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64628 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:01 PM org.microproxy.impl.DefaultHttpProxyServer shutdown
+WARNING: closing org.microproxy.LifecycleTest$$Lambda/0x00000e0001656df0@4bdac0e5 failed
+java.io.IOException: a failing resource does not stop the others
+	at org.microproxy.LifecycleTest.lambda$closeOnStopResourcesCloseInReverseOrder$11(LifecycleTest.java:363)
+	at org.microproxy.impl.DefaultHttpProxyServer.shutdown(DefaultHttpProxyServer.java:950)
+	at org.microproxy.impl.DefaultHttpProxyServer.stop(DefaultHttpProxyServer.java:893)
+	at org.microproxy.LifecycleTest.closeOnStopResourcesCloseInReverseOrder(LifecycleTest.java:365)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.QuicSession$Stream framed
+WARNING: [conn 2159] QUIC interceptor's streamMessage threw, or what it returned could not be framed; passing the message on
+java.lang.IllegalStateException: a hook that fails
+	at org.microproxy.QuicMessageHooksTest$5.streamMessage(QuicMessageHooksTest.java:425)
+	at org.microproxy.impl.QuicSession$Stream.framed(QuicSession.java:664)
+	at org.microproxy.impl.QuicSession$Stream.frames(QuicSession.java:649)
+	at org.microproxy.impl.QuicSession$Stream.pump(QuicSession.java:582)
+	at org.microproxy.impl.QuicSession$Stream.lambda$start$0(QuicSession.java:561)
+	at org.microproxy.impl.QuicSession.lambda$start$6(QuicSession.java:317)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2168] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64772 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2170] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64772 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2172] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64772 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2174] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64781 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2176] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64781 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2182] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64798 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:03 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2185] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:64798 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:05 PM org.microproxy.impl.Http2Connection runStream
+WARNING: [conn 2279 stream 1] unexpected error on stream
+java.lang.IllegalStateException: test filter failed
+	at org.microproxy.Http2TunnelTest$5.serverToProxyResponse(Http2TunnelTest.java:293)
+	at org.microproxy.impl.ClientConnection.answerConnect(ClientConnection.java:3472)
+	at org.microproxy.impl.ClientConnection.handleConnect(ClientConnection.java:3182)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1941)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.handleStream(ClientConnection.java:5056)
+	at org.microproxy.impl.Http2Connection.runStream(Http2Connection.java:869)
+	at org.microproxy.impl.Http2Connection.lambda$onHeaders$4(Http2Connection.java:591)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:07 PM org.microproxy.impl.ClientConnection respondFailure
+WARNING: [conn 2301] failure responder threw; sending the default response
+java.lang.IllegalStateException: responder bug
+	at org.microproxy.FailureResponderTest.lambda$throwingResponderFallsBackToTheDefault$7(FailureResponderTest.java:259)
+	at org.microproxy.impl.ClientConnection.respondFailure(ClientConnection.java:6426)
+	at org.microproxy.impl.ClientConnection.send(ClientConnection.java:2524)
+	at org.microproxy.impl.ClientConnection.exchange(ClientConnection.java:2375)
+	at org.microproxy.impl.ClientConnection.proxyRequest(ClientConnection.java:2303)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1980)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:07 PM org.microproxy.impl.ClientConnection run
+WARNING: [conn 2302] unexpected error on client connection
+java.lang.IllegalStateException: filter bug
+	at org.microproxy.FailureResponderTest.lambda$aBugWhileTheServerConnectionIsInUseIsReportedOnBothSidesAndClosesTheConnection$20(FailureResponderTest.java:355)
+	at org.microproxy.HttpFiltersBuilder$Built.serverToProxyResponse(HttpFiltersBuilder.java:549)
+	at org.microproxy.impl.ClientConnection.responseHook(ClientConnection.java:335)
+	at org.microproxy.impl.ClientConnection.relayResponse(ClientConnection.java:2792)
+	at org.microproxy.impl.ClientConnection.send(ClientConnection.java:2510)
+	at org.microproxy.impl.ClientConnection.exchange(ClientConnection.java:2375)
+	at org.microproxy.impl.ClientConnection.proxyRequest(ClientConnection.java:2303)
+	at org.microproxy.impl.ClientConnection.handleFilteredRequest(ClientConnection.java:1980)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1632)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:07 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2305] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:65224 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.ClientConnection endExchange
+WARNING: [conn 2392] exchangeEnded threw
+java.lang.IllegalStateException: boom
+	at org.microproxy.ExchangeEndedTest$1.exchangeEnded(ExchangeEndedTest.java:189)
+	at org.microproxy.HttpFiltersChain$Chained.exchangeEnded(HttpFiltersChain.java:208)
+	at org.microproxy.impl.ClientConnection.endExchange(ClientConnection.java:1651)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1641)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.ClientConnection endExchange
+WARNING: [conn 2392] exchangeEnded threw
+java.lang.IllegalStateException: boom
+	at org.microproxy.ExchangeEndedTest$1.exchangeEnded(ExchangeEndedTest.java:189)
+	at org.microproxy.HttpFiltersChain$Chained.exchangeEnded(HttpFiltersChain.java:208)
+	at org.microproxy.impl.ClientConnection.endExchange(ClientConnection.java:1651)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1641)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.Http3Frames rejected
+WARNING: frame interceptor result rejected for HTTP/3 SETTINGS on stream 3: SETTINGS_MAX_FIELD_SECTION_SIZE is the proxy's own; passing the frame on unchanged
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.Http3Frames rejected
+WARNING: frame interceptor result rejected for HTTP/3 SETTINGS on stream 2: SETTINGS_QPACK_MAX_TABLE_CAPACITY 1048576 is less strict than 4096; passing the frame on unchanged
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.Http3Frames rejected
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 0: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.Http3Frames intercept
+WARNING: frame interceptor failed on HTTP/3 DATA on stream 0; passing the frame on unchanged
+java.lang.IllegalStateException: boom
+	at org.microproxy.Http3FrameInterceptorTest.lambda$dropsAddsAndRefusesFramesByTheRules$4(Http3FrameInterceptorTest.java:161)
+	at org.microproxy.Http3FrameInterceptorTest.lambda$start$0(Http3FrameInterceptorTest.java:81)
+	at org.microproxy.impl.Http3Frames.intercept(Http3Frames.java:148)
+	at org.microproxy.impl.Http3Frames.onStream(Http3Frames.java:112)
+	at org.microproxy.impl.Http3MessageWriter.data(Http3MessageWriter.java:98)
+	at org.microproxy.impl.Http3UpstreamStream.writeData(Http3UpstreamStream.java:189)
+	at org.microproxy.impl.ClientConnection.relayRequestBody(ClientConnection.java:3033)
+	at org.microproxy.impl.ClientConnection.relayRequestBody(ClientConnection.java:3017)
+	at org.microproxy.impl.ClientConnection$RequestPump.run(ClientConnection.java:2607)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:10 PM org.microproxy.impl.Http3Frames rejected
+WARNING: frame interceptor result rejected for HTTP/3 HEADERS on stream 4: HEADERS cannot be dropped; passing the frame on unchanged
+Nov 03, 2026 10:52:21 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2527] TLS handshake with server failed: peer=localhost/127.0.0.1:49795 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:21 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2530] TLS handshake with server failed: peer=localhost/127.0.0.1:49795 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:22 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2570] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:49947 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:22 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2572] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:49947 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:22 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2574] TLS handshake with chained proxy failed: peer=localhost/127.0.0.1:49947 host=localhost mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path validation failed: java.security.cert.CertPathValidatorException: Path does not chain with any of the trust anchors" root="CertPathValidatorException: Path does not chain with any of the trust anchors"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:23 PM org.microproxy.extras.ServerReplay$Filters clientToProxyRequest
+WARNING: server replay: returned 404 for non-replay request http://127.0.0.1:50039/other
+Nov 03, 2026 10:52:23 PM org.microproxy.extras.ServerReplay$Filters clientToProxyRequest
+WARNING: server replay: killed non-replay request http://127.0.0.1:50039/other
+Nov 03, 2026 10:52:29 PM org.microproxy.impl.ClientConnection startTrace
+WARNING: [conn 2644] the tracer failed
+java.lang.IllegalStateException: broken tracer
+	at org.microproxy.FlowTracerTest$1.startExchange(FlowTracerTest.java:103)
+	at org.microproxy.impl.ClientConnection.startTrace(ClientConnection.java:1749)
+	at org.microproxy.impl.ClientConnection.handleRequest(ClientConnection.java:1541)
+	at org.microproxy.impl.ClientConnection.serveRequests(ClientConnection.java:1520)
+	at org.microproxy.impl.ClientConnection.run(ClientConnection.java:1228)
+	at java.base/java.util.concurrent.ThreadPerTaskExecutor$TaskRunner.run(ThreadPerTaskExecutor.java:291)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:460)
+
+Nov 03, 2026 10:52:32 PM org.microproxy.impl.DefaultHttpProxyServer shutdown
+WARNING: connections still open after PT1S; closing
+AllocationTest: HTTP/2 9469 bytes per request, 9517 with metrics
+AllocationTest: HTTP/3 86959 bytes per request, 87863 with metrics
+AllocationTest: 4262 bytes allocated per small keep-alive request with metrics
+AllocationTest: 4262 bytes allocated per small keep-alive request
+Nov 03, 2026 10:52:50 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 2804] TLS handshake with server failed: peer=/127.0.0.1:51016 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:52:50 PM org.microproxy.stats.StatsScope make
+WARNING: the script stats are full (2): script.c and later new names are not counted
+Nov 03, 2026 10:52:50 PM org.microproxy.stats.StatsScope make
+WARNING: the script stats are full (10): script.n10 and later new names are not counted
+Nov 03, 2026 10:53:02 PM org.microproxy.extras.ConcurrencyLimiter sweep
+WARNING: reclaimed a concurrency permit for 127.0.0.1 held for 334 ms by GET http://127.0.0.1:51417/slow; its exchange never ended (a leak, or a request slower than permitTimeout)
+Nov 03, 2026 10:53:02 PM org.microproxy.extras.ServerReplay$Filters clientToProxyRequest
+WARNING: server replay: returned 404 for non-replay request http://e.test/other
+Nov 03, 2026 10:53:02 PM org.microproxy.extras.ServerReplay$Filters clientToProxyRequest
+WARNING: server replay: killed non-replay request http://e.test/o
+WARNING: Using incubator modules: jdk.incubator.vector
+Nov 03, 2026 10:53:05 PM sun.net.httpserver.ExchangeImpl sendResponseHeaders
+WARNING: sendResponseHeaders: being invoked with a content length for a HEAD request
+Nov 03, 2026 10:53:09 PM org.microproxy.otel.OtlpHttpExporter warn
+WARNING: OTLP export to http://127.0.0.1:52350/v1/traces failed: java.io.IOException: HTTP/1.1 header parser received no bytes
+Nov 03, 2026 10:53:09 PM org.microproxy.otel.OtlpHttpExporter warn
+WARNING: OTLP export to http://127.0.0.1:52399/v1/traces failed: status 400
+Nov 03, 2026 10:53:11 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 52] TLS handshake with server failed: peer=/127.0.0.1:52568 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import opentelemetry.proto.collector.trace.v1.trace_service_pb2
+ModuleNotFoundError: No module named 'opentelemetry'
+
+Nov 03, 2026 10:53:13 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: hooks.star: on_request failed: Traceback (most recent call last):
+	File "hooks.star", line 7, column 19, in on_request
+Error: memory budget exceeded: the call created about 1049404 bytes of values (budget 1048576)
+Nov 03, 2026 10:53:13 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: hooks.star: on_request failed: Traceback (most recent call last):
+	File "hooks.star", line 9, column 13, in on_request
+Error: refused by a broken script
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters proxyToServerFailure
+WARNING: failure.star: on_failure failed; sending the default answer: Traceback (most recent call last):
+	File "failure.star", line 4, column 9, in on_failure
+Error: boom
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters proxyToServerFailure
+WARNING: failure.star: on_failure failed; sending the default answer: on_failure must return None or response(...), not string
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters proxyToServerFailure
+WARNING: failure.star: on_failure failed; sending the default answer: Traceback (most recent call last):
+	File "failure.star", line 2, column 9, in on_failure
+Error: boom
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: frames.star:2:13: h3 UNKNOWN 33 1 h3
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: frames.star:5:17: origin.example:443 settings: {"MAX_CONCURRENT_STREAMS": 100}
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.Builtins$LogModule log
+WARNING: frames.star:7:17: origin.example:443 goes away: ENHANCE_YOUR_CALM after stream 7 (calm down)
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 19, in on_frame
+Error in data: DATA needs a stream id from 1 to 2^31-1, got 0
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 22, in on_frame
+Error in unknown: not an extension frame type: 1
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 22, in on_frame
+Error in headers: headers must be a dict, a list of (name, value) pairs or headers, not int
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 22, in on_frame
+Error in headers: header pairs are (name, value) tuples, not tuple
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 22, in on_frame
+Error in unknown: not an extension frame type: 0x1
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: frames.star:2:13: h2 HEADERS 1 1 True from_client /x 3 h2
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: frames.star:4:13: None None None None
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 9, in on_frame
+Error: boom
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: on_frame must return None, True, False, a frame or a list of frames, not int
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: on_frame lists hold frames, not int
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 28, in on_frame
+Error: can only assign an element in a dictionary, list, or implementation of StarlarkSetIndexable, not in a 'NoneType'
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy onFrame
+WARNING: frames.star: on_frame failed; passing the frame on: Traceback (most recent call last):
+	File "frames.star", line 2, column 10, in on_frame
+Error: a DATA frame has no error_code to assign
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: auth.star: authenticate failed; rejecting the request: Traceback (most recent call last):
+	File "auth.star", line 2, column 31, in authenticate
+Error: headers are read-only here
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: closed.star: authenticate failed; rejecting the request: Traceback (most recent call last):
+	File "closed.star", line 3, column 13, in authenticate
+Error: boom
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: closed.star: authenticate failed; rejecting the request: authenticate must return a user name, True, False, None or response(...), not int
+Nov 03, 2026 10:53:15 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: closed.star: authenticate failed; rejecting the request: Traceback (most recent call last):
+	File "closed.star", line 11, column 15, in authenticate
+Error: Starlark computation cancelled: too many steps
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-9954502700375816798/auth.star defines no authenticate(); rejecting the request
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.ScriptedProxy authenticate
+WARNING: /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-9954502700375816798/auth.star defines no authenticate(); rejecting the request
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.Builtins$LogModule log
+WARNING: ws.star:5:17: dropped a 102400-byte upload from 127.0.0.1
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.ScriptedProxy$WebSocketScriptFilters filterWebSocketMessages
+WARNING: ws.star: on_websocket_message failed; forwarding the message: Traceback (most recent call last):
+	File "ws.star", line 3, column 13, in on_websocket_message
+Error: boom
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.ScriptedProxy$WebSocketScriptFilters filterWebSocketMessages
+WARNING: ws.star: on_websocket_message failed; forwarding the message: on_websocket_message must return None, True, False, a message or a list of messages, not int
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.ScriptedProxy$WebSocketScriptFilters filterWebSocketMessages
+WARNING: ws.star: on_websocket_message failed; forwarding the message: on_websocket_message lists hold messages, not string
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: ws.star:8:17: /chat client: ping, is anyone here?
+Nov 03, 2026 10:53:18 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: ws.star:8:17: /chat server: echo:ping, is anyone here?
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+WARNING: timings.star:6:17: http://127.0.0.1:52962/slow: first byte after 1106 ms (dns 0.007375, connect 0.193208, tls None), 200 from the server
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.ScriptedProxy$ScriptTcpInterceptor tcpMessage
+WARNING: tcp.star: on_tcp_message failed; passing the bytes on: Traceback (most recent call last):
+	File "tcp.star", line 15, column 13, in on_tcp_message
+Error: broken
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:2:13: 127.0.0.1:53028 opened by 127.0.0.1 (tls False, sni None)
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:9:17: S: +OK POP3 ready
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:9:17: C: USER alice
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:9:17: S: +OK USER alice
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:9:17: C: QUIT
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:9:17: S: +OK QUIT
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: tcp.star:13:13: 127.0.0.1:53028 closed
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.ScriptedProxy$WebSocketScriptFilters filterWebSocketFrame
+WARNING: ws.star: on_websocket_frame failed; forwarding the frame: Traceback (most recent call last):
+	File "ws.star", line 2, column 9, in on_websocket_frame
+Error: boom
+Nov 03, 2026 10:53:19 PM org.microproxy.starlark.ScriptedProxy$WebSocketScriptFilters filterWebSocketFrame
+WARNING: ws.star: on_websocket_frame failed; forwarding the frame: Traceback (most recent call last):
+	File "ws.star", line 2, column 9, in on_websocket_frame
+Error: boom
+Nov 03, 2026 10:53:20 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-1358517122712016167/launched.star: on_request failed: Traceback (most recent call last):
+	File "/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-1358517122712016167/launched.star", line 5, column 19, in on_request
+		s = s + s
+Error: memory budget exceeded: the call created about 1049292 bytes of values (budget 1048576)
+Nov 03, 2026 10:53:20 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: hog.star: on_request failed: Traceback (most recent call last):
+	File "hog.star", line 5, column 19, in on_request
+Error: memory budget exceeded: the call created about 1049292 bytes of values (budget 1048576)
+Nov 03, 2026 10:53:20 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: quic.star:21:13: QUIC to origin.test:56372 ended after 2 streams, masque=False, error=None
+Nov 03, 2026 10:53:20 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: quic.star:2:13: QUIC microproxy-echo to origin.test:59734 for 127.0.0.1
+Nov 03, 2026 10:53:21 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: test.star: on_request failed: Traceback (most recent call last):
+	File "test.star", line 3, column 15, in on_request
+Error: key "missing secret key" not found in dictionary
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.ScriptedProxy script
+WARNING: keeping the previous version of /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-3768118363486370791/proxy.star: /var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/junit-3768118363486370791/proxy.star:1:25: syntax error at 'newline': expected :
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: loop.star: on_request failed: Traceback (most recent call last):
+	File "loop.star", line 3, column 5, in on_request
+Error: Starlark computation cancelled: too many steps
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: test.star: on_request failed: Traceback (most recent call last):
+	File "test.star", line 3, column 12, in on_request
+Error: request.host is read-only; change uri or headers instead
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: test.star: on_request failed: Traceback (most recent call last):
+	File "test.star", line 5, column 28, in on_request
+Error: invalid character in header value
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: messages.star:10:17: 127.0.0.1 asks for www.example A
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: messages.star:10:17: 127.0.0.1 asks for Ads.Example A
+Nov 03, 2026 10:53:24 PM org.microproxy.stats.StatsScope make
+WARNING: the script stats are full (3): script.path_d and later new names are not counted
+Nov 03, 2026 10:53:24 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: hooks.star: on_request failed: Traceback (most recent call last):
+	File "hooks.star", line 3, column 13, in on_request
+Error: refused by a broken script
+starlarky stdlib tests (passed / expected failures / failed):
+  stdlib_tests/test_asserts.star                   1 /   0 /   0
+  stdlib_tests/test_base64.star                    4 /   0 /   0
+  stdlib_tests/test_binascii.star                  1 /   0 /   0
+  stdlib_tests/test_builtins.star                 19 /   0 /   0
+  stdlib_tests/test_bytes.star                    23 /   0 /   0
+  stdlib_tests/test_codecs.star                    4 /   0 /   0
+  stdlib_tests/test_collections.star               4 /   0 /   0
+  stdlib_tests/test_csv.star                       6 /   0 /   0
+  stdlib_tests/test_dicts.star                     1 /   0 /   0
+  stdlib_tests/test_format_builtin.star            4 /   0 /   0
+  stdlib_tests/test_hashlib.star                   2 /   1 /   0
+  stdlib_tests/test_io.star                        3 /   0 /   0
+  stdlib_tests/test_json.star                      2 /   0 /   0
+  stdlib_tests/test_larky.star                     5 /   1 /   0
+  stdlib_tests/test_larky_struct_eq.star           8 /   0 /   0
+  stdlib_tests/test_operator.star                 38 /   0 /   0
+  stdlib_tests/test_percent_format.star            4 /   0 /   0
+  stdlib_tests/test_python_builtins_compat.star   11 /   0 /   0
+  stdlib_tests/test_re.star                       14 /   0 /   0
+  stdlib_tests/test_re_cpython.star                9 /   1 /   0
+  stdlib_tests/test_sets.star                     15 /   0 /   0
+  stdlib_tests/test_str_python.star                2 /   0 /   0
+  stdlib_tests/test_struct.star                   26 /   0 /   0
+  stdlib_tests/test_this.star                      1 /   0 /   0
+  stdlib_tests/test_types.star                    30 /   0 /   0
+  stdlib_tests/test_uuid.star                      1 /   0 /   0
+  stdlib_tests/test_zipfile.star                   9 /   0 /   0
+  stdlib_tests/test_zlib.star                     45 /   0 /   0
+  stdlib_tests/urllib/test_parse.star             14 /   0 /   0
+  stdlib_tests/urllib/test_request.star           12 /   0 /   0
+  stdlib_tests/xml/etree/test_elementtree.star    12 /   0 /   0
+  vendor_tests/luhn/test_luhn.star                 5 /   0 /   0
+  vendor_tests/multidict/test_mutable_multidict.star   45 /   0 /   0
+  vendor_tests/option/test_result.star            47 /   0 /   0
+  vendor_tests/test_escapes.star                   1 /   0 /   0
+  microproxy_tests/test_hashlib_jdk.star           5 /   0 /   0
+  microproxy_tests/test_re_java.star               7 /   0 /   0
+  TOTAL                                          440 /   3 /   0
+
+Nov 03, 2026 10:53:28 PM org.microproxy.starlark.ScriptedProxy$ScriptFilters failed
+WARNING: hello.star: on_client_hello failed: on_client_hello must return True, False or None, not string
+hook call: bare 2735 ns, measured 2745 ns (+0.4%); 81 steps and 1010 bytes a call
+Nov 03, 2026 10:53:30 PM org.microproxy.impl.TlsLog failed
+WARNING: [conn 194] TLS handshake with server failed: peer=/127.0.0.1:53452 host=127.0.0.1 mode=client error="SSLHandshakeException: (certificate_unknown) PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target" root="SunCertPathBuilderException: unable to find valid certification path to requested target"; local cert: none; peer chain: none
+Nov 03, 2026 10:53:30 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: udp.star:11:13: UDP flow to 127.0.0.1:56149 ended after 4 datagrams
+Nov 03, 2026 10:53:30 PM org.microproxy.starlark.Builtins$LogModule log
+INFO: udp.star:2:13: UDP flow to 127.0.0.1:52067 (127.0.0.1) from 127.0.0.1

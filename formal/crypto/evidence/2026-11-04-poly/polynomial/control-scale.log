@@ -1,0 +1,12 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-tykzhecc/native_polynomial_scale.dfy(9,2): Error: a postcondition could not be proved on this return path
+  |
+9 |   { ghost var copyTrace, scaleTrace: seq<int>; r, copyTrace := P.Copy(f); scaleTrace := P.Scale(r,3302); }
+  |   ^
+
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-tykzhecc/native_polynomial_scale.dfy(8,30): Related location: this is the postcondition that could not be proved
+  |
+8 |     ensures T.Canonical(r) && T.Ints(r) == S.Scale(T.Ints(f),3303)
+  |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

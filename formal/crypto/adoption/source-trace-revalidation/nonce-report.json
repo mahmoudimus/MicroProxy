@@ -1,0 +1,515 @@
+{
+  "status": "complete",
+  "scope": "isolated VerifiedNonce byte-array primitive; the generated class is present under quic/src/main/java and will be compiled/packaged by Maven, but this replay does not verify PacketKey delegation or production acceptance",
+  "claims": [
+    "Dafny proves the 12-byte fresh-output nonce, IV preservation, unchanged 4-byte prefix, big-endian last-8 XOR, and injectivity for all distinct 64-bit packet-number patterns under a fixed IV",
+    "The universal public-domain harness has no packet-number precondition, so negative Java longs are in-domain",
+    "Four required proof mutants and an extra injectivity mutant fail actual proof obligations at intended anchors",
+    "Checked-in generated Java is byte-identical to fresh --no-verify translation of the same verified source",
+    "Strict-generated/harness compilation and independent differential tests pass on JDK 21 and JDK 25",
+    "Generated Nonce is raw byte[]/long with no sequence/select payload path and one cached Byte.valueOf initializer"
+  ],
+  "not_proved": [
+    "cryptographic hardness or PRF security",
+    "JVM/CPU timing or constant-time execution",
+    "side channels",
+    "secret erasure",
+    "Dafny/Boogie/Z3 correctness",
+    "Dafny Java compiler/runtime correctness",
+    "javac/JVM correctness",
+    "production JAR byte identity",
+    "PacketKey integration",
+    "Maven/CI/canonical pipeline"
+  ],
+  "production_note": "The generated VerifiedNonce.__default class is under quic/src/main/java and WILL be compiled and packaged by Maven even while PacketKey adoption is pending. Root must inventory the actual added class and apply the adoption gates; this replay does not edit PacketKey, POM, central delivery manifests, CI or shared docs.",
+  "inputs": {
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/nonce/GENERATED.json": "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+    "formal/nonce/Nonce.dfy": "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+    "formal/nonce/NonceDomain.dfy": "9f0ed7272e430fccd3deb984814f0ce51691dac59e6c91b7fc7958d5fe9292e7",
+    "formal/nonce/bench/NonceBenchmark.java": "29b10d806fdb846d458a3a10e6d8606f968bf7f74761ecc9b3001c342f5e89cf",
+    "formal/nonce/bench_nonce.py": "7b951a32584bdab60a2f9f11a4c427abbb29d74e85dc2c15059f172b30b83967",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java": "4434e8f11076e61dc941ff6c8ff3868eafa15a912795bbacfc9b74bc0acec070",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java": "03532fa616870ced3ede2b89f3194403c0480546bf1b4dac33d49feb378970a9",
+    "formal/nonce/run.py": "c32876cc54f8f71982558c8fffe5f8959d5507806d009df09ed2040aceddc663",
+    "formal/nonce/test_run.py": "f20c9a303274737166f5eed6d6047facf493621786e56697e769e69d1d1c6db1",
+    "formal/nonce/tools.json": "96af825819ad09cd2f40d296422ada913ee56f2e3fed24570d8d3ac5fc0cd54a",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06"
+  },
+  "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+  "dafny_executable_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+  "toolchain": {
+    "asset": {
+      "archive": "dafny-4.9.1-arm64-macos-11.zip",
+      "directory": "dafny-4.9.1-macos-arm64",
+      "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+      "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+    },
+    "archive": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-arm64-macos-11.zip",
+      "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e"
+    },
+    "executable": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+      "sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6"
+    },
+    "solvers": {
+      "z3-4.12.1": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+      "z3-4.8.5": "699fbcaf22fb0353fc7a40865156f8f03d1abfcbd10a6d379dad9e2719d98369"
+    },
+    "distribution_runtime": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/DafnyRuntime.jar",
+      "sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+    },
+    "distribution_tree_sha256": "71e5837457eeb14b92186171f083332db826132c8b196aa2f778e8d12fb09ec4",
+    "distribution_file_count": 285,
+    "asset_key": "Darwin-arm64"
+  },
+  "tool_asset": {
+    "archive": "dafny-4.9.1-arm64-macos-11.zip",
+    "directory": "dafny-4.9.1-macos-arm64",
+    "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+    "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+  },
+  "distribution_runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+  "runtime": {
+    "path": "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+    "sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+  },
+  "cache": "/Users/mahmoud/.cache/microproxy-formal",
+  "jdk_identities": [
+    {
+      "java_home": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+      "major": 21,
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+      "javac_version": "javac 21.0.12.1",
+      "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770",
+      "javac_sha256": "ab9b94d81dd22c843ef637be9aa2121253c6d4cfe2ba0a89a7bde5c0b9567945"
+    },
+    {
+      "java_home": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home",
+      "major": 25,
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+      "javac_version": "javac 25.0.5",
+      "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249",
+      "javac_sha256": "6a9d1ef0aa490929d80e6d864fea9a4ada17303dd5a6fad6376e037aee2fcd68"
+    }
+  ],
+  "assumption_audit": {
+    "kernel": "Dafny auditor completed with 0 findings",
+    "domain": "Dafny auditor completed with 0 findings"
+  },
+  "forbidden_source_constructs": "none found in code (comments stripped)",
+  "source_sha256": {
+    "before": "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+    "after": "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28"
+  },
+  "verified": 337,
+  "public_domain_verified": 343,
+  "controls": {
+    "wrong-endian": {
+      "status": "proof-obligation-rejected",
+      "expected": "little-endian body fails the big-endian byte-4 bridge assertion",
+      "anchor": "assert nonce[4] == NonceBytes(old(iv[..]), pn)[4];",
+      "observations": [
+        {
+          "file": "Nonce.dfy",
+          "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/wrong-endian/Nonce.dfy",
+          "owned": true,
+          "line": 173,
+          "column": 11,
+          "kind": "Error",
+          "source": "assert nonce[4] == NonceBytes(old(iv[..]), pn)[4];",
+          "message": "assertion might not hold"
+        }
+      ],
+      "summary": "333 verified, 4 errors"
+    },
+    "counter-truncation": {
+      "status": "proof-obligation-rejected",
+      "expected": "32-bit packet-number body fails the high-byte big-endian assertion",
+      "anchor": "assert nonce[4] == NonceBytes(old(iv[..]), pn)[4];",
+      "observations": [
+        {
+          "file": "Nonce.dfy",
+          "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/counter-truncation/Nonce.dfy",
+          "owned": true,
+          "line": 174,
+          "column": 11,
+          "kind": "Error",
+          "source": "assert nonce[4] == NonceBytes(old(iv[..]), pn)[4];",
+          "message": "assertion might not hold"
+        }
+      ],
+      "summary": "333 verified, 4 errors"
+    },
+    "alias-freshness": {
+      "status": "proof-obligation-rejected",
+      "expected": "returning the IV aliases the output; freshness postcondition fails",
+      "anchor": "ensures nonce != iv",
+      "observations": [
+        {
+          "file": "Nonce.dfy",
+          "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/alias-freshness/Nonce.dfy",
+          "owned": true,
+          "line": 143,
+          "column": 12,
+          "kind": "Related location",
+          "source": "ensures nonce != iv",
+          "message": "this is the postcondition that could not be proved"
+        }
+      ],
+      "summary": "169 verified, 1 errors"
+    },
+    "input-preservation": {
+      "status": "proof-obligation-rejected",
+      "expected": "mutating the caller IV fails the input-preservation postcondition",
+      "anchor": "ensures iv[..] == old(iv[..])",
+      "observations": [
+        {
+          "file": "Nonce.dfy",
+          "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/input-preservation/Nonce.dfy",
+          "owned": true,
+          "line": 145,
+          "column": 12,
+          "kind": "Related location",
+          "source": "ensures iv[..] == old(iv[..])",
+          "message": "this is the postcondition that could not be proved"
+        }
+      ],
+      "summary": "342 verified, 1 errors"
+    },
+    "counter-truncation-injectivity": {
+      "status": "proof-obligation-rejected",
+      "expected": "dropping high packet-number bytes makes the decomposition/injectivity lemma fail",
+      "anchor": "ensures p == ((B7(p) as bv64) << 56)",
+      "observations": [
+        {
+          "file": "Nonce.dfy",
+          "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/counter-truncation-injectivity/Nonce.dfy",
+          "owned": true,
+          "line": 62,
+          "column": 12,
+          "kind": "Related location",
+          "source": "ensures p == ((B7(p) as bv64) << 56) | ((B6(p) as bv64) << 48)",
+          "message": "this is the postcondition that could not be proved"
+        }
+      ],
+      "summary": "332 verified, 5 errors"
+    }
+  },
+  "generated_java": {
+    "__default.java": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06"
+  },
+  "delivered_generated_java": {
+    "__default.java": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06"
+  },
+  "top_level_aggregator_sha256": "2f2f4830f31902d3df27cdbadbef565be301cc18c45b73539f35ba94d1c0f924",
+  "translation_metadata_sha256": "e65cce5ab0364a300dcebbb537648f87b9b02a13efe8c321fb731d2c341604e4",
+  "generated_receipt_sha256": "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+  "inspection": {
+    "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/NonceCrypto-java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
+    "source_sha256": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
+    "signature": "public static byte[] Nonce(byte[] iv, long pn)",
+    "source_counts": {
+      "Byte.valueOf": 0,
+      "DafnySequence": 0,
+      "select(": 0,
+      "BigInteger": 25,
+      "Helpers.toInt": 25,
+      "fillThenReturnArray": 1
+    },
+    "bytecode_counts": {
+      "Byte.valueOf": 1,
+      "DafnySequence": 0,
+      "select": 0,
+      "BigInteger.valueOf": 21,
+      "Helpers.toInt": 25,
+      "bv64ShiftRight": 7
+    },
+    "interpretation": "The single Byte.valueOf is the cached zero used by the Dafny fresh-array initializer, not a per-payload-byte box. The twelve output bytes use primitive baload/bastore/ixor/i2b; BigInteger helper calls are constant array indices and are reported rather than hidden."
+  },
+  "classes": {
+    "io/github/mahmoudimus/nonce/GeneratedNonceTest.class": "0efe924907e562580cbf88fa1162e7aaf25cac7e8e27f741baef5adb1eeb294e",
+    "io/github/mahmoudimus/nonce/ReferenceNonce.class": "a1a49ea4b8a3a286a8d5c00d4a647f024a5f642fa506f3bc5fcb0c3a51f10801",
+    "io/github/mahmoudimus/nonce/bench/NonceBenchmark$Operation.class": "46926a0f6c2fbc08a0960742ab77e8abf7498709f2ea75845e83e3a00a7070f7",
+    "io/github/mahmoudimus/nonce/bench/NonceBenchmark.class": "e73317247f7fa31bc43c9089dd5e6083b74ef6bb4dd8cdf118ec6838fd5de653",
+    "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class": "64ba6bbcccba2bc0f519b60ba090e11cf164544e98e24e73cd4699f9481c7069"
+  },
+  "footprint": {
+    "generated_java_files": 1,
+    "generated_java_bytes": 3543,
+    "generated_classes": 1,
+    "generated_class_bytes": 1993,
+    "dafny_runtime_bytes": 159922,
+    "dafny_runtime_classes": 91
+  },
+  "javac": {
+    "java_home": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+    "javac_sha256": "ab9b94d81dd22c843ef637be9aa2121253c6d4cfe2ba0a89a7bde5c0b9567945",
+    "version": "javac 21.0.12.1"
+  },
+  "java_runs": [
+    {
+      "java_home": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+      "major": 21,
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+      "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770",
+      "javac_version": "javac 21.0.12.1",
+      "javac_sha256": "ab9b94d81dd22c843ef637be9aa2121253c6d4cfe2ba0a89a7bde5c0b9567945",
+      "tests": "NONCE-TEST-OK cases=10 assertions=162774"
+    },
+    {
+      "java_home": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home",
+      "major": 25,
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+      "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249",
+      "javac_version": "javac 25.0.5",
+      "javac_sha256": "6a9d1ef0aa490929d80e6d864fea9a4ada17303dd5a6fad6376e037aee2fcd68",
+      "tests": "NONCE-TEST-OK cases=10 assertions=162774"
+    }
+  ],
+  "benchmark": null,
+  "commands": [
+    {
+      "step": "jdk-0-java-version",
+      "command": [
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "-version"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/jdk-0-version.log",
+      "timeout": 60
+    },
+    {
+      "step": "jdk-0-javac-version",
+      "command": [
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "-version"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/jdk-0-version-javac.log",
+      "timeout": 60
+    },
+    {
+      "step": "jdk-1-java-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
+        "-version"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/jdk-1-version.log",
+      "timeout": 60
+    },
+    {
+      "step": "jdk-1-javac-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/javac",
+        "-version"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/jdk-1-version-javac.log",
+      "timeout": 60
+    },
+    {
+      "step": "dafny-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "--version"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/dafny-version.log",
+      "timeout": 60
+    },
+    {
+      "step": "kernel-audit",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/Nonce.dfy"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/kernel-audit.log",
+      "timeout": 180
+    },
+    {
+      "step": "domain-audit",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/NonceDomain.dfy"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/domain-audit.log",
+      "timeout": 180
+    },
+    {
+      "step": "kernel-proof",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/kernel-proof.log",
+      "timeout": 180
+    },
+    {
+      "step": "public-domain",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/NonceDomain.dfy",
+        "--verify-included-files",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/public-domain.log",
+      "timeout": 180
+    },
+    {
+      "step": "control-wrong-endian",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/wrong-endian/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000",
+        "--error-limit",
+        "20"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/control-wrong-endian.log",
+      "timeout": 180
+    },
+    {
+      "step": "control-counter-truncation",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/counter-truncation/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000",
+        "--error-limit",
+        "20"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/control-counter-truncation.log",
+      "timeout": 180
+    },
+    {
+      "step": "control-alias-freshness",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/alias-freshness/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000",
+        "--error-limit",
+        "20"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/control-alias-freshness.log",
+      "timeout": 180
+    },
+    {
+      "step": "control-input-preservation",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/input-preservation/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000",
+        "--error-limit",
+        "20"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/control-input-preservation.log",
+      "timeout": 180
+    },
+    {
+      "step": "control-counter-truncation-injectivity",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/controls/counter-truncation-injectivity/Nonce.dfy",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "10000000",
+        "--error-limit",
+        "20"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/control-counter-truncation-injectivity.log",
+      "timeout": 180
+    },
+    {
+      "step": "generate-java",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "translate",
+        "java",
+        "--no-verify",
+        "--outer-module",
+        "io.github.mahmoudimus.quic.crypto.internal.verifiednonce",
+        "--output",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/NonceCrypto",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/Nonce.dfy"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/generate-java.log",
+      "timeout": 180
+    },
+    {
+      "step": "javac",
+      "command": [
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-g:lines,vars,source",
+        "-encoding",
+        "UTF-8",
+        "-Xpkginfo:always",
+        "-Werror",
+        "-Xlint:all,-serial,-cast,-rawtypes",
+        "-cp",
+        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "-d",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/NonceCrypto-java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/nonce/bench/NonceBenchmark.java"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/javac.log",
+      "timeout": 300
+    },
+    {
+      "step": "java-0-tests",
+      "command": [
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "io.github.mahmoudimus.nonce.GeneratedNonceTest"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/java-0-tests.log",
+      "timeout": 300
+    },
+    {
+      "step": "java-1-tests",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "io.github.mahmoudimus.nonce.GeneratedNonceTest"
+      ],
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp/java-1-tests.log",
+      "timeout": 300
+    }
+  ],
+  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-delivery-v1/nonce/replay-h6e2dxhp"
+}

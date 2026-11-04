@@ -1,8 +1,25 @@
 # Production crypto delivery evidence
 
-The [full stage](stage-receipt.json) verifies all 18 modules in the final include
-graph, audits four declarations for two trusted SHA3 primitives, and generates
-Java without rewriting compiler output. Its SHA256 is
+The [current full stage](stage-receipt.json) verifies all 20 roots in the native
+include graph, totaling 9,561 checks, and generates Java from that frozen source.
+It retains the four declarations for two trusted SHA3 primitives. The polynomial
+source-observation integration adds ghost instrumentation and proofs. All 66
+canonical native/provider class bytes match the prior stage; the only generated
+Java text change adds parentheses at 20 expression sites in one file. This is
+finite artifact identity under compiler trust, rather than a compiler or timing
+proof.
+
+The fresh [artifact acceptance](source-trace-revalidation/ARTIFACT-ACCEPTANCE.json)
+compares all 468 library classes, 84 crypto classes, 468 retained library classes
+and 37 runtime classes in the actual JARs. Each JDK completes nine full handshake
+and nine nonce smokes with checked class origins. Both full Maven suites pass
+4,109 tests, with zero failures/errors and 23 optional skips. The source replay,
+Linux evidence and exact-head CI remain separate gates. These finite checks do
+not establish whole-crypto security or JVM timing.
+
+The original [adoption stage](history/2026-11-03-pre-polynomial-source-stage.json)
+and the compatibility, performance and acceptance records below are historical.
+That stage verified 18 roots without rewriting compiler output. Its SHA256 is
 `285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40`.
 The [identity check](measured-stage-identity.json) establishes exact equality of
 all 66 generated/provider Java sources, 66 canonical classes and four freshly

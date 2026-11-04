@@ -1,0 +1,7 @@
+/out/linux-full/native-kem-xh1s0sah/wrong-coins.dfy(950,11): Error: assertion might not hold
+    |
+950 |     assert coins[..] == g[32..64];
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 4 assertions verified, 1 error

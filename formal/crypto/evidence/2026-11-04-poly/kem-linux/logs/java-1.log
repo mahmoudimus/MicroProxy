@@ -1,0 +1,2 @@
+accumulated 100 1114b1b6699ed191734fa339376afa7e285c9e6acf6ff0177d346696ce564415
+PASS native_kem_test {"assertions":7813,"rounds":100,"malformed":30,"selections":3265,"destroyed":101}

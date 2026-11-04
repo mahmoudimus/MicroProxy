@@ -1,0 +1,6 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(118,35): Error: PrivateBranchUnmarked: arm 0 is missing Branch observation
+    |
+118 |     if v == 0 then (1, ghost ST.Ops(0,0,0,0,0,0,0))
+    |                                    ^
+
+1 resolution/type errors detected in PolynomialControls.dfy

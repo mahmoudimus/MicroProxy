@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-kem-validation/mac-full/native-kem-llfis1eb/wrong-coins.dfy(950,11): Error: assertion might not hold
+    |
+950 |     assert coins[..] == g[32..64];
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 4 assertions verified, 1 error

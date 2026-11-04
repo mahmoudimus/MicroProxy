@@ -1,0 +1,12 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/full-domain/native_codec_domain.dfy(18,10): Error: a precondition for this call could not be proved
+   |
+18 |     var c := C.Compress(x,d);
+   |           ^^^^^^^^^^^^^^^^^^^
+
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/full-domain/NativeCodec.dfy(203,18): Related location: this is the precondition that could not be proved
+    |
+203 |     requires 0 <= x < 3328 && 1 <= d <= 11
+    |                   ^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

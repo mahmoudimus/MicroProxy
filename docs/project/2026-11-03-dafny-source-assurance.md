@@ -69,6 +69,30 @@ hashes or matching finite test outputs alone.
 The implementation plan is in
 [the source-assurance plan](2026-11-03-dafny-source-assurance-plan.md).
 
+## Scoped implementation progress
+
+HKDF now uses this route for its four executable methods, with 248 body checks
+and 259 included paired/domain checks. A separate polynomial component covers
+13 native polynomial methods, seven field dependencies and 19 executable pure
+helpers. Its actual paired callers cover forward/inverse NTT and multiplication
+without requiring equal secret coefficients. The polynomial body has 1,001
+verified checks, the field body 86, the polynomial paired harness 26 and the
+field compatibility harness 14. Original frames and permitted within-call
+aliases remain part of the domain.
+
+The resolved-AST coverage checkers remain trusted, reviewed code. They check
+operation/observation order and actual resolved dependencies; the orchestration
+must also enforce the exact reviewed scope. A negative control which erases
+observations may still satisfy a paired Dafny theorem, so accepting only that
+theorem would miss the fault. Separate coverage controls must reject it.
+Likewise, a count of 20 roots does not establish coverage if an environment
+variable selected the same root 20 times. The polynomial runner clears those
+selectors and checks the exact unique identities.
+
+These are scoped source-observation results. Complete SHAKE/Keccak, ML-KEM,
+Java adapters/comparisons and failure-path declassification still require
+composition work. The existing residual bytecode inventories remain open.
+
 ## Assurance boundaries
 
 Functional correctness, source trace independence and artifact identity remain

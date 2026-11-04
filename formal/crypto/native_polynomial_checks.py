@@ -50,23 +50,63 @@ def absolute_includes(text):
     return re.sub(r'include "([^"]+)"', lambda m: f'include "{(HERE / m.group(1)).resolve()}"', text)
 
 
-def index_control_witness(text):
-    """Focus the actual first mutated lane before false loop facts can be used."""
+def forward_control_witness(text, anchor, lane, expected, mutant):
+    """Check a concrete lane before later ghost or loop facts can mask it."""
     start = text.index('  method {:isolate_assertions} ForwardStage(')
     end = text.index('  method {:isolate_assertions} InverseStage(', start)
     body = text[start:end]
     precondition = '    requires T.Canonical(f) && r.Length == 256 && 0 <= s < 7\n'
-    anchor = '        r[i] := F.Add(f[i],t);'
     if body.count(precondition) != 1 or body.count(anchor) != 1:
-        raise RuntimeError('Index control witness anchor changed')
+        raise RuntimeError('Forward control witness anchor changed')
     body = body.replace(precondition, precondition+
         '    requires s == 0 && T.Ints(f) == seq(256,i => if i == 128 then 1 else 0)\n', 1)
-    assertion = '        if i == 0 { assert r[i] as int == S.ForwardLane(T.Ints(f),s as int,i as int); }'
+    index = 'i' if lane == 0 else '(i+l)'
+    array_index = 'i' if lane == 0 else 'i+l'
+    assertion = (f'        if i == 0 {{ assert r[{array_index}] as int == '
+                 f'S.ForwardLane(T.Ints(f),s as int,{index} as int); }}')
     body = body.replace(anchor, anchor+'\n'+assertion, 1)
     text = text[:start]+body+text[end:]
     position = next(i+1 for i, line in enumerate(text.splitlines()) if line == assertion)
     witness = {'stage':0, 'nonzero_coefficient':128, 'value':1, 'other_coefficients':0,
-               'checked_lane':0, 'expected_lane':1729, 'mutant_lane':0,
+               'checked_lane':lane, 'expected_lane':expected, 'mutant_lane':mutant,
+               'scope':'temporary negative copy and paired original-body check only'}
+    return text, position, witness
+
+
+def index_control_witness(text):
+    return forward_control_witness(text, '        r[i], ftAdd := F.Add(f[i],t);',
+                                   0, 1729, 0)
+
+
+def sign_control_witness(text):
+    return forward_control_witness(text, '        r[i+l], ftSub := F.Add(f[i],t);',
+                                   128, 1600, 1729)
+
+
+def inverse_control_witness(text):
+    """Check the first inverse pair before later ghost/loop facts can mask it.
+
+    For s == 0, l == 2 and the sparse input f[2] == 1, the first pair is at
+    i == 0: correctness writes r[2] = Zetas[127] = 2154. The swapped
+    MulSub operand mutant writes 1175. The assertion is placed immediately
+    after the actual call and before the ghost call-trace assertion.
+    """
+    start = text.index('  method {:isolate_assertions} InverseStage(')
+    end = text.index('  method Scale(', start)
+    body = text[start:end]
+    precondition = '    requires T.Canonical(f) && r.Length == 256 && 0 <= s < 7\n'
+    anchor = '        r[i+l], ftMulSub := F.MulSub(z,f[i],f[i+l]);'
+    if body.count(precondition) != 1 or body.count(anchor) != 1:
+        raise RuntimeError('Inverse control witness anchor changed')
+    body = body.replace(precondition, precondition+
+        '    requires s == 0 && T.Ints(f) == seq(256,i => if i == 2 then 1 else 0)\n', 1)
+    assertion = ('        if i == 0 { assert r[2] as int == '
+                 'S.InverseLane(T.Ints(f),s as int,2); }')
+    body = body.replace(anchor, anchor+'\n'+assertion, 1)
+    text = text[:start]+body+text[end:]
+    position = next(i+1 for i, line in enumerate(text.splitlines()) if line == assertion)
+    witness = {'stage':0, 'nonzero_coefficient':2, 'value':1, 'other_coefficients':0,
+               'checked_lane':2, 'expected_lane':2154, 'mutant_lane':1175,
                'scope':'temporary negative copy and paired original-body check only'}
     return text, position, witness
 
@@ -92,6 +132,7 @@ def main():
     references = [HERE/'reference'/name for name in ('MlKem768.java','Shake.java')]
     inputs = [source,field,domain,HERE / 'NativeTypes.dfy',HERE / 'Polynomial.dfy',
               ROOT / 'formal/primitives/Field.dfy',Path(__file__).resolve(),HERE / 'native_polynomial_test.java',
+              ROOT/'formal/source/SourceTrace.dfy', ROOT/'formal/source/vocabulary/ObservationVocabulary.dfy',
               *references, HERE/'reference/provenance.json']
     pins = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     report = {'status':'incomplete','phase':args.phase,'inputs':pins,
@@ -116,7 +157,7 @@ def main():
                 if text.count(old) != 1: raise RuntimeError(f'Mutation target not unique: {old}')
                 return text.replace(old,new,1)
             controls = [
-                ('reduce',mutation(scalar,'    r := ReduceOnce(remainder);','    r := 0;'),'NativeField.Reduce.'),
+                ('reduce',mutation(scalar,'    r, callee := ReduceOnce(remainder);','    r, callee := ReduceOnce(remainder);\n    r := 0;'),'NativeField.Reduce.'),
                 ('correction-shift',mutation(scalar,'>> (15 as T.I)','>> (14 as T.I)'),'NativeField.ReduceOnce.'),
                 ('barrett-shift',mutation(scalar,'>> (24 as T.I)','>> (23 as T.I)'),'NativeField.Reduce.'),
                 ('mask',mutation(scalar,'>> (15 as T.I)) & 1','>> (15 as T.I)) & 0'),'NativeField.ReduceOnce.'),
@@ -129,15 +170,18 @@ module NativeReciprocalControl {{
     ensures 0 <= r < 3329
   {{
     var product: T.L := (a as T.L)*5038;
-    F.NativeShift24(product);
-    var shifted: bv64 := (product as bv64) >> (24 as T.I);
-    var quotient: T.I := shifted as T.I;
-    r := F.ReduceOnce(a-quotient*3329);
+    assert product == 50348049004;
+    assert product/16777216 == 3000;
+    var q: T.I := ((product as int)/16777216) as T.I;
+    assert (q as int) == 3000;
+    assert a - q*3329 == 6658;
+    ghost var ft: seq<int>;
+    r, ft := F.ReduceOnce(a - q*3329);
   }}
 }}
 ''','NativeReciprocalControl.Wrong.'),
-                ('sign',mutation(poly,'r[i+l] := F.Sub(f[i],t);','r[i+l] := F.Add(f[i],t);'),'NativePolynomial.ForwardStage.'),
-                ('index',mutation(poly,'var t := F.Mul(z,f[i+l]);','var t := F.Mul(z,f[i]);'),'NativePolynomial.ForwardStage.'),
+                ('sign',mutation(poly,'r[i+l], ftSub := F.Sub(f[i],t);','r[i+l], ftSub := F.Add(f[i],t);'),'NativePolynomial.ForwardStage.'),
+                ('index',mutation(poly,'var t, ftMul := F.Mul(z,f[i+l]);','var t, ftMul := F.Mul(z,f[i]);'),'NativePolynomial.ForwardStage.'),
                 ('inverse',mutation(poly,'F.MulSub(z,f[i+l],f[i])','F.MulSub(z,f[i],f[i+l])'),'NativePolynomial.InverseStage.'),
                 ('product',f'''include "{field}"
 module NativeProductControl {{
@@ -146,11 +190,11 @@ module NativeProductControl {{
   method Wrong(a0: T.I, a1: T.I, b0: T.I, b1: T.I) returns (r: T.I)
     requires 0 <= a0 < 3329 && 0 <= a1 < 3329 && 0 <= b0 < 3329 && 0 <= b1 < 3329
     ensures r as int == ((a0 as int)*(b1 as int)+(a1 as int)*(b0 as int))%3329
-  {{ r := F.Mul(a0,b1); }}
+  {{ ghost var ft: seq<int>; r, ft := F.Mul(a0,b1); }}
 }}
 ''','NativeProductControl.Wrong.'),
-                ('root',mutation(poly,'else if i == 1 then 1729','else if i == 1 then 1730'),'NativePolynomial.ZetasChunk0.'),
-                ('wipe',mutation(poly,'{ a[i] := 0; }','{ if i > 0 { a[i] := 0; } }'),'NativePolynomial.Wipe.'),
+                ('root',mutation(poly,'else if i == 1 then (1729, ghost','else if i == 1 then (1730, ghost'),'NativePolynomial.ZetasChunk0.'),
+                ('wipe',mutation(poly,'      a[i] := 0;','      if i > 0 { a[i] := 0; }'),'NativePolynomial.Wipe.'),
                 ('positive-dividend',mutation(scalar,'var adjusted := b+Q-c;','var adjusted := b-c;'),'NativeField.MulSub.'),
                 ('scale',f'''include "{source}"
 module NativeScaleControl {{
@@ -160,7 +204,7 @@ module NativeScaleControl {{
   method Wrong(f: array<T.I>) returns (r: array<T.I>)
     requires T.Canonical(f)
     ensures T.Canonical(r) && T.Ints(r) == S.Scale(T.Ints(f),3303)
-  {{ r := P.Copy(f); P.Scale(r,3302); }}
+  {{ ghost var copyTrace, scaleTrace: seq<int>; r, copyTrace := P.Copy(f); scaleTrace := P.Scale(r,3302); }}
 }}
 ''','NativeScaleControl.Wrong.'),
                 ('freshness',f'''include "{source}"
@@ -172,11 +216,14 @@ module NativeFreshControl {{
   {{ r := f; }}
 }}
 ''','NativeFreshControl.Wrong.')]
-            # These legal inputs make two scalar counterexamples deterministic
+            # These legal inputs make scalar counterexamples deterministic
             # under host load. Only temporary negative copies gain the witness
             # precondition; positive sources and unrestricted proofs are intact.
             witnesses = {
                 'reduce': {'a':1, 'requires':'a == 1', 'expected_modulo':1, 'mutant_return':0},
+                'reciprocal': {'a':9993658, 'requires':'a == 9993658', 'expected_modulo':0,
+                               'domain_anchor':'    requires 0 <= a <= 22154496\n',
+                               'product':50348049004, 'quotient':3000, 'mutant_remainder':6658},
                 'barrett-shift': {'a':16777216, 'requires':'a == 16777216', 'expected_modulo':2385,
                                   'product':84540391424, 'shift24':5039, 'mutant_shift23':10078,
                                   'mutant_remainder':-16772446},
@@ -189,31 +236,60 @@ module NativeFreshControl {{
             assert barrett['shift24'] == barrett['product'] >> 24
             assert barrett['mutant_shift23'] == barrett['product'] >> 23
             assert barrett['mutant_remainder'] == barrett['a'] - barrett['mutant_shift23'] * 3329 < 0
+            reciprocal = witnesses['reciprocal']
+            assert reciprocal['product'] == reciprocal['a'] * 5038
+            assert reciprocal['quotient'] == reciprocal['product'] // 16777216
+            assert reciprocal['mutant_remainder'] == reciprocal['a'] - reciprocal['quotient']*3329 == 6658
             report['controls'] = {}
             with tempfile.TemporaryDirectory(prefix='native-polynomial-') as temporary:
                 for name,text,symbol in controls:
                     witness = witnesses.get(name)
                     if witness:
-                        text = mutation(text,'    requires 0 <= a <= MaxReduce\n',
-                                        f"    requires 0 <= a <= MaxReduce\n    requires {witness['requires']}\n")
+                        domain_anchor = witness.get('domain_anchor', '    requires 0 <= a <= MaxReduce\n')
+                        text = mutation(text, domain_anchor,
+                                        domain_anchor + f"    requires {witness['requires']}\n")
                     focus = []
                     correct_path = None
-                    if name == 'index':
-                        # A legal basis vector deterministically distinguishes
-                        # f[i+l] from f[i]. Positive full-domain proofs above
-                        # retain their original inputs and obligations.
-                        text, position, witness = index_control_witness(text)
+                    if name in ('index', 'sign', 'inverse'):
+                        # Check the actual arithmetic lane before later ghost
+                        # assertions or false loop facts can mask its failure.
+                        # Positive full-domain sources remain unrestricted.
+                        if name == 'index':
+                            witness_fn = index_control_witness
+                        elif name == 'sign':
+                            witness_fn = sign_control_witness
+                        else:
+                            witness_fn = inverse_control_witness
+                        text, position, witness = witness_fn(text)
                         focus = ['--isolate-assertions','--filter-position',
                                  f'native_polynomial_{name}.dfy:{position}']
-                        correct = mutation(text,'var t := F.Mul(z,f[i]);',
-                                          'var t := F.Mul(z,f[i+l]);')
-                        correct_path = Path(temporary)/'native_polynomial_index_original.dfy'
+                        if name == 'index':
+                            correct = mutation(text,'var t, ftMul := F.Mul(z,f[i]);',
+                                              'var t, ftMul := F.Mul(z,f[i+l]);')
+                        elif name == 'sign':
+                            correct = mutation(text,'r[i+l], ftSub := F.Add(f[i],t);',
+                                              'r[i+l], ftSub := F.Sub(f[i],t);')
+                        else:
+                            correct = mutation(text,'F.MulSub(z,f[i],f[i+l])',
+                                              'F.MulSub(z,f[i+l],f[i])')
+                        correct_path = Path(temporary)/f'native_polynomial_{name}_original.dfy'
                         correct_path.write_text(correct)
                         correct_text = positive([dafny,'verify',correct_path,'--filter-symbol',symbol,
                             '--isolate-assertions','--filter-position',f'{correct_path.name}:{position}',
-                            *native],output/'control-index-original.log')
+                            *native],output/f'control-{name}-original.log')
                         if not re.search(r'finished with [1-9]\d* assertions verified, 0 errors\s*$',correct_text):
-                            raise RuntimeError('Index control original-body witness did not verify')
+                            raise RuntimeError(name + ' control original-body witness did not verify')
+                    elif name == 'reciprocal':
+                        correct = (text.replace('*5038','*5039')
+                                       .replace('50348049004','50358042662')
+                                       .replace('== 3000','== 3001')
+                                       .replace('a - q*3329 == 6658','a - q*3329 == 3329'))
+                        correct_path = Path(temporary)/'native_polynomial_reciprocal_original.dfy'
+                        correct_path.write_text(correct)
+                        correct_text = positive([dafny,'verify',correct_path,'--filter-symbol',symbol,*native],
+                                                output/'control-reciprocal-original.log')
+                        if not re.search(r'finished with [1-9]\d* verified, 0 errors\s*$',correct_text):
+                            raise RuntimeError('reciprocal correct witness did not verify')
                     path = Path(temporary)/f'native_polynomial_{name}.dfy'; path.write_text(text)
                     log = output/f'control-{name}.log'
                     status,result = run([dafny,'verify',path,'--filter-symbol',symbol,*focus,*native],log)
@@ -221,13 +297,22 @@ module NativeFreshControl {{
                         raise RuntimeError(f'{name}: did not fail a genuine proof obligation')
                     if re.search(r'out of resource|timed out|parse errors|resolution/type errors',result,re.I):
                         raise RuntimeError(f'{name}: inconclusive')
-                    report['controls'][name] = {'result':'semantic proof failure','sha256':digest(path),'symbol':symbol,'log':log.name}
+                    if name == 'reciprocal':
+                        # This control must exercise the real NativeField.ReduceOnce
+                        # call, not a hand-written copy of its precondition. The
+                        # reviewer's exact mutation is the call-precondition form.
+                        if 'a precondition for this call could not be proved' not in result or 'NativeField.dfy(44' not in result:
+                            raise RuntimeError('reciprocal did not fail the actual NativeField.ReduceOnce call precondition')
+                        failure_kind = 'call precondition: NativeField.ReduceOnce; requires 0 <= a < 6658'
+                    else:
+                        failure_kind = 'semantic proof failure'
+                    report['controls'][name] = {'result':'semantic proof failure','failure_kind':failure_kind,'sha256':digest(path),'symbol':symbol,'log':log.name}
                     if witness:
                         report['controls'][name]['witness'] = {**witness,
                             'scope':witness.get('scope','temporary negative copy only')}
                     if correct_path:
                         report['controls'][name]['correct_witness_sha256'] = digest(correct_path)
-                        report['controls'][name]['correct_witness_log'] = 'control-index-original.log'
+                        report['controls'][name]['correct_witness_log'] = f'control-{name}-original.log'
         if args.phase in ['all','java']:
             jdk = args.java_home.resolve()
             env = dict(os.environ,JAVA_HOME=str(jdk),PATH=str(jdk/'bin')+os.pathsep+os.environ['PATH'])

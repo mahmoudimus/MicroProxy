@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/extract-shift/NativeCodec.dfy(166,11): Error: assertion might not hold
+    |
+166 |     assert shifted as int == (value as int)/Power(shift as int);
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 87 verified, 1 error

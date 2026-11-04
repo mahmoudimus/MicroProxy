@@ -1,0 +1,7 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/a-poly-codec-v1/native-codec-a9_lfk1m/compress-rounding/NativeCodec.dfy(211,11): Error: assertion might not hold
+    |
+211 |     assert dividend as int == S.Pow2(d as int)*(x as int)+S.Q/2;
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 3 assertions verified, 1 error

@@ -1,0 +1,526 @@
+Compiled from "DafnyEuclidean.java"
+public class dafny.DafnyEuclidean {
+  static final boolean $assertionsDisabled;
+
+  public dafny.DafnyEuclidean();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static byte EuclideanDivision(byte, byte);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iload_0
+      21: iload_1
+      22: invokestatic  #20                 // Method EuclideanDivision:(II)I
+      25: i2b
+      26: ireturn
+
+  public static short EuclideanDivision(short, short);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iload_0
+      21: iload_1
+      22: invokestatic  #20                 // Method EuclideanDivision:(II)I
+      25: i2s
+      26: ireturn
+
+  public static int EuclideanDivision(int, int);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iconst_0
+      21: iload_0
+      22: if_icmpgt     55
+      25: iconst_0
+      26: iload_1
+      27: if_icmpgt     34
+      30: iload_0
+      31: iload_1
+      32: idiv
+      33: ireturn
+      34: iload_1
+      35: ldc           #26                 // int -2147483648
+      37: if_icmpne     49
+      40: iload_0
+      41: ldc           #26                 // int -2147483648
+      43: invokestatic  #27                 // Method java/lang/Integer.divideUnsigned:(II)I
+      46: iconst_m1
+      47: imul
+      48: ireturn
+      49: iload_0
+      50: iload_1
+      51: ineg
+      52: idiv
+      53: ineg
+      54: ireturn
+      55: iconst_0
+      56: iload_1
+      57: if_icmpgt     70
+      60: iload_0
+      61: iconst_1
+      62: iadd
+      63: ineg
+      64: iload_1
+      65: idiv
+      66: ineg
+      67: iconst_1
+      68: isub
+      69: ireturn
+      70: iload_1
+      71: ldc           #26                 // int -2147483648
+      73: if_icmpne     88
+      76: iload_0
+      77: iconst_1
+      78: iadd
+      79: ineg
+      80: ldc           #26                 // int -2147483648
+      82: invokestatic  #27                 // Method java/lang/Integer.divideUnsigned:(II)I
+      85: iconst_1
+      86: iadd
+      87: ireturn
+      88: iload_0
+      89: iconst_1
+      90: iadd
+      91: ineg
+      92: iload_1
+      93: ineg
+      94: idiv
+      95: iconst_1
+      96: iadd
+      97: ireturn
+
+  public static long EuclideanDivision(long, long);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          22
+       6: lload_2
+       7: lconst_0
+       8: lcmp
+       9: ifne          22
+      12: new           #13                 // class java/lang/AssertionError
+      15: dup
+      16: ldc           #15                 // String Precondition Failure
+      18: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      21: athrow
+      22: lconst_0
+      23: lload_0
+      24: lcmp
+      25: ifgt          64
+      28: lconst_0
+      29: lload_2
+      30: lcmp
+      31: ifgt          38
+      34: lload_0
+      35: lload_2
+      36: ldiv
+      37: lreturn
+      38: lload_2
+      39: ldc2_w        #32                 // long -9223372036854775808l
+      42: lcmp
+      43: ifne          58
+      46: lload_0
+      47: ldc2_w        #32                 // long -9223372036854775808l
+      50: invokestatic  #34                 // Method java/lang/Long.divideUnsigned:(JJ)J
+      53: ldc2_w        #37                 // long -1l
+      56: lmul
+      57: lreturn
+      58: lload_0
+      59: lload_2
+      60: lneg
+      61: ldiv
+      62: lneg
+      63: lreturn
+      64: lconst_0
+      65: lload_2
+      66: lcmp
+      67: ifgt          80
+      70: lload_0
+      71: lconst_1
+      72: ladd
+      73: lneg
+      74: lload_2
+      75: ldiv
+      76: lneg
+      77: lconst_1
+      78: lsub
+      79: lreturn
+      80: lload_2
+      81: ldc2_w        #32                 // long -9223372036854775808l
+      84: lcmp
+      85: ifne          101
+      88: lload_0
+      89: lconst_1
+      90: ladd
+      91: lneg
+      92: ldc2_w        #32                 // long -9223372036854775808l
+      95: invokestatic  #34                 // Method java/lang/Long.divideUnsigned:(JJ)J
+      98: lconst_1
+      99: ladd
+     100: lreturn
+     101: lload_0
+     102: lconst_1
+     103: ladd
+     104: lneg
+     105: lload_2
+     106: lneg
+     107: ldiv
+     108: lconst_1
+     109: ladd
+     110: lreturn
+
+  public static java.math.BigInteger EuclideanDivision(java.math.BigInteger, java.math.BigInteger);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          26
+       6: aload_1
+       7: getstatic     #39                 // Field java/math/BigInteger.ZERO:Ljava/math/BigInteger;
+      10: invokevirtual #45                 // Method java/math/BigInteger.compareTo:(Ljava/math/BigInteger;)I
+      13: ifne          26
+      16: new           #13                 // class java/lang/AssertionError
+      19: dup
+      20: ldc           #15                 // String Precondition Failure
+      22: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      25: athrow
+      26: iconst_0
+      27: aload_0
+      28: invokevirtual #49                 // Method java/math/BigInteger.signum:()I
+      31: if_icmpgt     60
+      34: iconst_0
+      35: aload_1
+      36: invokevirtual #49                 // Method java/math/BigInteger.signum:()I
+      39: if_icmpgt     48
+      42: aload_0
+      43: aload_1
+      44: invokevirtual #53                 // Method java/math/BigInteger.divide:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      47: areturn
+      48: aload_0
+      49: aload_1
+      50: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+      53: invokevirtual #53                 // Method java/math/BigInteger.divide:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      56: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+      59: areturn
+      60: iconst_0
+      61: aload_1
+      62: invokevirtual #49                 // Method java/math/BigInteger.signum:()I
+      65: if_icmpgt     92
+      68: aload_0
+      69: getstatic     #61                 // Field java/math/BigInteger.ONE:Ljava/math/BigInteger;
+      72: invokevirtual #64                 // Method java/math/BigInteger.add:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      75: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+      78: aload_1
+      79: invokevirtual #53                 // Method java/math/BigInteger.divide:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      82: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+      85: getstatic     #61                 // Field java/math/BigInteger.ONE:Ljava/math/BigInteger;
+      88: invokevirtual #67                 // Method java/math/BigInteger.subtract:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      91: areturn
+      92: aload_0
+      93: getstatic     #61                 // Field java/math/BigInteger.ONE:Ljava/math/BigInteger;
+      96: invokevirtual #64                 // Method java/math/BigInteger.add:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      99: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+     102: aload_1
+     103: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+     106: invokevirtual #53                 // Method java/math/BigInteger.divide:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+     109: getstatic     #61                 // Field java/math/BigInteger.ONE:Ljava/math/BigInteger;
+     112: invokevirtual #64                 // Method java/math/BigInteger.add:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+     115: areturn
+
+  public static byte EuclideanModulus(byte, byte);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iload_0
+      21: iload_1
+      22: invokestatic  #70                 // Method EuclideanModulus:(II)I
+      25: i2b
+      26: ireturn
+
+  public static short EuclideanModulus(short, short);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iload_0
+      21: iload_1
+      22: invokestatic  #70                 // Method EuclideanModulus:(II)I
+      25: i2s
+      26: ireturn
+
+  public static int EuclideanModulus(int, int);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          20
+       6: iload_1
+       7: ifne          20
+      10: new           #13                 // class java/lang/AssertionError
+      13: dup
+      14: ldc           #15                 // String Precondition Failure
+      16: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      19: athrow
+      20: iconst_0
+      21: iload_0
+      22: if_icmpgt     50
+      25: iload_1
+      26: ldc           #26                 // int -2147483648
+      28: if_icmpne     37
+      31: iload_0
+      32: iload_1
+      33: invokestatic  #73                 // Method java/lang/Integer.remainderUnsigned:(II)I
+      36: ireturn
+      37: iload_1
+      38: ifge          46
+      41: iload_0
+      42: iload_1
+      43: ineg
+      44: irem
+      45: ireturn
+      46: iload_0
+      47: iload_1
+      48: irem
+      49: ireturn
+      50: iload_0
+      51: ldc           #26                 // int -2147483648
+      53: if_icmpeq     62
+      56: iload_1
+      57: ldc           #26                 // int -2147483648
+      59: if_icmpne     103
+      62: iload_0
+      63: iload_1
+      64: if_icmpne     69
+      67: iconst_0
+      68: ireturn
+      69: iload_1
+      70: ldc           #26                 // int -2147483648
+      72: if_icmpne     84
+      75: iload_1
+      76: iload_0
+      77: ineg
+      78: iload_1
+      79: invokestatic  #73                 // Method java/lang/Integer.remainderUnsigned:(II)I
+      82: isub
+      83: ireturn
+      84: iload_1
+      85: ifge          93
+      88: iload_1
+      89: ineg
+      90: goto          94
+      93: iload_1
+      94: istore_2
+      95: iload_2
+      96: iload_0
+      97: iload_2
+      98: invokestatic  #73                 // Method java/lang/Integer.remainderUnsigned:(II)I
+     101: isub
+     102: ireturn
+     103: iload_1
+     104: ifge          112
+     107: iload_1
+     108: ineg
+     109: goto          113
+     112: iload_1
+     113: istore_2
+     114: iload_0
+     115: ineg
+     116: iload_2
+     117: irem
+     118: istore_3
+     119: iload_3
+     120: ifne          127
+     123: iload_3
+     124: goto          130
+     127: iload_2
+     128: iload_3
+     129: isub
+     130: ireturn
+
+  public static long EuclideanModulus(long, long);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          22
+       6: lload_2
+       7: lconst_0
+       8: lcmp
+       9: ifne          22
+      12: new           #13                 // class java/lang/AssertionError
+      15: dup
+      16: ldc           #15                 // String Precondition Failure
+      18: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      21: athrow
+      22: lconst_0
+      23: lload_0
+      24: lcmp
+      25: ifgt          57
+      28: lload_2
+      29: ldc2_w        #32                 // long -9223372036854775808l
+      32: lcmp
+      33: ifne          42
+      36: lload_0
+      37: lload_2
+      38: invokestatic  #76                 // Method java/lang/Long.remainderUnsigned:(JJ)J
+      41: lreturn
+      42: lload_2
+      43: lconst_0
+      44: lcmp
+      45: ifge          53
+      48: lload_0
+      49: lload_2
+      50: lneg
+      51: lrem
+      52: lreturn
+      53: lload_0
+      54: lload_2
+      55: lrem
+      56: lreturn
+      57: lload_0
+      58: ldc2_w        #32                 // long -9223372036854775808l
+      61: lcmp
+      62: ifeq          73
+      65: lload_2
+      66: ldc2_w        #32                 // long -9223372036854775808l
+      69: lcmp
+      70: ifne          122
+      73: lload_0
+      74: lload_2
+      75: lcmp
+      76: ifne          81
+      79: lconst_0
+      80: lreturn
+      81: lload_2
+      82: ldc2_w        #32                 // long -9223372036854775808l
+      85: lcmp
+      86: ifne          98
+      89: lload_2
+      90: lload_0
+      91: lneg
+      92: lload_2
+      93: invokestatic  #76                 // Method java/lang/Long.remainderUnsigned:(JJ)J
+      96: lsub
+      97: lreturn
+      98: lload_2
+      99: lconst_0
+     100: lcmp
+     101: ifge          109
+     104: lload_2
+     105: lneg
+     106: goto          110
+     109: lload_2
+     110: lstore        4
+     112: lload         4
+     114: lload_0
+     115: lload         4
+     117: invokestatic  #76                 // Method java/lang/Long.remainderUnsigned:(JJ)J
+     120: lsub
+     121: lreturn
+     122: lload_2
+     123: lconst_0
+     124: lcmp
+     125: ifge          133
+     128: lload_2
+     129: lneg
+     130: goto          134
+     133: lload_2
+     134: lstore        4
+     136: lload_0
+     137: lneg
+     138: lload         4
+     140: lrem
+     141: lstore        6
+     143: lload         6
+     145: lconst_0
+     146: lcmp
+     147: ifne          155
+     150: lload         6
+     152: goto          160
+     155: lload         4
+     157: lload         6
+     159: lsub
+     160: lreturn
+
+  public static java.math.BigInteger EuclideanModulus(java.math.BigInteger, java.math.BigInteger);
+    Code:
+       0: getstatic     #7                  // Field $assertionsDisabled:Z
+       3: ifne          26
+       6: aload_1
+       7: getstatic     #39                 // Field java/math/BigInteger.ZERO:Ljava/math/BigInteger;
+      10: invokevirtual #45                 // Method java/math/BigInteger.compareTo:(Ljava/math/BigInteger;)I
+      13: ifne          26
+      16: new           #13                 // class java/lang/AssertionError
+      19: dup
+      20: ldc           #15                 // String Precondition Failure
+      22: invokespecial #17                 // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+      25: athrow
+      26: aload_1
+      27: invokevirtual #78                 // Method java/math/BigInteger.abs:()Ljava/math/BigInteger;
+      30: astore_2
+      31: iconst_0
+      32: aload_0
+      33: invokevirtual #49                 // Method java/math/BigInteger.signum:()I
+      36: if_icmpgt     45
+      39: aload_0
+      40: aload_2
+      41: invokevirtual #81                 // Method java/math/BigInteger.mod:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      44: areturn
+      45: aload_0
+      46: invokevirtual #57                 // Method java/math/BigInteger.negate:()Ljava/math/BigInteger;
+      49: aload_2
+      50: invokevirtual #81                 // Method java/math/BigInteger.mod:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      53: astore_3
+      54: aload_3
+      55: getstatic     #39                 // Field java/math/BigInteger.ZERO:Ljava/math/BigInteger;
+      58: invokevirtual #84                 // Method java/math/BigInteger.equals:(Ljava/lang/Object;)Z
+      61: ifeq          68
+      64: aload_3
+      65: goto          73
+      68: aload_2
+      69: aload_3
+      70: invokevirtual #67                 // Method java/math/BigInteger.subtract:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+      73: areturn
+
+  static {};
+    Code:
+       0: ldc           #8                  // class dafny/DafnyEuclidean
+       2: invokevirtual #88                 // Method java/lang/Class.desiredAssertionStatus:()Z
+       5: ifne          12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: putstatic     #7                  // Field $assertionsDisabled:Z
+      16: return
+}

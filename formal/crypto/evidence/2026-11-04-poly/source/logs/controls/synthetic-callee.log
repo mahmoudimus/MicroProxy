@@ -1,0 +1,6 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-synthetic-callee-38dwhwe8/formal/crypto/NativePolynomial.dfy(871,23): Error: Add: later trace update contains non-approved suffix expression
+    |
+871 |       trace := trace + FieldAddCallee() + ST.Write(504,2,i as int);
+    |                        ^^^^^^^^^^^^^^
+
+1 resolution/type errors detected in AllPolynomialTraceRoots.dfy

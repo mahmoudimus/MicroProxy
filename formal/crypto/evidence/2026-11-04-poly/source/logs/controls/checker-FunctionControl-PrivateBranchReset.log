@@ -1,0 +1,6 @@
+formal/source/polynomial/controls/PolynomialControls.dfy(126,29): Error: PrivateBranchReset: arm 0 is missing Branch observation
+    |
+126 |     if v == 0 then (1, ghost [])
+    |                              ^
+
+1 resolution/type errors detected in PolynomialControls.dfy

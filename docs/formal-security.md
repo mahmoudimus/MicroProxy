@@ -342,7 +342,7 @@ reviewed graph; this is not a general verifier-soundness proof or full 4.11 repl
 
 Production SHAKE/ML-KEM now use the generated Java after compatibility and
 performance review, with the pinned Maven DafnyRuntime 4.9.1 dependency. The
-[adoption record](https://github.com/mahmoudimus/MicroProxy/blob/diff/dafny-shake-mlkem/formal/crypto/adoption/README.md)
+[adoption record](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/crypto/adoption/README.md)
 binds the final stage, generated-source/class identity and agent evaluation to
 the prior user authorization. Those earlier SHAKE/ML-KEM adoption measurements,
 before generated HKDF, recorded about 21-22% more CPU and 29-30% more allocation
@@ -400,6 +400,26 @@ so the coverage adapter must independently reject that binding. Site IDs are
 opaque method-local labels, not JVM program counters. Java erasure/delivery checks and
 JDK HMAC/compiler/runtime assumptions remain explicit; this does not establish
 physical constant-time execution or whole-crypto trace independence.
+
+The [polynomial source-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/polynomial)
+extends this approach to 13 native polynomial methods, their seven field-method
+dependencies and 19 executable pure helpers. Paired harnesses call the actual
+methods, including forward/inverse NTT and multiplication, with independently
+varying permitted coefficient values. They retain the original frames and
+within-call alias restrictions, and exercise permitted shared-buffer cases.
+The body proofs include 1,001 polynomial and 86 field checks; the polynomial
+paired harness has 26 checks and the field compatibility harness has 14.
+The shared observation wrappers and canonical vocabulary are also verified.
+
+Its separately trusted resolved-AST checker binds observations to actual
+operations, resolved callees and trace outputs. The runner requires the exact
+reviewed root identities, clears ambient test selectors and rejects scope
+changes, omitted observations and reordered or replaced callee traces. Genuine
+observed secret-branch and secret-index controls fail the paired proof. Memory
+observations identify method-local buffer roles and indices, rather than physical
+Java heap addresses. This scoped result does not discharge complete SHAKE,
+ML-KEM, adapter or invalid-input composition. Generated class identity and the
+existing functional and artifact checks remain separate delivery requirements.
 
 The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
 adds a SHAKE ownership harness that calls the actual constructor and methods.

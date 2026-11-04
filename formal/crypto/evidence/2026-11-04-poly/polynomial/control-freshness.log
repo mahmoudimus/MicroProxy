@@ -1,0 +1,12 @@
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-tykzhecc/native_polynomial_freshness.dfy(7,2): Error: a postcondition could not be proved on this return path
+  |
+7 |   { r := f; }
+  |   ^
+
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-tykzhecc/native_polynomial_freshness.dfy(6,12): Related location: this is the postcondition that could not be proved
+  |
+6 |     ensures fresh(r) && T.Ints(r) == T.Ints(f)
+  |             ^^^^^^^^
+
+
+Dafny program verifier finished with 0 verified, 1 error

@@ -47,7 +47,8 @@ module NativeSampling {
       assert N.Power(j as int+1) == C.Pow2(j as int+1);
       assert N.Power(j as int+2) == C.Pow2(j as int+2);
       assert N.Power(j as int+3) == C.Pow2(j as int+3);
-      f[i] := F.ReduceOnce(3329+low-high);
+      ghost var ft: seq<int>;
+      f[i], ft := F.ReduceOnce(3329+low-high);
       assert (3329+low-high)%3329 == (low-high)%3329;
     }
   }

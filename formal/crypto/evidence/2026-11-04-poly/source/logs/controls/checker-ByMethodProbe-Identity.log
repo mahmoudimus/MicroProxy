@@ -1,0 +1,6 @@
+formal/source/polynomial/controls/ByMethodControl.dfy(3,11): Error: Identity: function-by-method is unsupported; the actual imperative body is not checked
+  |
+3 |   function Identity(v: bv64): (bv64, ghost seq<int>) {
+  |            ^^^^^^^^
+
+1 resolution/type errors detected in ByMethodControl.dfy

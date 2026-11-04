@@ -1,0 +1,12 @@
+/out/linux-full/native-kem-xh1s0sah/short-sampler.dfy(304,4): Error: a postcondition could not be proved on this return path
+    |
+304 |     return S.Failure(S.RejectionLimit);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/out/linux-full/native-kem-xh1s0sah/short-sampler.dfy(294,12): Related location: this is the postcondition that could not be proved
+    |
+294 |     ensures ModelSample(r) == S.SamplePrefix(bytes[..])
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error
