@@ -184,6 +184,14 @@ POLY_SOURCE_MUTATIONS = {
     "rebind-same-model": "checker-only-rejection",
     "rebind-suchthat": "checker-only-rejection",
 }
+POLY_SOURCE_FOCUSED_CONTROL = "missing-false-prefix"
+POLY_SOURCE_FOCUSED_SYMBOL = "NativePolynomial.ZetasValue"
+POLY_SOURCE_FOCUSED_ANCHOR = "ensures ZetasValue(i).1"
+POLY_SOURCE_FOCUSED_ORIGINAL_LOG = "logs/controls/missing-false-prefix-original-focused.log"
+POLY_SOURCE_FOCUSED_POLICY = (
+    "--verification-time-limit", "30", "--resource-limit", "50000000",
+    "--cores", "2", "--solver-option", "O:smt.case_split=0",
+)
 POLY_SOURCE_CANONICAL_NEEDLES = {
     'canonical-branch-flip': 'positional formal 1: SourceTrace._default.Branch',
     'canonical-erase-address': 'positional formal 2: SourceTrace._default.Read',
@@ -456,6 +464,7 @@ POLY_SOURCE_LOG_PATHS = (
     'logs/controls/leaf-branch-mutation-dafny.log',
     'logs/controls/leaf-branch-mutation.log',
     'logs/controls/missing-false-prefix-dafny.log',
+    'logs/controls/missing-false-prefix-original-focused.log',
     'logs/controls/missing-false-prefix.log',
     'logs/controls/real-path-mutation-dafny.log',
     'logs/controls/real-path-mutation.log',
@@ -2644,6 +2653,85 @@ def _poly_validate_checks(root: Path, index: dict[str, Any], receipt: dict[str, 
     return checked + len(remaining)
 
 
+def _poly_validate_focused_control(root: Path, index: dict[str, Any],
+                                   receipt: dict[str, Any], item: dict[str, Any],
+                                   label: str) -> int:
+    """Bind the actual ZetasValue counterexample to a non-vacuous original.
+
+    This checks the executed producer's scope/records/logs. It does not turn
+    logs into a proof of execution or remove the verifier/producer boundary.
+    """
+    focus = item.get("focused")
+    _poly_require(item.get("control") == POLY_SOURCE_FOCUSED_CONTROL
+                  and isinstance(focus, dict)
+                  and set(focus) == {"filter_symbol", "original", "mutant", "note"},
+                  label, "focused control record is missing or malformed")
+    _poly_require(focus["filter_symbol"] == POLY_SOURCE_FOCUSED_SYMBOL, label,
+                  "focused filter symbol changed")
+    view = item.get("dafny")
+    _poly_require(isinstance(view, dict)
+                  and set(view) == {"verified", "errors", "filter_symbol", "named",
+                                   "classification", "paired_original"}, label,
+                  "focused Dafny result shape changed")
+    _poly_require(view["filter_symbol"] == POLY_SOURCE_FOCUSED_SYMBOL
+                  and view["named"] == POLY_SOURCE_FOCUSED_ANCHOR
+                  and view["classification"] == "focused-dafny-postcondition-counterexample",
+                  label, "focused Dafny symbol, anchor or classification changed")
+    original, mutant = focus["original"], focus["mutant"]
+    keys = {"command", "exit", "log", "log_sha256", "verified", "errors"}
+    _poly_require(isinstance(original, dict) and set(original) == keys
+                  and isinstance(mutant, dict) and set(mutant) == keys, label,
+                  "focused original/mutant record shape changed")
+    _poly_require(view["paired_original"] == original, label,
+                  "focused paired original copies disagree")
+    _poly_require(all(type(original[k]) is int for k in ("verified", "errors", "exit"))
+                  and (original["verified"], original["errors"], original["exit"]) == (1, 0, 0),
+                  label, "focused original must verify one obligation without errors")
+    _poly_require(all(type(mutant[k]) is int for k in ("verified", "errors", "exit"))
+                  and (mutant["verified"], mutant["errors"], mutant["exit"]) == (0, 1, 4),
+                  label, "focused mutant must fail the one actual postcondition")
+    _poly_require(mutant == {"command": item.get("dafny_command"),
+                            "exit": item.get("dafny_exit"), "log": item.get("dafny_log"),
+                            "log_sha256": item.get("dafny_log_sha256"),
+                            "verified": view["verified"], "errors": view["errors"]},
+                  label, "focused mutant copies disagree")
+    proof = next((p for p in receipt.get("proofs", [])
+                  if p.get("label") == "polynomial"), {})
+    command = proof.get("command")
+    _poly_require(isinstance(command, list) and len(command) == 11
+                  and all(isinstance(x, str) for x in command)
+                  and command[1] == "verify"
+                  and command[3:] == list(POLY_SOURCE_FOCUSED_POLICY), label,
+                  "focused original's full positive command or policy changed")
+    suffix = [*POLY_SOURCE_FOCUSED_POLICY, "--filter-symbol", POLY_SOURCE_FOCUSED_SYMBOL]
+    _poly_require(original["command"] == [*command[:3], *suffix], label,
+                  "focused original command does not target the actual positive source")
+    mutant_command = mutant["command"]
+    _poly_require(isinstance(mutant_command, list) and len(mutant_command) == 13
+                  and all(isinstance(x, str) for x in mutant_command)
+                  and mutant_command[:2] == command[:2]
+                  and mutant_command[3:] == suffix, label,
+                  "focused mutant command, filter or policy changed")
+    source = Path(mutant_command[2])
+    _poly_require(source.is_absolute() and ".." not in source.parts
+                  and source.parts[-3:] == ("formal", "crypto", "NativePolynomial.dfy")
+                  and source.parents[2].name.startswith("poly-mutation-missing-false-prefix-"),
+                  label, "focused mutant command is not the actual mutation source")
+    text = _poly_record_log(root, index, original, "log",
+                            POLY_SOURCE_FOCUSED_ORIGINAL_LOG, label)
+    _poly_dafny_positive(text, 1, label, "focused original log")
+    mutant_log = POLY_SOURCE_MUTATION_LOGS[POLY_SOURCE_FOCUSED_CONTROL][1]
+    text = _poly_record_log(root, index, mutant, "log", mutant_log, label)
+    _poly_require(_poly_diagnostics(text) ==
+                  POLY_SOURCE_MUTATION_DIAGNOSTICS[POLY_SOURCE_FOCUSED_CONTROL], label,
+                  "focused mutant diagnostics changed")
+    _poly_require(POLY_SOURCE_FOCUSED_ANCHOR in text, label,
+                  "focused mutant log lacks the actual trace postcondition")
+    _poly_dafny_negative(text, 0, 1, label, "focused mutant log",
+                         POLY_SOURCE_MUTATION_DIAGNOSTICS[POLY_SOURCE_FOCUSED_CONTROL][0][2])
+    return 14
+
+
 def _validate_poly_source_evidence(root: Path, label: str = "V7:poly-source") -> int:
     """Semantic gate for the actual portable-package report; not a shape check.
 
@@ -2860,6 +2948,12 @@ def _validate_poly_source_evidence(root: Path, label: str = "V7:poly-source") ->
         _poly_require(kind is not None, label, f"unexpected mutation control: {name}")
         checker_view = item.get("checker") if isinstance(item.get("checker"), dict) else {}
         dafny_view = item.get("dafny") if isinstance(item.get("dafny"), dict) else {}
+        if name == POLY_SOURCE_FOCUSED_CONTROL:
+            checked += _poly_validate_focused_control(root, index, receipt, item, label)
+        else:
+            _poly_require("focused" not in item and "paired_original" not in dafny_view
+                          and "filter_symbol" not in dafny_view, label,
+                          f"unexpected focused scope on mutation {name}")
         _poly_require(str(checker_view.get("needle") or "").strip(), label,
                       f"mutation lacks a named checker rejection: {name}")
         _poly_require(item.get("ok") is True and item.get("checker_exit") == 2, label,

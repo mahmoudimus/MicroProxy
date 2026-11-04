@@ -1,4 +1,4 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-iuvw6qvp/formal/crypto/NativePolynomial.dfy(842,11): Error: NewGammas: actual pure call GammasValue has 0 immediate ghost projections
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-drop-callee-trace-vspof2gz/formal/crypto/NativePolynomial.dfy(842,11): Error: NewGammas: actual pure call GammasValue has 0 immediate ghost projections
     |
 842 |       r[i] := GammasValue(i).0;
     |            ^^
