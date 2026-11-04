@@ -6,7 +6,7 @@
     "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
     "formal/source/replay.py": "a62c3edce327513e8a3c24b924a3e4b62b4452db4102e4ba21d96b20f1c2487f",
     "formal/source/vocabulary/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
-    "formal/source/vocabulary/README.md": "8c444d05e9c9ddaeb3ba97cf219bb78d2c5a453c41bc14821b53d31aeece94af",
+    "formal/source/vocabulary/README.md": "90c8644ff7ae27b2d99ddeb91836082b043a678c7a5eeff2cc00becca7190af8",
     "formal/source/vocabulary/controls/branch-constant.dfy": "4d436b09d32f348e3605a2b65517cc71b68f00695a6d64e836d9b3380f3e84c1",
     "formal/source/vocabulary/controls/call-target.dfy": "b14d571fac1e3a81811a7800059a24acaa9d9579efc20494b30ecbd648424876",
     "formal/source/vocabulary/controls/flattened-ambiguous.dfy": "e514a1bd7fa80d8c4a8ad305ec25160211c89b4aa71d431315fcdbc6dced8bc3",
@@ -15,9 +15,9 @@
     "formal/source/vocabulary/controls/read-role.dfy": "a9c413182c97dc30af5529a22dac29b25de780718dc01a6535cb4e3aac071a75",
     "formal/source/vocabulary/erasure/base/Client.dfy": "c8bb88395a26285afad3dcae05ea85b254182080a0803b26bada83d9b7cc76e7",
     "formal/source/vocabulary/erasure/trace/Client.dfy": "d8de4a9d0a58371bd372402b63cdaba30f0ed8b7c4e1b105d71801e3f0741e07",
-    "formal/source/vocabulary/replay.py": "93d62280147855060efcce5ad42816fe2aae513b93c4209cce43cd7106cc532d",
-    "formal/source/vocabulary/test_replay.py": "2a8fdffd9e3bb16e839740a78c804c800ed40cf9742672366475575a06887cf1",
-    "formal/source/vocabulary/checker/ObservationDeclarations.cs": "718f87fde0816975e52bf4837699077aec1d476a84239f6164ba6245a6bc9dc3",
-    "formal/source/vocabulary/checker/ObservationDeclarations.csproj": "4eb6b0ef6f097fa05be5b0de2a90f7b7d75de7a3177e7563bb4050bc603ae3ec"
+    "formal/source/vocabulary/replay.py": "beb99b6375414b072eafad029c097ff386b9947e85f2255d774cc50685f5b0ea",
+    "formal/source/vocabulary/test_replay.py": "ad498eaabb8f6eb145cc0ae0eea0d8e7f17ed0b1827540df29724b8cf52211a9",
+    "formal/source/vocabulary/checker/ObservationDeclarations.cs": "20595df81333c9e3a12161900e7acab212e92ab324e4c5410758df049d0c7cd5",
+    "formal/source/vocabulary/checker/ObservationDeclarations.csproj": "9e1f606f6027ad95706a75371c294de1c70b0066e99d5953c37a77f8c73daa89"
   }
 }

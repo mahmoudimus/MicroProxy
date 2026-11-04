@@ -38,7 +38,7 @@ public class ObservationDeclarationsRewriter : Rewriter {
   }
 
   void Error(IOrigin token, string message) {
-    reporter.Error(MessageSource.Rewriter, token, message);
+    reporter.Error(MessageSource.Rewriter, token ?? Token.NoToken, message);
   }
 
   public override void PostResolve(Program program) {
@@ -61,7 +61,13 @@ public class ObservationDeclarationsRewriter : Rewriter {
       if (path != null && owned.Contains(path)) seenFiles.Add(path);
     }
 
-    // Include edges expose every actual closure file, including include-only files.
+    // Official compiler file evidence: root URIs cover declaration-free entries,
+    // while Program.Files include edges cover the rest of the parser closure.
+    if (program.Compilation != null)
+      foreach (var uri in program.Compilation.RootSourceUris) {
+        var root = PathOf(uri);
+        if (root != null && owned.Contains(root)) seenFiles.Add(root);
+      }
     foreach (var file in program.Files)
       foreach (var include in file.Includes) {
         var includer = PathOf(include.IncluderFilename);

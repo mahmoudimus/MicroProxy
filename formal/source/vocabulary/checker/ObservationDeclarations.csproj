@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ObservationDeclarations</AssemblyName>
     <RestoreSources></RestoreSources>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DafnyCore"><HintPath>$(DafnyHome)/DafnyCore.dll</HintPath><Private>false</Private></Reference>

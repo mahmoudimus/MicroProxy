@@ -1,6 +1,10 @@
 import importlib.util
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location('vocabulary_replay', Path(__file__).with_name('replay.py'))
 REPLAY = importlib.util.module_from_spec(SPEC)
@@ -73,6 +77,42 @@ class DeclarationPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             REPLAY.plugin_ok_result(0, output, ['a.dfy'])
 
+    def test_plugin_ok_rejects_wrong_reviewed_counts(self):
+        with self.assertRaises(ValueError):
+            REPLAY.plugin_ok_result(0, ok_output(['a.dfy'], modules=1, types=0, members=0),
+                                    ['a.dfy'], (1, 0, 3))
+
+    def test_plugin_ok_accepts_explicit_zero_counts(self):
+        result = REPLAY.plugin_ok_result(0, ok_output(['a.dfy'], modules=0, types=0, members=0),
+                                         ['a.dfy'], (0, 0, 0))
+        self.assertEqual((result['modules'], result['types'], result['members']), (0, 0, 0))
+
+    def test_plugin_ok_rejects_missing_inventory_key(self):
+        output = ('OBSERVATION-DECLARATIONS FILE a.dfy\n'
+                  'OBSERVATION-DECLARATIONS OK: files=1 modules=1 types=0\n')
+        with self.assertRaises(ValueError):
+            REPLAY.plugin_ok_result(0, output, ['a.dfy'], (1, 0, 1))
+
+    def test_unseen_path_is_a_named_policy_finding(self):
+        output = '/work/Seen.dfy: Error: unseen owned source file: /work/Unseen.dfy\n'
+        self.assertEqual(REPLAY.policy_findings(output),
+                         ['unseen owned source file: /work/Unseen.dfy'])
+
+    def test_plugin_hash_change_is_rejected(self):
+        with self.assertRaises(ValueError):
+            REPLAY.require_plugin_unchanged('a' * 64, 'b' * 64, 'after policy calls')
+        REPLAY.require_plugin_unchanged('a' * 64, 'a' * 64)
+
+    def test_reviewed_positive_counts_cover_current_entries(self):
+        expected = REPLAY.EXPECTED_POLICY_COUNTS
+        self.assertEqual(expected[REPLAY.COMPONENT + 'ObservationVocabulary.dfy'], (1, 3, 29))
+        self.assertEqual(expected[REPLAY.COMPONENT + 'erasure/base/Client.dfy'], (1, 0, 3))
+        self.assertEqual(expected[REPLAY.COMPONENT + 'erasure/trace/Client.dfy'], (2, 3, 35))
+        self.assertEqual(len(expected), 9)
+        self.assertEqual(REPLAY.DECLARATION_CONTROLS['positive-shapes']['counts'], (1, 5, 7))
+        self.assertEqual(REPLAY.DECLARATION_CONTROLS['empty-entry']['counts'], (0, 0, 0))
+        self.assertEqual(REPLAY.DECLARATION_CONTROLS['comment-only-include']['counts'], (0, 0, 0))
+
     def test_plugin_ok_rejects_missing_success_marker(self):
         with self.assertRaises(ValueError):
             REPLAY.plugin_ok_result(0, 'OBSERVATION-DECLARATIONS FILE a.dfy\n', ['a.dfy'])
@@ -116,9 +156,24 @@ class DeclarationPolicyTests(unittest.TestCase):
             'opaque-type', 'abstract-module', 'trait', 'bodyless-constructor',
             'bodyless-method-lemma', 'next-declaration-body',
             'quoted-comment-marker', 'contract-set-literal',
-            'requires-set-literal', 'include-only-closure', 'positive-shapes',
+            'requires-set-literal', 'include-only-closure',
+            'empty-entry', 'comment-only-include', 'positive-shapes',
         }
         self.assertTrue(required.issubset(REPLAY.DECLARATION_CONTROLS))
+
+
+class OutputIsolationTests(unittest.TestCase):
+    def test_failed_setup_never_inspects_or_creates_a_sibling_build_tree(self):
+        with tempfile.TemporaryDirectory() as folder:
+            parent = Path(folder)
+            out = parent / 'replay'
+            with (mock.patch.object(REPLAY.sys, 'argv', ['replay', '--output', str(out)]),
+                  mock.patch.object(REPLAY, 'check_pins', side_effect=ValueError('stop setup')),
+                  mock.patch.object(REPLAY, 'tree_digest', side_effect=AssertionError('outside output')),
+                  redirect_stdout(io.StringIO())):
+                self.assertEqual(REPLAY.main(), 1)
+            self.assertEqual(list(parent.iterdir()), [out])
+            self.assertTrue((out / 'evidence.json').is_file())
 
 
 if __name__ == '__main__':

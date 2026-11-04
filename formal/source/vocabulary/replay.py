@@ -61,7 +61,7 @@ PLUGIN_FILE = 'OBSERVATION-DECLARATIONS FILE '
 PLUGIN_OK = re.compile(r'^OBSERVATION-DECLARATIONS OK: files=(\d+) modules=(\d+) '
                        r'types=(\d+) members=(\d+)\s*$', re.M)
 POLICY = re.compile(r'Error: ((?:owned declaration missing implementation|'
-                    r'unsupported owned )[^\n]+)')
+                    r'unsupported owned |unseen owned source file: )[^\n]+)')
 
 # Each control is generated under the fresh output directory.  The entry is
 # parsed by the official closure discovery, then the pinned plugin checks every
@@ -175,19 +175,48 @@ DECLARATION_CONTROLS = {
         'expect': ['owned declaration missing implementation: function Hidden._default.HiddenOracle'],
         'forbid': [],
     },
+    'empty-entry': {
+        'files': {'Empty.dfy': '// comment only\n'},
+        'entry': 'Empty.dfy',
+        'expect_ok': True,
+        'counts': (0, 0, 0),
+    },
+    'comment-only-include': {
+        'files': {'IncludeOnly.dfy': 'include "Comment.dfy"\n',
+                  'Comment.dfy': '// comment only\n'},
+        'entry': 'IncludeOnly.dfy',
+        'expect_ok': True,
+        'counts': (0, 0, 0),
+    },
     'positive-shapes': {
         'files': {'Positive.dfy': 'module M {\n  datatype D = A | B(x: int)\n'
                                   '  class C {\n    var v: int\n'
                                   '    constructor(x: int) { v := x; }\n'
                                   '    function Get(): int { v }\n  }\n'
-                                  '  type T = int\n  newtype N = x: int | x > 0\n'
-                                  '  type Sub = x: int | x > 0\n'
+                                  '  type T = int\n  newtype N = x: int | x > 0 witness 1\n'
+                                  '  type Sub = x: int | x > 0 witness 1\n'
                                   '  const K: int := 3\n'
                                   '  function F(): int { 1 }\n'
                                   '  method G() { }\n  lemma L() { }\n}\n'},
         'entry': 'Positive.dfy',
         'expect_ok': True,
+        'counts': (1, 5, 7),
     },
+}
+
+# Counts measured from vocabulary-official-ast-root-final/evidence.json at
+# 8c3b79b.  Changes are legitimate only after replaying and reviewing the new
+# inventory.  Declaration-free controls assert explicit zero counts.
+EXPECTED_POLICY_COUNTS = {
+    COMPONENT + 'ObservationVocabulary.dfy': (1, 3, 29),
+    COMPONENT + 'controls/branch-constant.dfy': (2, 3, 31),
+    COMPONENT + 'controls/call-target.dfy': (2, 3, 31),
+    COMPONENT + 'controls/flattened-ambiguous.dfy': (2, 3, 31),
+    COMPONENT + 'controls/lost-address.dfy': (2, 3, 31),
+    COMPONENT + 'controls/ops-width.dfy': (2, 3, 31),
+    COMPONENT + 'controls/read-role.dfy': (2, 3, 31),
+    COMPONENT + 'erasure/base/Client.dfy': (1, 0, 3),
+    COMPONENT + 'erasure/trace/Client.dfy': (2, 3, 35),
 }
 
 
@@ -259,7 +288,7 @@ def plugin_files(output):
             for line in output.splitlines() if line.startswith(PLUGIN_FILE)}
 
 
-def plugin_ok_result(status, output, expected_files):
+def plugin_ok_result(status, output, expected_files, expected_counts=None):
     findings = policy_findings(output)
     matches = PLUGIN_OK.findall(output)
     files = plugin_files(output)
@@ -270,6 +299,9 @@ def plugin_ok_result(status, output, expected_files):
     count, modules, types, members = map(int, matches[0])
     if count != len(files):
         raise ValueError('Declaration policy file count is inconsistent')
+    if expected_counts is not None and (modules, types, members) != tuple(expected_counts):
+        raise ValueError('Reviewed declaration policy counts changed: expected %r, got %r'
+                         % (tuple(expected_counts), (modules, types, members)))
     return {'files': sorted(files), 'modules': modules, 'types': types,
             'members': members}
 
@@ -290,6 +322,24 @@ def plugin_rejection_result(status, output, expected, expected_files, forbidden)
     return {'files': sorted(files), 'findings': findings}
 
 
+def tree_digest(path):
+    if not path.exists():
+        return None
+    if path.is_file():
+        return digest(path)
+    state = hashlib.sha256()
+    for item in sorted(path.rglob('*')):
+        if item.is_file():
+            state.update(str(item.relative_to(path)).encode('utf-8') + b'\0')
+            state.update(item.read_bytes())
+    return state.hexdigest()
+
+
+def require_plugin_unchanged(before, after, label='plugin'):
+    if before != after:
+        raise ValueError('Declaration checker changed ' + label)
+
+
 def seed_dotnet_packages(build_root):
     """Copy already-cached net6 reference packs locally; otherwise restore downloads."""
     target = build_root / 'nuget-packages'
@@ -302,11 +352,16 @@ def seed_dotnet_packages(build_root):
 
 
 def build_checker(out, frozen, dafny):
-    build_root = out.parent / (out.name + '-checker')
+    build_root = out / 'checker-build'
     source_dir = build_root / 'src'
-    source_dir.mkdir(parents=True, exist_ok=True)
+    source_dir.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(frozen / CHECKER_CS, source_dir / 'ObservationDeclarations.cs')
     shutil.copyfile(frozen / CHECKER_CSPROJ, source_dir / 'ObservationDeclarations.csproj')
+    copied_source = digest(source_dir / 'ObservationDeclarations.cs')
+    copied_project = digest(source_dir / 'ObservationDeclarations.csproj')
+    if (copied_source != digest(frozen / CHECKER_CS) or
+            copied_project != digest(frozen / CHECKER_CSPROJ)):
+        raise ValueError('Declaration checker copy does not match frozen inputs')
     env = dict(os.environ)
     env.update({
         'DOTNET_CLI_HOME': str(build_root / 'home'),
@@ -317,12 +372,14 @@ def build_checker(out, frozen, dafny):
     })
     seed_dotnet_packages(build_root)
     try:
-        sdk = subprocess.run(['dotnet', '--version'], env=env, text=True,
+        sdk = subprocess.run(['dotnet', '--version'], env=env, cwd=source_dir, text=True,
                              capture_output=True, check=True)
     except (OSError, subprocess.CalledProcessError) as error:
         raise ValueError('dotnet SDK is required to build the declaration checker') from error
     command = ['dotnet', 'build', 'ObservationDeclarations.csproj', '-c', 'Release',
-               '-v', 'q', '--nologo', '-p:DafnyHome=' + str(Path(dafny).parent)]
+               '-v', 'q', '--nologo', '-p:DafnyHome=' + str(Path(dafny).parent),
+               '-p:ImportDirectoryBuildProps=false',
+               '-p:ImportDirectoryBuildTargets=false']
     log = out / 'logs/checker-build.log'
     status, text = run(command, log, source_dir, env=env)
     if status != 0:
@@ -330,14 +387,52 @@ def build_checker(out, frozen, dafny):
     assembly = source_dir / 'bin/Release/net6.0/ObservationDeclarations.dll'
     if not assembly.is_file():
         raise ValueError('Declaration checker assembly is missing')
+    if (digest(source_dir / 'ObservationDeclarations.cs') != copied_source or
+            digest(source_dir / 'ObservationDeclarations.csproj') != copied_project):
+        raise ValueError('Declaration checker build modified its pinned copy')
     return assembly, {
         'sdk_version': sdk.stdout.strip(),
         'build_command': list(map(str, command)),
         'assembly_sha256': digest(assembly),
+        'assembly_hash_scope': 'deterministic-release-build',
         'source_sha256': digest(frozen / CHECKER_CS),
         'project_sha256': digest(frozen / CHECKER_CSPROJ),
+        'compiled_source_sha256': copied_source,
+        'compiled_project_sha256': copied_project,
         'dafny_home': str(Path(dafny).parent),
         'build_log_sha256': digest(log),
+        'build_root': str(build_root),
+    }
+
+
+def build_isolation_control(out, frozen, dafny, expected_assembly):
+    """Exercise hostile build fixtures entirely inside this invocation's output."""
+    probe = out / 'build-isolation-control'
+    probe.mkdir()
+    stale = probe / 'replay-checker'
+    stale_source = stale / 'src'
+    stale_source.mkdir(parents=True)
+    (stale_source / 'Injected.cs').write_text('This must never be compiled.\n')
+    stale_before = tree_digest(stale)
+    for filename, import_name in (
+            ('Directory.Build.props', 'missing-directory-build-props.props'),
+            ('Directory.Build.targets', 'missing-directory-build-targets.targets')):
+        (probe / filename).write_text(
+            '<Project><Import Project="' + import_name + '" /></Project>\n')
+    replay = probe / 'replay'
+    replay.mkdir()
+    (replay / 'logs').mkdir()
+    assembly, info = build_checker(replay, frozen, dafny)
+    if tree_digest(stale) != stale_before:
+        raise ValueError('Isolated stale build fixture was modified')
+    require_plugin_unchanged(expected_assembly, digest(assembly),
+                             'isolated deterministic build')
+    return {
+        'build': info,
+        'directory_build_imports_disabled': True,
+        'stale_sibling_unchanged': True,
+        'stale_sibling_sha256': stale_before,
+        'assembly_identical': True,
     }
 
 
@@ -432,7 +527,16 @@ def main():
                         tools=before_tools, archive_sha256=asset['sha256'],
                         solver=str(solver))
         plugin, checker_info = build_checker(out, frozen, dafny)
+        plugin_hash = digest(plugin)
+        if plugin_hash != checker_info['assembly_sha256']:
+            raise ValueError('Declaration checker assembly hash changed during build')
+        checker_info.update({
+            'directory_build_imports_disabled': True,
+            'assembly_sha256_before_calls': plugin_hash,
+        })
         evidence['checker'] = checker_info
+        evidence['build_isolation_control'] = build_isolation_control(
+            out, frozen, dafny, plugin_hash)
 
         def call(label, arguments, cwd=frozen, env=None):
             log = logs / (label + '.log')
@@ -478,7 +582,10 @@ def main():
             status, text = call('declaration-policy-' + entry.replace('/', '_'),
                                 ['resolve', entry, '--plugin', str(plugin)],
                                 env=env)
-            result = plugin_ok_result(status, text, expected_files)
+            expected_counts = EXPECTED_POLICY_COUNTS.get(entry)
+            if expected_counts is None:
+                raise ValueError('Missing reviewed declaration counts for ' + entry)
+            result = plugin_ok_result(status, text, expected_files, expected_counts)
             covered.update(result['files'])
             evidence['declaration_policy'][entry] = result
         if covered != {str((frozen / name).resolve()) for name in graph}:
@@ -508,16 +615,51 @@ def main():
                                 ['resolve', spec['entry'], '--allow-warnings',
                                  '--plugin', str(plugin)], cwd=folder, env=env)
             if spec.get('expect_ok'):
-                result = plugin_ok_result(status, text, expected_files)
+                if 'counts' not in spec:
+                    raise ValueError('Missing reviewed control counts for ' + name)
+                result = plugin_ok_result(status, text, expected_files, spec['counts'])
             else:
                 result = plugin_rejection_result(status, text, spec['expect'],
                                                  expected_files, spec['forbid'])
             result['closure'] = sorted(closure)
             evidence['declaration_controls'][name] = result
 
+        # A truly unseen path must produce a named policy failure, not an
+        # internal exception.  The official closure supplies the seen file.
+        unseen = control_root / 'unseen-owned-path'
+        unseen.mkdir()
+        (unseen / 'Seen.dfy').write_text('// comment only\n')
+        unseen_entry = unseen / 'Seen.dfy'
+
+        def unseen_parser_call(label, command):
+            if Path(command[0]) != dafny:
+                raise ValueError('Unexpected dependency parser executable')
+            return call('declaration-control-graph-unseen-' + label,
+                        command[1:], cwd=unseen)
+
+        unseen_closure = discovery.source_closure(unseen, unseen_entry, dafny,
+                                                  call=unseen_parser_call)
+        expected_files = {str((unseen / item).resolve()) for item in unseen_closure}
+        missing = str((unseen / 'Unseen.dfy').resolve())
+        env = dict(os.environ)
+        env['OBSERVATION_DECLARATION_FILES'] = '\n'.join(
+            sorted(expected_files | {missing}))
+        status, text = call('declaration-control-unseen-owned-path',
+                            ['resolve', 'Seen.dfy', '--allow-warnings',
+                             '--plugin', str(plugin)], cwd=unseen, env=env)
+        result = plugin_rejection_result(
+            status, text, ['unseen owned source file: ' + missing],
+            expected_files, [])
+        result['closure'] = sorted(unseen_closure)
+        result['unseen'] = missing
+        evidence['declaration_controls']['unseen-owned-path'] = result
+
+        require_plugin_unchanged(plugin_hash, digest(plugin), 'after policy calls')
+        checker_info['assembly_sha256_after_calls'] = digest(plugin)
+
         # Audit every source file individually.  Dafny audit itself does not
-        # traverse includes; it catches axioms/assumes/verify-false/unproved
-        # contracts, while the plugin above adds the owned-body policy.
+        # traverse includes; it catches axioms/assumes/verify-false, while the
+        # verifier checks contracts and the plugin adds the owned-body policy.
         for name in source_names:
             log_name = 'audit-' + name.replace('/', '_')
             status, text = call(log_name, ['audit', name])
@@ -572,6 +714,8 @@ def main():
         if evidence['erasure']['base']['all_files'] != evidence['erasure']['trace']['all_files']:
             raise ValueError('Total generated file inventory differs with/without ghost vocabulary')
 
+        require_plugin_unchanged(plugin_hash, digest(plugin), 'before completion')
+        checker_info['assembly_sha256_final'] = digest(plugin)
         check_pins(frozen, pins)
         check_pins(ROOT, pins)
         if manifest_path.read_bytes() != manifest_bytes:

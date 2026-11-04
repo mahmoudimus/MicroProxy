@@ -35,7 +35,14 @@ the frozen `.cs`/`.csproj` before invoking Dafny, using the portable
 `DafnyHome` property to reference the pinned `DafnyCore.dll` and
 `Boogie.Core.dll`. The build is development-only; it is not a production
 runtime dependency. It requires a .NET SDK; CI installs SDK 10, and the receipt
-records the actual SDK version, build command and resulting assembly hash.
+records the actual SDK version, build command and resulting assembly hash. The
+Release build disables debug metadata so the assembly hash is stable across
+build paths; source, project, SDK and `DafnyHome` are the portable build
+identity, and the actual assembly is re-hashed before and after policy calls.
+The SDK version is queried in the build directory. A separate build-isolation
+control plants stale sources and invalid MSBuild imports inside the fresh
+output tree, then requires an identical clean build without changing the
+fixture. The runner does not inspect or create neighboring build directories.
 
 For every source file in every entry's official parser closure, the plugin
 checks exact authored identities and rejects:
@@ -52,16 +59,17 @@ origin and source-token metadata. An authored `{:auto_generated}` attribute
 does not exempt a function, method or const from the body check; a real control
 tests all three. The plugin also requires every file in
 the complete parser closure to appear in its inventory, including include-only
-files. Quoted comments, strings, attributes, inline formatting, contracts and
+and declaration-free/comment-only files. Quoted comments, strings, attributes,
+inline formatting, contracts and
 set/map literals are handled by the Dafny parser, so a contract set literal can
 never be mistaken for a body. Diagnostics are named policy rejections such as
 `owned declaration missing implementation: function M._default.F` or
 `unsupported owned abstract type: M.T`.
 
 Dafny's auditor remains enabled and independent; it catches axioms, `assume`
-statements, unproved contracts and `{:verify false}`. The plugin only adds the
-no-unimplemented-owned-declarations policy, where the auditor deliberately
-allows conservative ghost symbols. The Dafny front end, the C# plugin adapter
+statements and `{:verify false}`. The verifier checks contracts. The plugin
+only adds the no-unimplemented-owned-declarations policy, where the auditor
+deliberately allows conservative ghost symbols. The Dafny front end, the C# plugin adapter
 and the pinning/build machinery are an explicit trusted computing base; they
 are not formally verified.
 
