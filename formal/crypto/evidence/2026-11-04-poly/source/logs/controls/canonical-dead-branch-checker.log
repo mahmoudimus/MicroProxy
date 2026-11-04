@@ -1,4 +1,4 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-eqseyh_m/formal/source/SourceTrace.dfy(21,17): Error: marker helper is not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-dead-branch-7t9d93ay/formal/source/SourceTrace.dfy(21,17): Error: marker helper is not exact canonical Encode(constructor(positional formals)): SourceTrace._default.Branch
    |
 21 |   ghost function Branch(site: int, taken: bool): seq<int>
    |                  ^^^^^^

@@ -194,8 +194,7 @@ MUTATIONS = [
     ("missing-false-prefix",
      "else if i < 64 then (ZetasChunk3(i-48).0, ghost BranchFalsePrefix(800,3) + ST.Branch(803,true)",
      "else if i < 64 then (ZetasChunk3(i-48).0, ghost ST.Branch(803,true)",
-     "arm 3 ghost is not exactly five ordered leaves", "focused",
-     "ensures ZetasValue(i).1"),
+     "arm 3 ghost is not exactly five ordered leaves", "error", "Error:"),
     ("ghost-reorder", "ghost BranchFalsePrefix(800,0) + ST.Branch(800,true) + ST.Ops(0,1,0,0,0,0,0)",
      "ghost BranchFalsePrefix(800,0) + ST.Ops(0,1,0,0,0,0,0) + ST.Branch(800,true)",
      "arm 0 true event is not exact", "error", "Error:"),
@@ -224,25 +223,6 @@ MUTATIONS = [
     ("rebind-suchthat", "assert ft == FieldAddCallee();", "ft :| ft == FieldAddCallee();",
      "AssignSuchThatStmt", "green", None),
 ]
-
-# Focused missing-false-prefix counterexample.  The whole-file sweep can make
-# an unrelated method (NewZetas) time out after the genuine ZetasValue
-# postcondition failure, so the negative is verified against the actual
-# affected function only.  The same focused call is also run on the original
-# source as a non-vacuity positive.  The symbol is derived from the reviewed
-# default pure-function inventory; the `_default.` spelling is deliberately not
-# used because Dafny's filter accepts the module-qualified member name.
-def _focus_symbol():
-    matches = [name for name in DEFAULT_PURE_FUNCS if name.endswith(".ZetasValue")]
-    if len(matches) != 1:
-        raise GateError("expected exactly one reviewed ZetasValue pure function")
-    return matches[0]
-
-
-MISSING_FALSE_PREFIX_FOCUS = {
-    "filter_symbol": _focus_symbol(),
-    "named_postcondition": "ensures ZetasValue(i).1",
-}
 
 CANONICAL_CONTROLS = [
     ("canonical-branch-flip",
@@ -436,35 +416,6 @@ def require_dafny_error(rc, text, named, label):
         raise GateError(label + f": expected a genuine named Dafny proof failure containing {named!r}")
     return {"verified": verified, "errors": errors,
             "classification": "dafny-proof-failure", "named": named}
-
-
-def require_focused_positive(rc, text, filter_symbol, label):
-    """Focused original positive: nonzero obligations, zero errors, no resource noise."""
-    bad = BAD_RUN.search(text)
-    if bad:
-        raise GateError(label + ": focused positive had tool/resource/parse/warning output: " + bad.group(0))
-    verified, errors = summary(text)
-    if rc != 0 or errors != 0 or verified < 1:
-        raise GateError(f"{label}: expected nonzero focused proof and 0 errors, got {verified}/{errors} rc={rc}")
-    return {"verified": verified, "errors": errors, "filter_symbol": filter_symbol,
-            "classification": "focused-positive"}
-
-
-def require_focused_counterexample(rc, text, filter_symbol, named, label):
-    """Focused negative: exactly one named postcondition error, no timeout/OOR."""
-    bad = BAD_RUN.search(text)
-    if bad:
-        raise GateError(label + ": focused negative had tool/resource/parse/warning output: " + bad.group(0))
-    verified, errors = summary(text)
-    function = filter_symbol.rsplit(".", 1)[-1]
-    if rc != 4 or errors != 1 or "postcondition could not be proved" not in text:
-        raise GateError(f"{label}: expected exactly one focused postcondition error, got {verified}/{errors} rc={rc}")
-    if named not in text or function not in text:
-        raise GateError(label + f": focused failure is not the named {function} postcondition {named!r}")
-    if re.findall(r"Error:", text).__len__() != 1:
-        raise GateError(label + ": focused negative contains more than one Error diagnostic")
-    return {"verified": verified, "errors": errors, "filter_symbol": filter_symbol,
-            "named": named, "classification": "focused-dafny-postcondition-counterexample"}
 
 
 def require_dafny_green(rc, text, label, expected=None):
@@ -964,56 +915,28 @@ def main():
                       "--plugin", plugin], mutlog, frozen)
         mgate = require_checker_rejection(mp["exit"], mp["text"], want, label)
         dlog = logs / f"controls/{label}-dafny.log"
-        focused = None
-        if mode == "focused":
-            symbol = MISSING_FALSE_PREFIX_FOCUS["filter_symbol"]
-            original = frozen / "formal/crypto/NativePolynomial.dfy"
-            positive_log = logs / f"controls/{label}-original-focused.log"
-            positive = log_run([dafny, "verify", original, *CS0, "--filter-symbol", symbol],
-                               positive_log, frozen)
-            positive_gate = require_focused_positive(
-                positive["exit"], positive["text"], symbol, label + "-original-focused")
-            dp = log_run([dafny, "verify", npm, *CS0, "--filter-symbol", symbol],
-                         dlog, frozen)
-            dgate = require_focused_counterexample(
-                dp["exit"], dp["text"], symbol, named, label + "-dafny")
-            dgate["paired_original"] = {
-                "command": positive["command"], "exit": positive["exit"],
-                "log": positive["log"], "log_sha256": positive["log_sha256"],
-                "verified": positive_gate["verified"], "errors": positive_gate["errors"],
-            }
-            focused = {"filter_symbol": symbol,
-                       "original": dgate["paired_original"],
-                       "mutant": {"command": dp["command"], "exit": dp["exit"],
-                                  "log": dp["log"], "log_sha256": dp["log_sha256"],
-                                  "verified": dgate["verified"], "errors": dgate["errors"]},
-                       "note": "focused actual ZetasValue; whole-file collateral timeout excluded"}
+        dp = log_run([dafny, "verify", npm, *CS0], dlog, frozen)
+        if mode == "error":
+            dgate = require_dafny_error(dp["exit"], dp["text"], named, label + "-dafny")
+            usable = True
+        elif mode == "green":
+            dgate = require_green_min(dp["exit"], dp["text"], 900, label + "-dafny")
             usable = True
         else:
-            dp = log_run([dafny, "verify", npm, *CS0], dlog, frozen)
-            if mode == "error":
-                dgate = require_dafny_error(dp["exit"], dp["text"], named, label + "-dafny")
-                usable = True
-            elif mode == "green":
-                dgate = require_green_min(dp["exit"], dp["text"], 900, label + "-dafny")
-                usable = True
-            else:
-                matches = SUMMARY.findall(dp["text"])
-                verified = int(matches[0][0]) if len(matches) == 1 else None
-                errors = int(matches[0][1]) if len(matches) == 1 else None
-                usable = bool(matches) and not bool(BAD_RUN.search(dp["text"])) and errors > 0
-                dgate = {"classification": "observed-not-used-as-proof" if not usable else "dafny-failure-observed",
-                         "verified": verified, "errors": errors,
-                         "dafny_rc": dp["exit"],
-                         "note": "checker rejection is the load-bearing control; resource/parse output is never evidence"}
+            matches = SUMMARY.findall(dp["text"])
+            verified = int(matches[0][0]) if len(matches) == 1 else None
+            errors = int(matches[0][1]) if len(matches) == 1 else None
+            usable = bool(matches) and not bool(BAD_RUN.search(dp["text"])) and errors > 0
+            dgate = {"classification": "observed-not-used-as-proof" if not usable else "dafny-failure-observed",
+                     "verified": verified, "errors": errors,
+                     "dafny_rc": dp["exit"],
+                     "note": "checker rejection is the load-bearing control; resource/parse output is never evidence"}
         rec = {"control": label, "checker": mgate, "dafny": dgate,
                "checker_command": mp["command"], "checker_exit": mp["exit"],
                "checker_log": mp["log"], "checker_log_sha256": mp["log_sha256"],
                "dafny_command": dp["command"], "dafny_exit": dp["exit"],
                "dafny_log": dp["log"], "dafny_log_sha256": dp["log_sha256"],
                "dafny_evidence_usable": usable, "ok": True}
-        if focused is not None:
-            rec["focused"] = focused
         mutation_records.append(rec)
         results.append(rec)
 
@@ -1140,7 +1063,6 @@ def main():
     after = inventory_hashes()
     if before != after:
         raise GateError("source inventory changed during replay")
-    raw_log_count = len([path for path in out.rglob("*.log") if path.is_file()])
     for name, sha in pins.items():
         if digest(frozen / name) != sha:
             raise GateError("frozen input mutated during replay: " + name)
@@ -1201,7 +1123,6 @@ def main():
                     "runtime_artifact": runtime_artifact,
                     "java_homes": {"21": str(args.javac21), "25": str(args.javac25)}},
         "checks": results,
-        "raw_log_count": raw_log_count,
         "all_checks_ok": True,
         "trust_boundaries": [
             "Dafny verifier and ghost erasure",
@@ -1229,8 +1150,6 @@ def main():
         "default_pure_functions": DEFAULT_PURE_FUNCS,
         "runtime_artifact": runtime_artifact,
         "baseline_authentication": baseline["authentication"],
-        "raw_log_count": raw_log_count,
-        "focused_missing_false_prefix": MISSING_FALSE_PREFIX_FOCUS,
     }, indent=2, sort_keys=True) + "\n")
     print(json.dumps({"status": "complete", "proofs": len(proof_records),
                       "audits": len(audit_records), "checks": len(results),

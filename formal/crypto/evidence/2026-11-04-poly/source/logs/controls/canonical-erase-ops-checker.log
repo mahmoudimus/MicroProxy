@@ -1,4 +1,4 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-2noibko7/formal/source/SourceTrace.dfy(37,39): Error: marker helper changes or reorders positional formal 4: SourceTrace._default.Ops
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-canon-canonical-erase-ops-rhf_w1te/formal/source/SourceTrace.dfy(37,39): Error: marker helper changes or reorders positional formal 4: SourceTrace._default.Ops
    |
 37 |   { O.Encode(O.Ops(add, sub, mul, div, 0, bit, shift)) }
    |                                        ^

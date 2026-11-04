@@ -66,7 +66,7 @@ jobs:
 
   dafny-native-crypto-delivery:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-java@v6.0.1
@@ -103,6 +103,7 @@ jobs:
           python -m unittest discover -s formal/crypto -p 'test_*.py' -v
           python formal/crypto/native_shake_checks.py --output "$NATIVE_CRYPTO_OUTPUT/shake" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
           python formal/crypto/native_polynomial_checks.py --phase all --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial" --java-home "$CRYPTO_JAVA_21" --runtime-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
+          python formal/crypto/native_polynomial_checks.py --phase controls --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial-controls"
           python formal/crypto/native_kem_checks.py --scope full --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/kem" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime "$CRYPTO_RUNTIME"
       - name: Verify a fresh full stage and exact Maven delivery
         run: |

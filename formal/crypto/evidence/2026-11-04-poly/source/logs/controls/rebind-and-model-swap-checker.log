@@ -1,4 +1,4 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-rk80cy9y/formal/crypto/NativePolynomial.dfy(871,23): Error: Add: ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-rebind-and-model-swap-_bgy9xxy/formal/crypto/NativePolynomial.dfy(871,23): Error: Add: ghost trace local has 2 assignments; exactly one exact ghost-out call is required (rebinding)
     |
 871 |       trace := trace + ft + ST.Write(504,2,i as int);
     |                        ^^

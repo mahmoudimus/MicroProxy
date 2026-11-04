@@ -1,9 +1,9 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-40kidy92/formal/crypto/NativePolynomial.dfy(595,39): Error: NewZetas: ghost projection ZetasValue is not immediately after an actual call with the same arguments
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/crypto/NativePolynomial.dfy(595,39): Error: NewZetas: ghost projection ZetasValue is not immediately after an actual call with the same arguments
     |
 595 |       trace := trace + ZetasValue(i+1).1 + ST.Write(500,0,i as int);
     |                                        ^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-40kidy92/formal/crypto/NativePolynomial.dfy(594,11): Error: NewZetas: actual pure call ZetasValue has 0 immediate ghost projections
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-mutation-caller-arg-mutation-kcl7yc0i/formal/crypto/NativePolynomial.dfy(594,11): Error: NewZetas: actual pure call ZetasValue has 0 immediate ghost projections
     |
 594 |       r[i] := ZetasValue(i).0;
     |            ^^

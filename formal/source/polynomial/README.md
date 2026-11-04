@@ -40,13 +40,6 @@ checks and requires the exact 20 unique method identities. Counting 20 entries
 alone would accept a selector repeating one root 20 times. Test selectors are
 explicit and confined to controls. Default pure-helper coverage has 19 entries.
 
-The `missing-false-prefix` negative is verified against the actual affected
-`NativePolynomial.ZetasValue` function with `--filter-symbol`, not by a
-whole-file sweep that can add an unrelated `NewZetas` timeout. A paired original
-focused positive uses the same function, domain and policy and must be nonzero
-with zero errors. A zero-match filter is rejected, and no timeout, resource or
-parse output is accepted as a counterexample.
-
 ## Reproduce
 
 Use a fresh output and baseline directory. The helper materializes exact Git

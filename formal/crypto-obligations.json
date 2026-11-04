@@ -212,7 +212,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "3ad757652b5c866d3bf7492796b2ac2004155d7c06d815a7c9930510f185d80a",
+          "sha256": "aabe77aab75b2b27b587bf1bb6e80eb6dc847518f5dcc478c4afd4729c0fccb2",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -2583,31 +2583,31 @@
         },
         {
           "path": "formal/source/polynomial/SOURCE-EVIDENCE.json",
-          "sha256": "86b0a127728cbf4645f16be6be6e93774709baaa490b0bac95fbfdd0061b0b35",
+          "sha256": "18f34b0d35dde93a400367115b4aa1fefcc1929df6a1060c2795d96c663eeae6",
           "kind": "component-receipt",
           "role": "actual A portable-package report (proofs, controls, checker scope, erasure, baseline)"
         },
         {
           "path": "formal/source/polynomial/inputs.json",
-          "sha256": "107e0867d53c408f648ca028360c0457108e370f784e2c22377bcf5a8d02e590",
+          "sha256": "1fce38876c7914e381be81321731957afe2a5194fea8ca34b7f1feaa9c098159",
           "kind": "input-manifest",
           "role": "44 explicit package/closure pins"
         },
         {
           "path": "formal/source/polynomial/README.md",
-          "sha256": "8455493a342c6043778f41fe5470cb7a410087f3b18c8791ed8a81c908fb0617",
+          "sha256": "00ddfc04c77c10d4eba545df5faec44d6d38e2e8e7f92222fb7b5b12af3a7cd1",
           "kind": "documentation",
           "role": "package scope and non-claims"
         },
         {
           "path": "formal/source/polynomial/replay.py",
-          "sha256": "7755f7b8a6858aada4ac37df006c95890f3a6cf36d558edae71efe7c5abaa026",
+          "sha256": "a12dfdbdb3f39a6a0d7ff455b984b5712ee60c716f58b38caf8fac9fb0f24a9e",
           "kind": "tool-manifest",
           "role": "pinned runner: roots, ambient selectors, repeated-root guard"
         },
         {
           "path": "formal/source/polynomial/test_replay.py",
-          "sha256": "913ef308915cc3573c9d62f4bbda31532035be3360f7b745657ce2a35bd789d2",
+          "sha256": "49c7114ed9306dac2024c33804523780c9b197f9731d32e80031d95c17f5cbe3",
           "kind": "test-source",
           "role": "runner negative tests"
         },
@@ -3264,7 +3264,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "6bcb4bcd3eaef7d5b31f4f32bd80cbdc6031fa52112932eb4c8a049542c6cdc0",
+          "sha256": "64ffb1e012a9cbd157187b79195ae60258ad623c11562d67a75b7fb3cff1e670",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -3276,13 +3276,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "3ad757652b5c866d3bf7492796b2ac2004155d7c06d815a7c9930510f185d80a",
+          "sha256": "aabe77aab75b2b27b587bf1bb6e80eb6dc847518f5dcc478c4afd4729c0fccb2",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "77410ae12a71b84055bd9e7293b8bf51e13590944cb09f6d172fb13df599be52",
+          "sha256": "4ab8438234640991bf52cfe675baeea4a7b68440cd5693806d49fb5ef9ac8e9b",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },

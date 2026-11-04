@@ -203,28 +203,6 @@ repository bytes:
 - every receipt log is bound to a tracked copy by a log index whose hashes must
   match the adopted report byte-for-byte.
 
-The `missing-false-prefix` mutation is a *focused* control, not a whole-file
-sweep. The producer runs the actual positive source under
-`--filter-symbol NativePolynomial.ZetasValue` with the unchanged 30 s/50M/2-core
-policy and records a nested pair: the paired original verifies 1 obligation with
-0 errors (exit 0) and the mutant falsifies exactly one, the postcondition
-`ensures ZetasValue(i).1` (0 verified, 1 error, exit 4), with the exact
-diagnostics at `(569,24)` and `(557,12)` and no timeout, resource, warning or
-parser output. The gate requires the nested original/mutant records to be
-byte-equal copies of the flat `dafny`/`focused` views, the original's command to
-be the actual positive `polynomial` command plus the focused suffix, the mutant
-command to target the generated
-`poly-mutation-missing-false-prefix-*` temporary source, both logs to be the
-pinned producer paths and digests, and the targeted zero-match probe (0 verified,
-0 errors) to be rejected rather than accepted as a counterexample. The earlier
-whole-file run that produced the genuine postcondition error *plus* an unrelated
-`NewZetas` timeout is not accepted as a pass; that is what made the post-merge CI
-job fail closed. The consumed log inventory is 129 paths (the original focused
-log is mandatory), and the report's 8 proofs, 8 audits, 64 check records, 20
-resolved roots, 19 pure functions and 65/65 class identity are unchanged; only
-`replay.py`, `test_replay.py` and `README.md` (self-pinned) and `inputs.json`
-changed among the 44 pins.
-
 Support is additionally refused unless the claim cites every reviewed input path
 (including the baseline template/helper/test and the checker project) and both
 the V5 and V7 obligation statuses are as reviewed. The C# checker and the Dafny
