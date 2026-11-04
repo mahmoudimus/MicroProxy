@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.7.0...v0.8.0) (2026-11-04)
+
+
+### Features
+
+* **crypto:** verify executable polynomial source traces ([155bbe1](https://github.com/mahmoudimus/MicroProxy/commit/155bbe14cb9748cf677f4eb223af3dd2331687b0))
+* **crypto:** verify native polynomial source traces ([e232501](https://github.com/mahmoudimus/MicroProxy/commit/e232501e1c287bb22717497b70e87f06b7304617)), closes [#117](https://github.com/mahmoudimus/MicroProxy/issues/117)
+
+
+### Bug Fixes
+
+* **formal:** focus the polynomial mutation counterexample ([b75d420](https://github.com/mahmoudimus/MicroProxy/commit/b75d420a1fea6c130bfaed3b1954bd1b19116786))
+* **formal:** focus the polynomial mutation counterexample ([f3f992e](https://github.com/mahmoudimus/MicroProxy/commit/f3f992e538be6d522c5cb318eb84565a756b3621)), closes [#117](https://github.com/mahmoudimus/MicroProxy/issues/117)
+* **formal:** focus the polynomial mutation counterexample ([1f0de07](https://github.com/mahmoudimus/MicroProxy/commit/1f0de0789f289eba87347e0a831a78c0e54d8b0d)), closes [#117](https://github.com/mahmoudimus/MicroProxy/issues/117)
+* **tls:** name the issuer by its own Subject Key Identifier ([e5b7fe4](https://github.com/mahmoudimus/MicroProxy/commit/e5b7fe4731e6381ae5734bce5ff6524601666500))
+
+
+### Reverts
+
+* **formal:** restore main pending reviewed CI ([addcb01](https://github.com/mahmoudimus/MicroProxy/commit/addcb01fc96f59b7ef97ffe94083a546986b86f4))
+
+
+### Documentation
+
+* regenerate navigation index for crypto assurance pages ([9d7a6fd](https://github.com/mahmoudimus/MicroProxy/commit/9d7a6fd874eca054338f02e75b2705a6b9af1a1d))
+* **security:** retain timing boundary and prepare crypto review ([be99af3](https://github.com/mahmoudimus/MicroProxy/commit/be99af3fbf10a33a34d60e7d58f4ec0a7e09998e))
+
 ## [0.7.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.6.0...v0.7.0) (2026-11-03)
 
 
