@@ -8,29 +8,120 @@ permissions:
   contents: read
 
 jobs:
+  keccak-current-epoch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Prepare the externally selected historical and current views
+        id: epoch
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Test current component admission and evidence boundaries
+        run: |
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-004/parent -p test_parent.py -v
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-004/capsule -p 'test_*.py' -v
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-004/ci -p 'test_*.py' -v
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-004/keccak -p 'test_*.py' -v
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-004/ownership-api -p 'test_*.py' -v
+          python -I -B -m unittest discover -s formal/crypto/epochs/keccak-004/shake -p 'test_*.py' -v
+      - name: Test actual current source views and Select evidence controls
+        env:
+          KECCAK_VIEWS: ${{ steps.epoch.outputs.views }}
+          KECCAK_CAPSULE: ${{ steps.epoch.outputs.capsule }}
+        run: |
+          python -I -B - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          seed = Path(os.environ["RUNNER_TEMP"]) / "keccak-views-test-seed"
+          shutil.copytree(Path(os.environ["KECCAK_VIEWS"]) / "source-views/current", seed)
+          for path in seed.rglob("*"):
+              path.chmod(0o755 if path.is_dir() else 0o644)
+          PY
+          python -I -B formal/source/epochs/keccak-004/test_views.py \
+            --candidate-root "$RUNNER_TEMP/keccak-views-test-seed" \
+            --manifest "$GITHUB_WORKSPACE/formal/source/epochs/keccak-004/manifest.json" \
+            --expected-manifest-sha256 294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec \
+            --work-root "$RUNNER_TEMP/keccak-views-tests"
+          KECCAK_SOURCE_VIEWS_SHA=$(python -I -B -c 'import hashlib,os; from pathlib import Path; print(hashlib.sha256((Path(os.environ["KECCAK_VIEWS"])/"source-views/receipt.json").read_bytes()).hexdigest())')
+          python -I -B formal/source/epochs/keccak-004/test_select_replay.py \
+            --manifest "$GITHUB_WORKSPACE/formal/source/epochs/keccak-004/manifest.json" \
+            --expected-manifest-sha256 294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec \
+            --views-root "$KECCAK_VIEWS/source-views" \
+            --expected-views-receipt-sha256 "$KECCAK_SOURCE_VIEWS_SHA" \
+            --evidence-root "$KECCAK_CAPSULE/evidence/select/run-004" \
+            --work-root "$RUNNER_TEMP/keccak-select-tests"
+      - name: Compile the actual current checkout with JDK 21
+        run: mvn -q -pl quic -am -DskipTests package
+      - name: Require composed current evidence and actual checkout identity
+        # Artifact execution is the selected retained Darwin instance.
+        # This job freshly checks the checkout and class identities on Ubuntu.
+        run: |
+          python -I -B formal/source/epochs/keccak-004/ci/run.py check \
+            --repository "$GITHUB_WORKSPACE" \
+            --prepared "${{ steps.epoch.outputs.prepared }}" \
+            --expected-prepared-sha256 "${{ steps.epoch.outputs.prepared-sha256 }}" \
+            --classes "$GITHUB_WORKSPACE/quic/target/classes" \
+            --retained-data "$GITHUB_WORKSPACE/formal/crypto/evidence/2026-11-05-keccak/parent" \
+            --selection "$GITHUB_WORKSPACE/formal/source/epochs/keccak-004/ci/selection.json" \
+            --expected-selection-sha256 a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe \
+            --output "$RUNNER_TEMP/keccak-current-check"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: keccak-current-epoch-retained-evidence-and-current-identity
+          path: |
+            ${{ runner.temp }}/keccak-current-check/
+            ${{ runner.temp }}/keccak-views-tests/result.json
+            ${{ runner.temp }}/keccak-select-tests/result.json
+          if-no-files-found: ignore
+
+
   crypto-obligation-ledger:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - name: Test obligation, release-claim and upstream-reference gates
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Historical - Test obligation, release-claim and upstream-reference gates
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s scripts/security -p 'test_crypto*.py' -v
           python -m unittest discover -s formal/reference/aws-hkdf -p 'test_*.py' -v
-      - name: Require scoped production functional claims with current evidence
+      - name: Historical - Require scoped claims for the released Baf source
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python scripts/security/check_crypto_obligations.py --output target/crypto-obligations.json
           python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require packet-nonce-functional-production --require poly-source-trace-ni --require select-source-trace-ni --output target/crypto-release-claims.json
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: crypto-obligation-ledger
+          name: historical-baf-crypto-obligation-ledger
           path: |
-            target/crypto-obligations.json
-            target/crypto-release-claims.json
+            ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/crypto-obligations.json
+            ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/crypto-release-claims.json
           if-no-files-found: ignore
 
   dafny-secret-traces:
@@ -38,6 +129,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
@@ -46,22 +139,29 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Prepare pinned tools and actual canonical Java classes
+      - name: Historical - Prepare pinned tools and actual canonical Java classes
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           DAFNY_TRACE_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
           echo "MICROPROXY_DAFNY=$DAFNY_TRACE_TOOL" >> "$GITHUB_ENV"
           mvn -q -pl quic -am -DskipTests package
-      - name: Reject trace counterexamples and replay the supported scope
+      - name: Historical - Reject trace counterexamples and replay the supported scope
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/timing -p 'test_*.py' -v
           python formal/timing/run.py --dafny "$MICROPROXY_DAFNY" --java-home "$JAVA_HOME" --classes quic/target/classes --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --output target/secret-traces
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: scoped-secret-traces-jdk-21
-          path: target/secret-traces/
+          name: historical-baf-scoped-secret-traces-jdk-21
+          path: ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/secret-traces/
           if-no-files-found: ignore
 
   dafny-native-crypto-delivery:
@@ -69,12 +169,14 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Retain JDK 21 for canonical compilation
+      - name: Historical - Retain JDK 21 for canonical compilation
         run: echo "CRYPTO_JAVA_21=$JAVA_HOME" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v6.0.1
         with:
@@ -83,9 +185,15 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Prepare pinned tools and a fresh evidence directory
+      - name: Historical - Prepare pinned tools and a fresh evidence directory
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
           mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
@@ -98,13 +206,15 @@ jobs:
           echo "CRYPTO_RUNTIME=$CRYPTO_RUNTIME" >> "$GITHUB_ENV"
           echo "CRYPTO_RUNTIME_SHA=$CRYPTO_RUNTIME_SHA" >> "$GITHUB_ENV"
           echo "NATIVE_CRYPTO_OUTPUT=$NATIVE_CRYPTO_OUTPUT" >> "$GITHUB_ENV"
-      - name: Test delivery gates and replay native proofs on both JDKs
+      - name: Historical - Test delivery gates and replay native proofs on both JDKs
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/crypto -p 'test_*.py' -v
           python formal/crypto/native_shake_checks.py --output "$NATIVE_CRYPTO_OUTPUT/shake" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
           python formal/crypto/native_polynomial_checks.py --phase all --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial" --java-home "$CRYPTO_JAVA_21" --runtime-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
           python formal/crypto/native_kem_checks.py --scope full --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/kem" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime "$CRYPTO_RUNTIME"
-      - name: Verify a fresh full stage and exact Maven delivery
+      - name: Historical - Verify a fresh full stage and exact Maven delivery
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python formal/crypto/ci_delivery.py --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT"
           python formal/crypto/delivery.py stage --java-home "$CRYPTO_JAVA_21" --runtime "$CRYPTO_RUNTIME" --output "$NATIVE_CRYPTO_OUTPUT/canonical" --evidence "$NATIVE_CRYPTO_OUTPUT/inputs.json"
@@ -117,8 +227,8 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-native-crypto-delivery-jdk-21-and-25
-          path: target/dafny-native-crypto/
+          name: historical-baf-dafny-native-crypto-delivery-jdk-21-and-25
+          path: ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-native-crypto/
           if-no-files-found: ignore
 
   dafny-hkdf-source-traces:
@@ -162,12 +272,16 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Retain JDK 21 for the erasure comparison
+      - name: Historical - Retain JDK 21 for the erasure comparison
         run: echo "POLY_JAVA_21=$JAVA_HOME" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v6.0.1
         with:
@@ -176,25 +290,28 @@ jobs:
       - uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: '10.0.x'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Materialize the authenticated immutable Git baseline
+      - name: Historical - Materialize the authenticated immutable Git baseline
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest scripts.security.test_crypto_poly_baseline -v
-          python scripts/security/prepare_poly_baseline.py --output target/polynomial-main-baseline
+          python scripts/security/prepare_poly_baseline.py --output target/polynomial-main-baseline --git-repo "$GITHUB_WORKSPACE"
           mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
-      - name: Verify executable polynomial traces, exact scope and erasure
+      - name: Historical - Verify executable polynomial traces, exact scope and erasure
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/source/polynomial -p 'test_*.py' -v
-          python formal/source/polynomial/replay.py --output target/dafny-polynomial-source --cache "$HOME/.cache/microproxy-formal" --baseline target/polynomial-main-baseline --git-repo . --javac21 "$POLY_JAVA_21/bin/javac" --javac25 "$JAVA_HOME/bin/javac" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
+          python formal/source/polynomial/replay.py --output target/dafny-polynomial-source --cache "$HOME/.cache/microproxy-formal" --baseline target/polynomial-main-baseline --git-repo "$GITHUB_WORKSPACE" --javac21 "$POLY_JAVA_21/bin/javac" --javac25 "$JAVA_HOME/bin/javac" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-polynomial-source-traces-jdk-21-and-25
+          name: historical-baf-dafny-polynomial-source-traces-jdk-21-and-25
           path: |
-            target/dafny-polynomial-source/
-            !target/dafny-polynomial-source/checker-build/nuget/**
-            !target/dafny-polynomial-source/checker-build/dotnet-home/**
+            ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-polynomial-source/
+            !${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-polynomial-source/checker-build/nuget/**
+            !${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-polynomial-source/checker-build/dotnet-home/**
           if-no-files-found: ignore
 
   dafny-select-source-traces:
@@ -209,17 +326,23 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
       - uses: actions/setup-dotnet@v6.1.0
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/microproxy-select-dotnet-10.0.400
         with:
           dotnet-version: '10.0.400'
           skip-lts-prepass: true
-      - name: Install the qualified JDK archives and Linux dependency
+      - name: Historical - Install the qualified JDK archives and Linux dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           sudo apt-get update && sudo apt-get install --yes libicu74
           bash scripts/security/install_select_jdks.sh
-      - name: Install pinned Dafny and materialize the authenticated baseline
+      - name: Historical - Install pinned Dafny and materialize the authenticated baseline
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python - <<'PY'
           import os
@@ -234,17 +357,18 @@ jobs:
           JAVA_HOME="$SELECT_JDK21" mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
           mkdir -p target
           mkdir target/select-source-baseline
-          test "$(/usr/bin/git rev-parse '155bbe14cb9748cf677f4eb223af3dd2331687b0^{tree}')" = '74a3eb686d02bf4226afed08227391e742b54f12'
-          /usr/bin/git archive --format=tar 155bbe14cb9748cf677f4eb223af3dd2331687b0 formal | tar -x -C target/select-source-baseline
-      - name: Prove Select source contracts, observations and erasure
+          test "$(/usr/bin/git -C "$GITHUB_WORKSPACE" rev-parse '155bbe14cb9748cf677f4eb223af3dd2331687b0^{tree}')" = '74a3eb686d02bf4226afed08227391e742b54f12'
+          /usr/bin/git -C "$GITHUB_WORKSPACE" archive --format=tar 155bbe14cb9748cf677f4eb223af3dd2331687b0 formal | tar -x -C target/select-source-baseline
+      - name: Historical - Prove Select source contracts, observations and erasure
         # Outside Git ancestry: MSBuild otherwise injects the checkout revision into the DLL.
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output "$RUNNER_TEMP/dafny-select-source" --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$RUNNER_TEMP/microproxy-select-dotnet-10.0.400/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
           python scripts/security/run_select_package_tests.py --baseline target/select-source-baseline --full-report "$RUNNER_TEMP/dafny-select-source/package-report.json" --work-root "$RUNNER_TEMP/select-package-tests"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-select-source-traces-jdk-21-and-25
+          name: historical-baf-dafny-select-source-traces-jdk-21-and-25
           path: |
             ${{ runner.temp }}/dafny-select-source/
             !${{ runner.temp }}/dafny-select-source/**/nuget/**
@@ -258,19 +382,28 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Test SHAKE API proof replay admission and diagnostics
+      - name: Historical - Test SHAKE API proof replay admission and diagnostics
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: python -m unittest discover -s assurance/shake-api -p 'test_*.py' -v
-      - name: Prove public API state and status coupling
+      - name: Historical - Prove public API state and status coupling
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: python assurance/shake-api/replay.py --output "$RUNNER_TEMP/shake-api-state" --cache "$RUNNER_TEMP/shake-api-tools"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-shake-api-state
+          name: historical-baf-dafny-shake-api-state
           path: ${{ runner.temp }}/shake-api-state/
           if-no-files-found: ignore
 
@@ -279,29 +412,38 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
       - uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: '10.0.x'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Verify actual Dafny bodies, ownership domains and negative controls
+      - name: Historical - Verify actual Dafny bodies, ownership domains and negative controls
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/source -p 'test_*.py' -v
           python formal/source/replay.py --output target/dafny-source-ownership
-      - name: Prove ghost observation encoding and reject defective encoders
+      - name: Historical - Prove ghost observation encoding and reject defective encoders
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/source/vocabulary -p 'test_*.py' -v
           python formal/source/vocabulary/replay.py --output target/dafny-source-vocabulary
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-source-ownership
+          name: historical-baf-dafny-source-ownership
           path: |
-            target/dafny-source-ownership/
-            target/dafny-source-vocabulary/
+            ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-source-ownership/
+            ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/dafny-source-vocabulary/
           if-no-files-found: ignore
 
   dafny-nonce-functional:

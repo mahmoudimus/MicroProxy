@@ -1,0 +1,55 @@
+{
+  "case_split": {
+    "f2": 3,
+    "observed": 3,
+    "observed_harness": 0,
+    "positive": 3,
+    "select_harness": 0
+  },
+  "controls": 25,
+  "derivation": {
+    "note": "Separate actual current5symbol discovery, not old2883/2772fullfile obligations. Policy must be externally pinned before final replay.",
+    "report_sha256": "aced273bd4877c70f1885074c8563be676b2b67fbded82c8dc6b00a079124b74"
+  },
+  "f2_anchors": [
+    "NativeMlKem.dfy(261,16): Error: this loop invariant could not be proved on entry"
+  ],
+  "filter": "NativeMlKem.Select",
+  "focused": {
+    "f2": [
+      7,
+      1
+    ],
+    "observed": [
+      118,
+      0
+    ],
+    "positive": [
+      8,
+      0
+    ]
+  },
+  "fresh_checker_expected_sha256": "2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67",
+  "matched_symbols": [
+    "NativeMlKem.Select",
+    "NativeMlKem.SelectDiffPrefix",
+    "NativeMlKem.SelectDiffStep",
+    "NativeMlKem.SelectOutPrefix",
+    "NativeMlKem.SelectOutStep"
+  ],
+  "observed_harness": [
+    1,
+    1
+  ],
+  "observed_harness_anchors": [
+    "SelectObservedHarness.dfy(13,11): Error: assertion might not hold",
+    "assert t1 == t2;"
+  ],
+  "qualification": false,
+  "schema": "microproxy.current-select-expectations/1",
+  "scope": "current-select-consumer",
+  "select_harness": [
+    6,
+    0
+  ]
+}

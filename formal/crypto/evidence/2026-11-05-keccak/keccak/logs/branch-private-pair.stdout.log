@@ -1,0 +1,7 @@
+formal/source/FunctionPairProbe.dfy(7,11): Error: assertion might not hold
+  |
+7 |   { assert K.Rotate(v1,n).1 == K.Rotate(v2,n).1; }
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

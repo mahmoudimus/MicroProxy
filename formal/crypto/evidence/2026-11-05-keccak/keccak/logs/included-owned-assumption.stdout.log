@@ -1,0 +1,4 @@
+formal/crypto/NativeKeccak.dfy(1125,4): Warning: Wipe: Definition has `assume {:axiom}` statement in body. Possible mitigation: Replace with `assert` and prove.
+Dafny auditor completed with 1 findings
+
+Dafny program verifier did not attempt verification

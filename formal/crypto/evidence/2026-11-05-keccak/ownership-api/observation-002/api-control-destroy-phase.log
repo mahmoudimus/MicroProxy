@@ -1,0 +1,7 @@
+assurance/shake-api/controls/NegativeControls.dfy(49,11): Error: assertion might not hold
+   |
+49 |     assert s.squeezing; // NEGATIVE destroy-phase
+   |            ^^^^^^^^^^^
+
+
+Dafny program verifier finished with 0 verified, 1 error

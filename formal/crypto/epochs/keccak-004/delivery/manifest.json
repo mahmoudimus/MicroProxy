@@ -1,0 +1,34 @@
+{
+  "config_sha256": "51cae8d5ca9f8562dbccda60be3a00818e0d996e5da87afcbc641c6f5857f0ca",
+  "current_source_map_sha256": "4cd8e0957af4d15b3620fa4541dbfbeda4b664f9eb2b848f31353548fbacc9fb",
+  "delta_sha256": "b77301890ffea289e6e624948c14a0b747ed9ae10da51c85812681f65dc07b31",
+  "execution_rule": "Copy pinned unchanged delivery helpers and explicit current source into a NEW authenticated epoch delivery view; install this selected config at its canonical formal/crypto/delivery.json only inside that view. Do not mutate old helpers, globals, manifests or historical receipts. Use the same selected view/config for assembly, stage, receipt hashing, loading and final validation.",
+  "helpers": {
+    "formal/crypto/ci_delivery.py": "678f3a88ec1cef18822468fcff482861a26d91ef726af837f5ea7620d3384c1d",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1"
+  },
+  "permitted_config_changes": [
+    "native_evidence.native_runtime_guard.caller_inventory.sha256",
+    "native_evidence.required_source_pins.formal/crypto/NativeKeccak.dfy",
+    "native_evidence.required_source_pins.formal/crypto/NativeShake.dfy"
+  ],
+  "predecessor_commit": "baf0e693c7d4344c7232ea3c3b9d64e1fac03ab3",
+  "predecessor_config_sha256": "e7d1dce38c3d83aa692cc1c89be284b597b5f370903459018e26683ce51fa054",
+  "qualification": false,
+  "required_source_pins": {
+    "formal/crypto/NativeKeccak.dfy": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+    "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
+    "formal/crypto/NativeShake.dfy": "97a25d13a672b46b2e947af1537a6eabbd1ada5d3912c83c0f5a8457e31df816"
+  },
+  "retained_checks": [
+    "Full native source/ref/kernel proof/control/JDK evidence",
+    "Every included owned body and provider audit",
+    "Canonical regeneration with exact javac policy",
+    "Actual generated/handwritten/Maven classes and JAR comparison",
+    "Existing approval gates",
+    "Physical JVM timing and independent external review remain outstanding"
+  ],
+  "schema": "microproxy.keccak004-delivery-successor/1",
+  "scope": "Explicit candidate delivery configuration; fresh full canonical and actual Maven/artifact checks still required",
+  "source_epoch_manifest_sha256": "294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec"
+}

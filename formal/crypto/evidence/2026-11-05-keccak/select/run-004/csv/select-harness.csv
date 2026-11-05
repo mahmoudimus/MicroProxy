@@ -1,0 +1,7 @@
+TestResult.DisplayName,TestResult.Outcome,TestResult.Duration,TestResult.ResourceCount,RandomSeed
+SelectTraceHarness.Check (correctness),Passed,00:00:00.0889806,102131,0
+SelectTraceHarness.Check (well-formedness),Passed,00:00:00.0761448,10130,0
+SelectTraceHarness.CheckAllLegalAliases (correctness),Passed,00:00:00.0306600,98320,0
+SelectTraceHarness.CheckAlias (correctness),Passed,00:00:00.0291536,57197,0
+SelectTraceHarness.CheckAlias (well-formedness),Passed,00:00:00.0079889,9503,0
+SelectTraceHarness.CheckAllLegalAliases (well-formedness),Passed,00:00:00.0074474,8550,0

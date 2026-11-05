@@ -1,0 +1,15 @@
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.SetLane
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Iota
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Wipe
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Chi
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Theta
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.RhoPi
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Round
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.PermuteScratch
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.Permute
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.NewOffsets
+KECCAK-METHOD-COVERAGE ROOT OK: NativeKeccak.NewSources
+KECCAK-METHOD-COVERAGE OK: exact methods [NativeKeccak.NewOffsets,NativeKeccak.NewSources,NativeKeccak.SetLane,NativeKeccak.Iota,NativeKeccak.Theta,NativeKeccak.RhoPi,NativeKeccak.Chi,NativeKeccak.Round,NativeKeccak.PermuteScratch,NativeKeccak.Permute,NativeKeccak.Wipe]; exact functions [NativeKeccak.Rotate,NativeKeccak.Constant,NativeKeccak.Offset,NativeKeccak.Source]; qualification=false
+KECCAK-FUNCTION-OBSERVATIONS OK: exact functions [NativeKeccak.Rotate,NativeKeccak.Constant,NativeKeccak.Offset,NativeKeccak.Source]; FUNCTION-ONLY DEVELOPMENT SCOPE
+
+Dafny program verifier did not attempt verification

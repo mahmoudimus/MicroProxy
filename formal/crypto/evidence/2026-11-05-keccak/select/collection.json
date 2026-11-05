@@ -1,0 +1,802 @@
+{
+  "byte_rewriting": false,
+  "epoch_manifest_sha256": "294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec",
+  "excluded": "No source/tool/DLL/package-cache trees, generated Java/classes or live Dafny inputs. Absolute producer paths in the original records remain metadata.",
+  "original_bytes": 11461550,
+  "original_files": 197,
+  "origins": {
+    "FINAL-EVIDENCE-FILES-004.json": {
+      "sha256": "7d830528bb3185dcf5f2863f734e67743bb6f2e129400ea0408b0427b7f12816",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/FINAL-EVIDENCE-FILES-004.json"
+    },
+    "FINAL-RESULT-004.json": {
+      "sha256": "1dbb8e71f96798ba79b6098c295f056619cfd8bfff4e986f1c17fce0341fd780",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/FINAL-RESULT-004.json"
+    },
+    "run-004.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004.stderr"
+    },
+    "run-004.stdout": {
+      "sha256": "df3be39d70e83f79e86f99f0ec7c340f502bab20d475903076d38451e43960df",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004.stdout"
+    },
+    "run-004/checker-build.json": {
+      "sha256": "ae0cf90170af3682dd787f663b9639be5ad772dda3126252b82cddd4c3029d7c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build.json"
+    },
+    "run-004/csv/f2.csv": {
+      "sha256": "63787447ce53b27323c2f824c414dbcce4872e431b3a82f734df84398be3d805",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/f2.csv"
+    },
+    "run-004/csv/observed-harness.csv": {
+      "sha256": "6b324df623fc0b2d6281d2819d8e573d3fcc7d94d903d30b17763de3a0007f42",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/observed-harness.csv"
+    },
+    "run-004/csv/observed.csv": {
+      "sha256": "cf694593fa1fd40df3fa1bc7e1104fa789b494a98e6d855f858e7299a7582e98",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/observed.csv"
+    },
+    "run-004/csv/positive.csv": {
+      "sha256": "a6126d2c7401c60447d1ea5798b825a5256dcd528dec46731fb8fe867bca9f62",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/positive.csv"
+    },
+    "run-004/csv/select-harness.csv": {
+      "sha256": "71d24ce752ce4c3462f6bea0e8282775dec5dbd169df75db49f7caa091bda065",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/select-harness.csv"
+    },
+    "run-004/logs/checker-build.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/checker-build.stderr.log"
+    },
+    "run-004/logs/checker-build.stdout.log": {
+      "sha256": "401c2fb054c6429063b60cc656db57a0c5e793cdd1f7cf3ea1cf855f70300b4f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/checker-build.stdout.log"
+    },
+    "run-004/logs/checker-restore.stderr.log": {
+      "sha256": "53f56b124f0a5a2cbb626d4a9571d733b4d9c9919fb2481ae410535641a04b9b",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/checker-restore.stderr.log"
+    },
+    "run-004/logs/checker-restore.stdout.log": {
+      "sha256": "730284c6418480ea7a18a1d8e151d5ec47b43503f22e7357ac8498d79cde5747",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/checker-restore.stdout.log"
+    },
+    "run-004/logs/controls/coverage-private-loop-bound.log": {
+      "sha256": "a17df39ebd6dea974b84078a54d03ae10215d6924bae215a2a7ccdc78aba874f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/coverage-private-loop-bound.log"
+    },
+    "run-004/logs/controls/neg-block-wrap-alloc.log": {
+      "sha256": "a183d731534d24391997cef9c6c8ac4c8313e2e6b34e4289c836cc7c254adf5d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-block-wrap-alloc.log"
+    },
+    "run-004/logs/controls/neg-conditional-alloc.log": {
+      "sha256": "28aba199c13b874b50fb77d81acfa418713e866f291976dbe474b9f74b018065",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-conditional-alloc.log"
+    },
+    "run-004/logs/controls/neg-loop-alloc.log": {
+      "sha256": "229483205cc1ef545924c5b627ff65c8e80722194c60d96c36d095d24a8dbf9e",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-loop-alloc.log"
+    },
+    "run-004/logs/controls/neg-private-branch-after-alloc.log": {
+      "sha256": "4fe2f7674e0c64372f6f0e903b4c9ef417a5c16eb8538a4ec057055165c81116",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-private-branch-after-alloc.log"
+    },
+    "run-004/logs/controls/neg-private-callee.log": {
+      "sha256": "e1f6d1074621dc383e390d2068ac1a55d87132cfaa0bb69523b65bbda3059b06",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-private-callee.log"
+    },
+    "run-004/logs/controls/neg-private-init-read.log": {
+      "sha256": "68076f75c50e16c0b15afc1b92152a2b2704d16aa320fa3cd5d4ffefd1682fc9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-private-init-read.log"
+    },
+    "run-004/logs/controls/neg-private-read-after-alloc.log": {
+      "sha256": "de6ccf65b9377c2cd8ab73980d1e2c02af61acb12162e84dadfb91be37675622",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-private-read-after-alloc.log"
+    },
+    "run-004/logs/controls/neg-private-read-before-alloc.log": {
+      "sha256": "a3089d778b281e79e1bdafc515fd5c2c7b1ea37e4bddf5fc26eb3466855bf861",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-private-read-before-alloc.log"
+    },
+    "run-004/logs/controls/neg-public-branch-after-alloc.log": {
+      "sha256": "46481833f7f99112c0b4c43a9eae86e369c66f3b900932946db05cdada5f1e8a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-public-branch-after-alloc.log"
+    },
+    "run-004/logs/controls/neg-second-alloc.log": {
+      "sha256": "1951a2da912503dd5bafff133617be9dd8064d925af97c9de1846483032b0fce",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-second-alloc.log"
+    },
+    "run-004/logs/controls/neg-secret-init-condition.log": {
+      "sha256": "cbf1656b851a13d4474094073186c5b2876aacc22af14641f324bd5e4b1ddc6c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-secret-init-condition.log"
+    },
+    "run-004/logs/controls/neg-select-calls-rotate.log": {
+      "sha256": "bb71eba71a8fc2f01af9f721423a50c579a3f5ffadc2a6f4ff721c03544ebc5f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-select-calls-rotate.log"
+    },
+    "run-004/logs/controls/neg-shadow-select.log": {
+      "sha256": "ba645707ef3bc8c4ac56bd0428ad3a84a5748603e344bdaaea930ad29b6665e1",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-shadow-select.log"
+    },
+    "run-004/logs/controls/neg-trace-reset-in-loop.log": {
+      "sha256": "458cffe62d5e0d58ec525d0f31da8ee9537f907b0d1feee1e52e5914378b0c63",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-trace-reset-in-loop.log"
+    },
+    "run-004/logs/controls/neg-unmarked-alloc.log": {
+      "sha256": "009ac7e5dcb9e10a826d9878673394e238bf115a7e846d9beea519680f67acfe",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-unmarked-alloc.log"
+    },
+    "run-004/logs/controls/neg-unmarked-private-loop-bound.log": {
+      "sha256": "2305756f706ca6eb146b800dfde0ded0df71046d4b7eec1dc5945635dc0cc064",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-unmarked-private-loop-bound.log"
+    },
+    "run-004/logs/controls/neg-wrong-alloc-site.log": {
+      "sha256": "c3ba80a0065aa66f8197f0a787afeccaac9dd623cae8d8c9a06bfb01565f1d1f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-wrong-alloc-site.log"
+    },
+    "run-004/logs/controls/neg-wrong-alloc-size.log": {
+      "sha256": "b6f4afd5ea07acaa470bc2948ee0908a79adfdaccdd081591b4a3ee111ffe3ad",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-wrong-alloc-size.log"
+    },
+    "run-004/logs/controls/neg-wrong-initializer.log": {
+      "sha256": "9d8ccab5df51c383049e7de3100f7598ded84605bf14c717aa46228e177d74a5",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-wrong-initializer.log"
+    },
+    "run-004/logs/controls/neg-wrong-result-identity.log": {
+      "sha256": "9c54b3b75cbc2f7d20185deda9514b8f5d3753e203af832324bca1cdbb622357",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-wrong-result-identity.log"
+    },
+    "run-004/logs/controls/neg-wrong-size.log": {
+      "sha256": "0ec058a28e4bc98c55c1c4dbcd98e87dbd95d6a1497e59d68592ff41c247ecc8",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/neg-wrong-size.log"
+    },
+    "run-004/logs/controls/observed-checker.log": {
+      "sha256": "a0626a7460c2a9cda60582d476caef5afe2a084774d3ce504677698efa677902",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/observed-checker.log"
+    },
+    "run-004/logs/controls/positive-actual.log": {
+      "sha256": "1d478b81b23e697d78df7d739f27595c2a945f378c3d2b346ea2d83b5fe6aa47",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/positive-actual.log"
+    },
+    "run-004/logs/controls/positive-alpha-out.log": {
+      "sha256": "60d33354f87605842f21a54674d1d8d6185bb480d6a6b895db63236cd06e3c3e",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/positive-alpha-out.log"
+    },
+    "run-004/logs/controls/positive-zero-init.log": {
+      "sha256": "768640cd62775d2f1f07f2e28aec26716af7e6088c2bccc18bc39f78ab5b5bc3",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/controls/positive-zero-init.log"
+    },
+    "run-004/logs/dafny-version.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny-version.stderr.log"
+    },
+    "run-004/logs/dafny-version.stdout.log": {
+      "sha256": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny-version.stdout.log"
+    },
+    "run-004/logs/dafny/focused-f2.log": {
+      "sha256": "c18288b13b92e0062390475a730b4da2acb1ce24a2ed999f5b54ad8550fa0aa6",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny/focused-f2.log"
+    },
+    "run-004/logs/dafny/focused-observed.log": {
+      "sha256": "840afe4d421019cc68b17cf7694ae6c9b8a9c25d98f418f461333ae34817c022",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny/focused-observed.log"
+    },
+    "run-004/logs/dafny/focused-positive.log": {
+      "sha256": "2508dcf635f2877099c074c137a84c834144b22fb5d7df4eb1060f17b809fbe3",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny/focused-positive.log"
+    },
+    "run-004/logs/dafny/observed-harness.log": {
+      "sha256": "a011de8e276639e392d1f3d6d8f827e77657fd041e45767ba4040e6d42a22309",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny/observed-harness.log"
+    },
+    "run-004/logs/dafny/select-harness.log": {
+      "sha256": "df32c1f2d55c4971b15e2de66964614183289a2db91a2d2ff4489302583fc21d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dafny/select-harness.log"
+    },
+    "run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-0.log": {
+      "sha256": "3204537dc8649a23b18bc4a53ff293ba3cea68bc6bde5cbde3426896440655cf",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-1.log": {
+      "sha256": "f401974ea304a059fe16e1b1478f9d2fce198932e0f3c2cf54790a8c3a60a922",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-2.log": {
+      "sha256": "f442509107cd861b86c929434ab1466061c33c687219c387457f407c109456d9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-3.log": {
+      "sha256": "fe0f6ac5426e81ff83c33851c02a5ed84cf257589c0d468a206e6dc033815591",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-coverage-private-loop-bound-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-0.log": {
+      "sha256": "09e412ffd8e513aa93b28a4b093672bcd2d1c770a5a973b5cb1bb6f94a7b98ea",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-1.log": {
+      "sha256": "a96c16bbf71c73e22ce84db341bf99dba2b3372f2b2696da739833dce274a95f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-2.log": {
+      "sha256": "c656dc1577fd5cd2cff9b862737ac3ea18b4f425004f10700794bb006aa8f2fb",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-3.log": {
+      "sha256": "659cce11a12e9ad0308ddd5654bd26bbecb71af847e12ad80423c3683af98120",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-block-wrap-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-0.log": {
+      "sha256": "7a6fd4b6a39cb7969f8dc967ee1e664288d0013dc8310b008bb323c17cdfb11d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-1.log": {
+      "sha256": "504d03062a6920af862859e65b647680a66aabd60933daaf39b1cc9208d41abd",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-2.log": {
+      "sha256": "51958e13dd59870e4bb727ada91fceee2223ca6500ee744a42d9824e0e3de93a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-3.log": {
+      "sha256": "63ce3818c20be45fb98fda1366a94bfca4f7fe1317d2bf28e6b30c3c7b595c32",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-conditional-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-0.log": {
+      "sha256": "bdf05bb88fe06353327c32c25d7632e7076a6b63e8426ce5c72506017e4bf408",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-1.log": {
+      "sha256": "3df7add38e2e37d31560aa6d27ce81946b2cccacb8b71a1e8118b5e82c635b45",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-2.log": {
+      "sha256": "fbf8c2a1995429808153c541cf5e86f6654234377bc86e434ec8061e633f5f51",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-3.log": {
+      "sha256": "aca173343970f7eaf27338f2f93efed914a6c2057393978e64364c70c5cc5ed4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-loop-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-0.log": {
+      "sha256": "9a99f5e63fc144fe18009058d53703210ba10e212545b4ff699d6f7b89ef22eb",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-1.log": {
+      "sha256": "b421142d535f3745c41153cdd5179a8afabfdba1ed0f727a54262079771bcc30",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-2.log": {
+      "sha256": "e88e4c3cc78d0fbdae58078aabd035e721b67896f3a2bc78185081a1df918e59",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-3.log": {
+      "sha256": "1f528e45ecf1a588a17f6673e76d3c75a30c941b61b2abe924f1351028b2c942",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-branch-after-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-callee-dependencies-0.log": {
+      "sha256": "1ce038ebaa22cecc6cf61fd6bb7e2cdbf8425877e56bbc862c8a61b481c91599",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-callee-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-callee-dependencies-1.log": {
+      "sha256": "fe5abf8ccde515c7c9310ae8500f1a4090b5e4c98d23686a458d1433d2c253ab",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-callee-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-callee-dependencies-2.log": {
+      "sha256": "2c7f66632ae0de62263cb27132fd4147e912827ba6d474317e00dcabee41034e",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-callee-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-callee-dependencies-3.log": {
+      "sha256": "c75fb504287cf2f4a0958a9e76ca81bdb5d7af6e3fb2b9962b7278da305f43ae",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-callee-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-init-read-dependencies-0.log": {
+      "sha256": "96d7989cb1c2dc780eb1f76e602d96b17d81ec3d5f23a9b5f2a597d6552be918",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-init-read-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-init-read-dependencies-1.log": {
+      "sha256": "1deaf703eb1d0f4220a3ea5aa7820cf84a16f4270bfce73061296d305ed2d2a9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-init-read-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-init-read-dependencies-2.log": {
+      "sha256": "12518278bc8d568d3e895e06d639d9245d94b9042dd37e6470f1fc0a69ffc5bd",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-init-read-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-init-read-dependencies-3.log": {
+      "sha256": "ab60bc095ac961cf46f5f7a0c042e098b5be14fd91e5f4c251a0d0e0ac6d1a08",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-init-read-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-0.log": {
+      "sha256": "892d87f5411193736ddbfcf39feef506a470fa6b7f9a1df6ce819dab2e1c5c23",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-1.log": {
+      "sha256": "73a92bda68fb3b9a417b69b629e9134378376db03a076653618d9d3013bbaea4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-2.log": {
+      "sha256": "259b85a2b4201b06f96904f33ebbc94f87d1875d6c206eebf94848f73eab90c4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-3.log": {
+      "sha256": "6f71500e304579f6981efd9b00e2cdbb1e2f2ffb4b9208fe92115a60f8523ec5",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-after-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-0.log": {
+      "sha256": "c99b43f71cc9ea8fba54051a1f96f6274936abceaee4f40a957693a795d5b11d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-1.log": {
+      "sha256": "8c4ede369a1845d8d792bbb1c70b318b7daa0c17bcf0464ec3a459515e29f379",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-2.log": {
+      "sha256": "188b04f4718319ead8164297e42e7adb040435651fd29bf36eb4114cb2dc0264",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-3.log": {
+      "sha256": "225fe4491a614ec287d514cba86642ef6c2610657384bb511f2530cdb73b3566",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-private-read-before-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-0.log": {
+      "sha256": "81252bfc63ccee1cde55ac409cf41fdb35e6797d1d0c2089ff8d88cc64788bf4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-1.log": {
+      "sha256": "f134555c05d112a848ade20a8f2ea7e312c0b2921983ed6291a45c117a9b7ed9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-2.log": {
+      "sha256": "85c87fdfafd4970e95d7f3f54b4c5fc8bc294465f550b23f0bfe176fb32b5c05",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-3.log": {
+      "sha256": "7a9cdac1572c5ffa5ca4d89562c001f72194b90eaca618e0a01fac12f921b537",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-public-branch-after-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-second-alloc-dependencies-0.log": {
+      "sha256": "6ce4cb7639a7e973569ef7229f7129e5773b15945852370be0e10f45f3ccfd97",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-second-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-second-alloc-dependencies-1.log": {
+      "sha256": "fe5795de36f2492a89ca6ac00384902ed2a1ff714caf1457a7a2d644e2209521",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-second-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-second-alloc-dependencies-2.log": {
+      "sha256": "3088e3e58d4af6f5e7302c9c478e117f5bc6af8edaeed91d84321329e254b059",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-second-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-second-alloc-dependencies-3.log": {
+      "sha256": "645d8dbbc2663b77c7c710bace4e3659ceb195fcd1f4c2be561e104d45b22c6c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-second-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-0.log": {
+      "sha256": "07fae5573957b5e82d0f77d961b1089a04dc42901862c11d9cd29cd01c8109fc",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-1.log": {
+      "sha256": "cd5a10ed7bfffbde95688502affd98615dbe4fb9d3112c90c0a76580292ac1a9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-2.log": {
+      "sha256": "43e4311893ce77bef00dbf7540916d3ee023a3055484a067204bab519a82ca67",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-3.log": {
+      "sha256": "37535f30d70b5469d1c28ecceb4c364f80a453ce89084cf035c3611092869789",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-secret-init-condition-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-0.log": {
+      "sha256": "f7e3ca88c6cd52ce9543c244c3208276548d7f74e95a2b8fb271415ebe198852",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-1.log": {
+      "sha256": "1bf92625e4a24da0827ca22f1fa118613ec558e825839090a8c7d8913c348bc3",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-2.log": {
+      "sha256": "9742c8482402a3dfb05c07b25b9348a4315789bc116341033458e6356e0d2624",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-3.log": {
+      "sha256": "0563a68316d7185d6c2c02a5d6124e76adb17ce91c47ffbbeb9e5d86c2106ac2",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-select-calls-rotate-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-shadow-select-dependencies-0.log": {
+      "sha256": "f860e311a7bdd70d0e530a0d800e706a3234c725b9e192271e5a20b47e2dd4db",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-shadow-select-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-shadow-select-dependencies-1.log": {
+      "sha256": "159dcb23c33098aa377949c99b1c04319e1e95e5a6bb002111a273ec1a6d7725",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-shadow-select-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-shadow-select-dependencies-2.log": {
+      "sha256": "61011df87d8f0416f30047f8ad1c9a33cc2980520f8433d84fd58c3174862469",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-shadow-select-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-shadow-select-dependencies-3.log": {
+      "sha256": "90a16c39765d78962f14d2518a1f9753d838982e9565973d1e41ac7d16f6647f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-shadow-select-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-0.log": {
+      "sha256": "29cb0254aef91821ba706edeec63562adef7ccae2854f6127f002c86a6a43a0c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-1.log": {
+      "sha256": "4e3ef331652cb50a66fd9f3b55559d447d9f2c14284022850d59d55781aecf17",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-2.log": {
+      "sha256": "29002d5191a65d0b7680e5b97230739851590412bff628abe8c15b9e3842d851",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-3.log": {
+      "sha256": "be9dd7f6c0862cf7911c81bd1341de7c1225d4976cad22128779a48d7bb3c06d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-trace-reset-in-loop-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-0.log": {
+      "sha256": "ca788f2a9f171033c830f34d2ed48408009572d4418ff7f56b3e6803a6b487d3",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-1.log": {
+      "sha256": "9f4c93816eb1765b90dfa2a245d3f93f550937aaebe75933abc2787436edf790",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-2.log": {
+      "sha256": "ff87e50cc68ee341bd60b45ba6ba38019f43a34191c5fc525736c3dd326623cd",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-3.log": {
+      "sha256": "9b01ba31c9822b68615b09f0027e7c08fd6783e04b19e5ae557e07f285590e31",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-alloc-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-0.log": {
+      "sha256": "3b0e98bad158c51c2cb034e58978b830ea995d483d9b029c2b49fb49c2bd4c6f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-1.log": {
+      "sha256": "6d7ee214d07e5bd5beb77542df3db6ea1a4b9d446e5979e27e4240da22b31fa5",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-2.log": {
+      "sha256": "1cdf3c2eb86165ce8069ddf577e788f7ad8a2cb69a1e74c58c6cd467f1f6df56",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-3.log": {
+      "sha256": "eeda21e30cf34ec932d098b6b23264cf7f15aa5c3cd2f213aa11e62334ee4854",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-unmarked-private-loop-bound-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-0.log": {
+      "sha256": "1082c12c1ddf61021be9b1c6ffdfffa5dafefbf7999155fb75ebd4e3c2f0838d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-1.log": {
+      "sha256": "80dc9567f73727975ee8c33f07332ca7d008da7835e23fb0fbfd3db896ceb675",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-2.log": {
+      "sha256": "4b7df9e5201d6f4d402f49cba93bc6c87277c779683c1bfde5f8a4e1ad997b48",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-3.log": {
+      "sha256": "31ba374f66cd2140dc19c2d26cade5cd6eed06434dc21aea86a6d258a9e0a370",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-site-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-0.log": {
+      "sha256": "7e9d152cc2f832487e290d393cbdd52916d538817198d229da98d7f4a003d1a8",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-1.log": {
+      "sha256": "79d892c5094acbdf56a2d787a8c1d7a4413d1896893b45096a79e9e48dc2f135",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-2.log": {
+      "sha256": "15a3b2b8d5b7f01d4fbd66772272628da63baf1351ce740f0518d65269a68e56",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-3.log": {
+      "sha256": "a14514dbee3895dd1eb2aff384e8a40ac6058a7cd58806f79285f866d2c541f5",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-alloc-size-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-0.log": {
+      "sha256": "b49bbd855f7f19ea3e07b6ba93f080c831f7e6b57f12e98a9f91c8afc6e509e0",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-1.log": {
+      "sha256": "69948ead16f7f6b242fd90b911ba81b39b6f3598508e773dc9e766cc3efe7134",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-2.log": {
+      "sha256": "d6ef0a8e2374c80416d81e6be69495f9d063cc887bd0e470c8801048237050c3",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-3.log": {
+      "sha256": "e02e98b89fc4d03ca0600fc574349c390b12e2d1d07e0c7e56bfc004b8d2ddce",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-initializer-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-0.log": {
+      "sha256": "5c847c469d06e0f0ed24cb7c8c91e23ddfd59c560238b6b523ff9b73949444c8",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-1.log": {
+      "sha256": "a55b9fcc3187ec0dc4d17b66681c0b4b5d6cc77f5e28e98531ee45a37d869fe6",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-2.log": {
+      "sha256": "bc51963a4270d02445b455d7f76dfa6daafb720502d066e2b06dd561e482ef16",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-3.log": {
+      "sha256": "e681411359c7809243570cae2ed86190068b9be15faed3f1e693887dbb1ba342",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-result-identity-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-size-dependencies-0.log": {
+      "sha256": "75f6ace2d45e76ec8e4088c7beccfaf0cac4eb3a6e32fb794004417104c17b40",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-size-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-size-dependencies-1.log": {
+      "sha256": "35991ade25576b358d9e67e4c4de8b0242dfeca90bf0e2d71b51d6f3154aa475",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-size-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-size-dependencies-2.log": {
+      "sha256": "a05435c11009429b9af3270765ae29eacdf99f8a19d8e16e3ede04e02c0f4cb2",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-size-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-neg-wrong-size-dependencies-3.log": {
+      "sha256": "3a66ca966aaff35033572faefd704b2e813fd208e81e40d5c86dd817e94afc1d",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-neg-wrong-size-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-observed-dependencies-0.log": {
+      "sha256": "d5bc0a9312b3a6365a3ae1153443ef60b554d429d8b24ed0e6038b750bf4d891",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-observed-dependencies-1.log": {
+      "sha256": "30248ed832c8fb45b602b08b790289a2a83abaa4f4d00b21ead81ebb26b2d454",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-observed-dependencies-2.log": {
+      "sha256": "392e28cbabd8fa22041406b00bbbd35da287f5f90b2a67d93dc357900179f123",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-observed-dependencies-3.log": {
+      "sha256": "8d7a4528c9f224c87ef4e8bd498f2552f0266ca80aa45e609e62ef5ddbe0c553",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-observed-harness-dependencies-0.log": {
+      "sha256": "c072dea3c2644380413e1b02bedc212581e0882a72c11818a264f9699f366086",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-harness-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-observed-harness-dependencies-1.log": {
+      "sha256": "82ef45f1fa03b891d768060fead304302f812ba7b76f4c306d2c43ae0940b605",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-harness-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-observed-harness-dependencies-2.log": {
+      "sha256": "948aa9b63d49423db11ce63a8dd2057370e19eb84c34c527e63f65d94ecbf900",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-harness-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-observed-harness-dependencies-3.log": {
+      "sha256": "cf4d58022e28e7ad2558b3e0fef15a18992241041425e9a0a7c851aee56fc5be",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-harness-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-observed-harness-dependencies-4.log": {
+      "sha256": "bac92dc15bc7929e08fe8da183624f26ce0f049f06c4c8d392049bc9b6617971",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-observed-harness-dependencies-4.log"
+    },
+    "run-004/logs/dependencies/plain-positive-actual-dependencies-0.log": {
+      "sha256": "dcb43df483b216cfc777a4b1f5b82d63d10facb91964b36a39e130eda03cbff0",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-actual-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-positive-actual-dependencies-1.log": {
+      "sha256": "8067b38ba99faed03c85b96b92c9a995200bb219dfdb6e72fc050b5f23624674",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-actual-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-positive-actual-dependencies-2.log": {
+      "sha256": "e30fc25ebd3031fa0a89c4bcbd3d17a8b66fcec13cb34f058e96c41826f40193",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-actual-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-positive-actual-dependencies-3.log": {
+      "sha256": "834e004dc7c25fd992b616806731d97b911dc7986c3755c53d71b9ca3b03db50",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-actual-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-positive-alpha-out-dependencies-0.log": {
+      "sha256": "c206cae9ee184deea5422f67d1e508ccb699f50b5640d477fdae34bbccc60f67",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-alpha-out-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-positive-alpha-out-dependencies-1.log": {
+      "sha256": "e3c538cb70b37ab26588e6df9f2c6e9a18d9071a274e98985e836a06cd3e65ca",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-alpha-out-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-positive-alpha-out-dependencies-2.log": {
+      "sha256": "4c2d6ae1eacc3d02df81631cff0cb0243bb91d6446185b5c41d5559334b621f9",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-alpha-out-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-positive-alpha-out-dependencies-3.log": {
+      "sha256": "4cd3bceb5f2ed3b35c6fd6466ffde474f273eac8a8e6c7187fb5c4d57092506c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-alpha-out-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-positive-zero-init-dependencies-0.log": {
+      "sha256": "acc8ed5ba6fa3322dea39bfdd5b1d83ae6b144e23df505e9c0ae5d7f9db95899",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-zero-init-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-positive-zero-init-dependencies-1.log": {
+      "sha256": "e4bf8ae2ea0dfabc8a53dd6f63370d9881bcce17e3523c762256668af04538d0",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-zero-init-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-positive-zero-init-dependencies-2.log": {
+      "sha256": "379e6edc3080008bc1a6cd9fc9c39c4deef9e33c3961368a3ce9bc8cc097bc02",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-zero-init-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-positive-zero-init-dependencies-3.log": {
+      "sha256": "cca608dc176d4656ffe01b7517e9699731527d52876ab255577ab1a2dc95fe1a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-positive-zero-init-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-select-harness-dependencies-0.log": {
+      "sha256": "ce5e447709f0e40347ec32ceb268ba7e6cfa7d946df402d7bdfa595aec65d33f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-select-harness-dependencies-0.log"
+    },
+    "run-004/logs/dependencies/plain-select-harness-dependencies-1.log": {
+      "sha256": "f362b771d2aa6ce050f253656070d57accad4b0faeec46340450feec2a36a1b5",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-select-harness-dependencies-1.log"
+    },
+    "run-004/logs/dependencies/plain-select-harness-dependencies-2.log": {
+      "sha256": "c5d6a580bdef39dcfa3cacc4621b20b2bd490f3a0515b87a92d92840c6796d0a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-select-harness-dependencies-2.log"
+    },
+    "run-004/logs/dependencies/plain-select-harness-dependencies-3.log": {
+      "sha256": "58f065cdf86e39c3743141b3ba28b3abeb3c516871f0de3b645c01666858ae01",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-select-harness-dependencies-3.log"
+    },
+    "run-004/logs/dependencies/plain-select-harness-dependencies-4.log": {
+      "sha256": "657a594a87d22150840dd85af9f6dd3d8467093c18b828440777181325164414",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dependencies/plain-select-harness-dependencies-4.log"
+    },
+    "run-004/logs/dotnet-version.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dotnet-version.stderr.log"
+    },
+    "run-004/logs/dotnet-version.stdout.log": {
+      "sha256": "d0c8e5a09a2e5655cffdca9e350ecbba59a860154f5adadb92398b844f705ed0",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/dotnet-version.stdout.log"
+    },
+    "run-004/logs/plain/plain-coverage-private-loop-bound.log": {
+      "sha256": "a8979e725dfe1353c9815629dd69e87693e9995de1e3db3cfc681c0b4b54f988",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-coverage-private-loop-bound.log"
+    },
+    "run-004/logs/plain/plain-neg-block-wrap-alloc.log": {
+      "sha256": "b0bce399e2ca6976708ea6cd547245d5956ce9b0f08416c07543b37c05926089",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-block-wrap-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-conditional-alloc.log": {
+      "sha256": "d69612161ba8e23ae0711f4443d9ffc896ebf7bf739a08ac1cea709ae528ffd0",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-conditional-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-loop-alloc.log": {
+      "sha256": "cf0b784728c55aa71bebea7a78562c9a2d6b4a3bd37f822052a7f9a818c51133",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-loop-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-private-branch-after-alloc.log": {
+      "sha256": "dd8f31177248dfd354d873e89f10efc6e771df5f5e437691dd9b980d9f20daa4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-private-branch-after-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-private-callee.log": {
+      "sha256": "a45618e4f5ea6317d12e83d1be46875589806b9e8ac9725462848c66d49e0c69",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-private-callee.log"
+    },
+    "run-004/logs/plain/plain-neg-private-init-read.log": {
+      "sha256": "db3f55c05e646b8bc04e29369c9f3b5a8b5d3fccb3a04029a15982152c07952a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-private-init-read.log"
+    },
+    "run-004/logs/plain/plain-neg-private-read-after-alloc.log": {
+      "sha256": "21fad9245e0cdbe2abde310d3c38243fe4617c9c7cc578999754d30e82535b6c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-private-read-after-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-private-read-before-alloc.log": {
+      "sha256": "6e2ff37df41ac0d46179e612bdf2ab6d279cc606c324fd98743afcfb8cb7d65b",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-private-read-before-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-public-branch-after-alloc.log": {
+      "sha256": "eef07a4824814d4a8dbb03d114333db8224e469680d4a6b0dfeef36c3cffa15a",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-public-branch-after-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-second-alloc.log": {
+      "sha256": "eca12e0a9bfef98d1635c808ef6c678366f686e3c6b5aae4d66be3d9985492ab",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-second-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-secret-init-condition.log": {
+      "sha256": "4bd7f5c89a817ddf3fccaec90a8358fb1b9bee9b64602a9c966cda5eced536e1",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-secret-init-condition.log"
+    },
+    "run-004/logs/plain/plain-neg-select-calls-rotate.log": {
+      "sha256": "9b474de265e56b966366dcd3b79cf28cb9974ba6a754e8e9d94330f7ce532620",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-select-calls-rotate.log"
+    },
+    "run-004/logs/plain/plain-neg-shadow-select.log": {
+      "sha256": "148409a72e3bf9ebc1a4a98324156a3d690d365579eb007b905b69705e9c9155",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-shadow-select.log"
+    },
+    "run-004/logs/plain/plain-neg-trace-reset-in-loop.log": {
+      "sha256": "8013ae241e4463a27074ae2718c1d68062e95794da8992bbc4150fc467117953",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-trace-reset-in-loop.log"
+    },
+    "run-004/logs/plain/plain-neg-unmarked-alloc.log": {
+      "sha256": "099113e6d6ff1adc3efdc58980cc60618d1ec9d8dd19803277d9f0ea52747802",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-unmarked-alloc.log"
+    },
+    "run-004/logs/plain/plain-neg-unmarked-private-loop-bound.log": {
+      "sha256": "aa26f0f72468523401fb2dec6c1538ffb39efa24b7409504a222df75781827a4",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-unmarked-private-loop-bound.log"
+    },
+    "run-004/logs/plain/plain-neg-wrong-alloc-site.log": {
+      "sha256": "1e44930ea54e80e100c89dd06f3bf93fc679107336eede31cb7ed9d0754621e7",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-wrong-alloc-site.log"
+    },
+    "run-004/logs/plain/plain-neg-wrong-alloc-size.log": {
+      "sha256": "2ff6241a457127cfebb3dba4df1425b51945fe4f38e621c8af32405369b7d273",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-wrong-alloc-size.log"
+    },
+    "run-004/logs/plain/plain-neg-wrong-initializer.log": {
+      "sha256": "c1f7a48d2feb6bf1932974b57e6bb0c201448295c7ccb0451c8a62097cecf96f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-wrong-initializer.log"
+    },
+    "run-004/logs/plain/plain-neg-wrong-result-identity.log": {
+      "sha256": "4100bc18542a7b1ed62b6a0a439cacbf0c2b89f07453955cb654fd6007b28320",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-wrong-result-identity.log"
+    },
+    "run-004/logs/plain/plain-neg-wrong-size.log": {
+      "sha256": "2af367475219d648063fdd8dc28b4b12182e5158dac1d08a5a9b2a71a3e11291",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-neg-wrong-size.log"
+    },
+    "run-004/logs/plain/plain-observed-harness.log": {
+      "sha256": "7f1ac2da9ae127ec77e94abc09a2ee8a8403901351e276c65a95bc11ef56973f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-observed-harness.log"
+    },
+    "run-004/logs/plain/plain-observed.log": {
+      "sha256": "d40a054f9b4fa687ffa1c90afd9643771d081903f414dce757c4d5ba01779663",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-observed.log"
+    },
+    "run-004/logs/plain/plain-positive-actual.log": {
+      "sha256": "e12c4010923af947a734da5bb0a20dea79d1a1cea3b98d2e1a7bc76e97117c63",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-positive-actual.log"
+    },
+    "run-004/logs/plain/plain-positive-alpha-out.log": {
+      "sha256": "265370ef6fba374999b17465a27689f547094f5a994a08f9639420f6a1b0da47",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-positive-alpha-out.log"
+    },
+    "run-004/logs/plain/plain-positive-zero-init.log": {
+      "sha256": "665700dbac9b028aec6d11294c885a3fe7cb25b89f996da86e2184b41fb94f83",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-positive-zero-init.log"
+    },
+    "run-004/logs/plain/plain-select-harness.log": {
+      "sha256": "de21a0b0ea28c06437c706117b2fc19a1b7b40b06a74849dad40c8f7ebfe6f3c",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/plain/plain-select-harness.log"
+    },
+    "run-004/logs/semantic-worker.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/semantic-worker.stderr.log"
+    },
+    "run-004/logs/semantic-worker.stdout.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/logs/semantic-worker.stdout.log"
+    },
+    "run-004/report.json": {
+      "sha256": "f5607208e759095234f93117c59a6366a1057440aaf901ca3a6cb085ab3f3183",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/report.json"
+    },
+    "run-004/semantics.json": {
+      "sha256": "731fb6ffff937916c1fbf3b725c25964156938dfe621ed4bbf74cafdb2b12377",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/semantics.json"
+    },
+    "tests-final-002.log": {
+      "sha256": "021b1d47405eeb49aa4d254e38a8afb730fe129e2434b36d370c66c2fd443ce7",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/tests-final-002.log"
+    },
+    "tests-final-002/result.json": {
+      "sha256": "020fcbefbc8c25a650a5d36031fe1e3fa821e74ed6bf4fdb7d58ba8cf0ec9e6f",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/tests-final-002/result.json"
+    }
+  },
+  "qualification": false,
+  "recorded_scope": "current-select-consumer",
+  "schema": "microproxy.current-select-evidence-collection/1",
+  "scope": "current-select-only",
+  "source_candidate": "formal/source/epochs/keccak-004/candidate/*.dfy.in applied only to the three declared production destinations in a private source copy"
+}

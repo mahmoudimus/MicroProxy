@@ -1,0 +1,7 @@
+CASE-CONTEXT case=neg-shadow-select operand_sha256=1ad0584d1ff643dc92d304228e40ea007d3a25bca40840c7cca276c93c6dabd7 expected_fixture_sha256=1ad0584d1ff643dc92d304228e40ea007d3a25bca40840c7cca276c93c6dabd7 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-shadow-select/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build/checker/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-shadow-select/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(1227,11): Error: reserved Select root outside exact default declaration: NativeMlKem.ShadowSelect.Select
+     |
+1227 |     method Select(c: array<bv8>) returns (r: array<bv8>) { r := c; }
+     |            ^^^^^^
+
+1 resolution/type errors detected in NativeMlKem.dfy

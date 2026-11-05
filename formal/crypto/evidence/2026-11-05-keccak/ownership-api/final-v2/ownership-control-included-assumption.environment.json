@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+    "audit",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/crypto/NativeKeccak.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/crypto/NativeShake.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/crypto/NativeTypes.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/crypto/SpongeSpec.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/crypto/native_shake_domain.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/primitives/Keccak.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/source/ShakeOwnership.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/source/SourceTrace.dfy",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/ownership-included-assumption/formal/source/vocabulary/ObservationVocabulary.dfy"
+  ],
+  "configuration_initially_empty": true,
+  "environment": {
+    "DOTNET_CLI_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/dotnet-home",
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/temporary",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/temporary",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/temporary",
+    "TZ": "UTC",
+    "XDG_CACHE_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/xdg-cache",
+    "XDG_CONFIG_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/xdg-config",
+    "XDG_DATA_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-included-assumption/xdg-data"
+  },
+  "policy": "raw-source-isolated-child/v2",
+  "private_directory_mode": "0700"
+}

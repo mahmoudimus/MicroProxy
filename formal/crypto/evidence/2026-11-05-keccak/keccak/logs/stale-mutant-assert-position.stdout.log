@@ -1,0 +1,7 @@
+formal/crypto/NativeKeccak.dfy(926,13): Error: assertion might not hold
+    |
+926 |       assert callWitness == Rotate(c[(x+1)%5],1);
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 10 assertions verified, 1 error

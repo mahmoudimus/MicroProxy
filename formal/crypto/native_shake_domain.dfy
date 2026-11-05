@@ -152,7 +152,8 @@ module NativeShakePublicDomain {
     modifies lanes
   {
     ghost var before := lanes[..];
-    K.Permute(lanes);
+    ghost var permuteTrace: seq<int>;
+    permuteTrace := K.Permute(lanes);
     assert lanes[..] == P.Iter(before,24);
   }
 }

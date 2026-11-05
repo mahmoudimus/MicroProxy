@@ -1,0 +1,42 @@
+CASE-CONTEXT case=neg-wrong-size operand_sha256=cb208faf4000365cf70c4955edd62e29b0fc3fb7d1a56a32e70a38df7e2d570f expected_fixture_sha256=cb208faf4000365cf70c4955edd62e29b0fc3fb7d1a56a32e70a38df7e2d570f argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-wrong-size/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build/checker/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-wrong-size/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(274,20): Error: Select allocation size must be the exact public literal 32
+    |
+274 |     r := new bv8[31 as T.I];
+    |                     ^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.LoopBound for for start 0, found Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.LoopBound for for end 32, found Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Read for array read candidate[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Read for array read fallback[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Write for array write r[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: Select: stale observation Alloc
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(249,9): Error: Select: expected exactly one exact returned-buffer allocation
+    |
+249 |   method Select(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>) returns(r: array<bv8>, ghost trace: seq<int>)
+    |          ^^^^^^
+
+8 resolution/type errors detected in NativeMlKem.dfy

@@ -1,0 +1,7 @@
+formal/source/Control-output-alias.dfy(66,11): Error: assertion might not hold
+   |
+66 |     assert (output as object) == (input as object);
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

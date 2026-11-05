@@ -70,7 +70,7 @@ module NativeShake {
       ensures Valid() && Model() == S.Initial(r as int)
       ensures fresh(lanes) && fresh(scratch) && fresh(parity) && fresh(offsets) && fresh(sources)
     {
-      var table := K.NewOffsets(); var indexTable := K.NewSources();
+      var table, tableTrace := K.NewOffsets(); var indexTable, indexTableTrace := K.NewSources();
       lanes := new bv64[25];
       scratch := new bv64[25]; parity := new bv64[5]; offsets := table; sources := indexTable;
       rate := r; position := 0; squeezing := false;
@@ -89,7 +89,8 @@ module NativeShake {
       var j: T.I := at/8;
       ghost var before := lanes[..];
       var updated := XorWord(lanes[j],at,value);
-      K.SetLane(lanes,j,updated);
+      ghost var setLaneTrace: seq<int>;
+      setLaneTrace := K.SetLane(lanes,j,updated);
       assert j as int == (at as int)/8;
       assert lanes[..] == before[(at as int)/8 := before[(at as int)/8] ^ ((value as bv64) << (8*((at as int)%8)))];
     }
@@ -98,7 +99,8 @@ module NativeShake {
       requires Valid()
       modifies lanes,scratch,parity
       ensures Valid() && lanes[..] == P.Iter(old(lanes[..]),24)
-    { K.PermuteScratch(lanes,scratch,parity,offsets,sources); }
+    { ghost var permuteScratchTrace: seq<int>;
+      permuteScratchTrace := K.PermuteScratch(lanes,scratch,parity,offsets,sources); }
 
     method {:isolate_assertions} AbsorbOne(value: bv8)
       requires Valid() && !squeezing
@@ -205,7 +207,8 @@ module NativeShake {
       ensures forall i: int :: 0 <= i < 25 ==> lanes[i] == 0 && scratch[i] == 0
       ensures forall i: int :: 0 <= i < 5 ==> parity[i] == 0
     {
-      K.Wipe(lanes); K.Wipe(scratch); K.Wipe(parity);
+      ghost var wipeLanesTrace: seq<int>; ghost var wipeScratchTrace: seq<int>; ghost var wipeParityTrace: seq<int>;
+      wipeLanesTrace := K.Wipe(lanes); wipeScratchTrace := K.Wipe(scratch); wipeParityTrace := K.Wipe(parity);
       position := 0; squeezing := false;
     }
   }

@@ -1,0 +1,73 @@
+{
+  "checker_build_sha256": "ae0cf90170af3682dd787f663b9639be5ad772dda3126252b82cddd4c3029d7c",
+  "controls": {
+    "accepted": 4,
+    "named-checker-rejection": 21
+  },
+  "csv_files": 5,
+  "current85_map_sha256": "4cd8e0957af4d15b3620fa4541dbfbeda4b664f9eb2b848f31353548fbacc9fb",
+  "epoch_manifest_sha256": "294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec",
+  "evidence": {
+    "focused": {
+      "f2": [
+        7,
+        1
+      ],
+      "observed": [
+        118,
+        0
+      ],
+      "positive": [
+        8,
+        0
+      ]
+    },
+    "observed_counterexample": [
+      1,
+      1
+    ],
+    "paired_harness": [
+      6,
+      0
+    ],
+    "parser_closure": 20,
+    "parser_commands": 114,
+    "raw_logs_rehashed": 173,
+    "typed_controls": 25
+  },
+  "evidence_index_sha256": "7d830528bb3185dcf5f2863f734e67743bb6f2e129400ea0408b0427b7f12816",
+  "expectations_sha256": "ca8c5015bdc1733f196e7dcfc114109386651657799bb4201918882afdf6beee",
+  "fresh_checker_sha256": "2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67",
+  "owned_active_processes": [],
+  "parser_commands": 114,
+  "qualification": false,
+  "raw_command_logs": 183,
+  "remaining": "Parent epoch qualification and current full NativeMlKem/kernel/functional/Java/delivery qualification are separate. No physical JVM timing or whole-proxy claim.",
+  "report": "run-004/report.json",
+  "report_sha256": "f5607208e759095234f93117c59a6366a1057440aaf901ca3a6cb085ab3f3183",
+  "review": "Final root review requested one bounded mixed-summary ambiguity fix. Exactly one anchored summary of any unit and the ordinary grammar are now mandatory for all5 proofs. Actual wrong/mixed/duplicate/unanchored log controls passed; exact-delta review/adoption remains external.",
+  "schema": "microproxy.current-select-task-result/1",
+  "scope": "current-select-consumer",
+  "semantic_raw_logs": 173,
+  "semantics_sha256": "731fb6ffff937916c1fbf3b725c25964156938dfe621ed4bbf74cafdb2b12377",
+  "source_files": {
+    "formal/source/epochs/keccak-004/select-current/evaluation.py": "4e249bc51c57f4cd9c5c6bc7b5f08fdc106a758b70ea8684526aa4d3e77c66e4",
+    "formal/source/epochs/keccak-004/select-current/expectations.json": "ca8c5015bdc1733f196e7dcfc114109386651657799bb4201918882afdf6beee",
+    "formal/source/epochs/keccak-004/select_replay.py": "71c96c708525889aca8527a6e0fba14192406ee997b9c55990575070d80d374a",
+    "formal/source/epochs/keccak-004/test_select_replay.py": "ee2a007a0c9b70820044802c0061de4fc97d129e815c0831f1556d44517c2b85"
+  },
+  "source_inputs_before_after_match": true,
+  "source_view_receipt_sha256": "0205a06e606e02ba1753a1f905c660f8b642b091bf68104dabdd179c29702890",
+  "status": "complete-scoped-execution",
+  "tests": {
+    "actual_evidence_controls": true,
+    "errors": 0,
+    "expected_failures": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 46
+  },
+  "tests_elapsed_seconds": 12.267,
+  "tests_log_sha256": "021b1d47405eeb49aa4d254e38a8afb730fe129e2434b36d370c66c2fd443ce7",
+  "tooling_before_after_match": true
+}

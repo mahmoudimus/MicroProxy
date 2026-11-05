@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+    "-I",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "formal/source",
+    "-p",
+    "test_replay.py"
+  ],
+  "configuration_initially_empty": true,
+  "environment": {
+    "DOTNET_CLI_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/dotnet-home",
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/temporary",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/temporary",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/temporary",
+    "TZ": "UTC",
+    "XDG_CACHE_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/xdg-cache",
+    "XDG_CONFIG_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/xdg-config",
+    "XDG_DATA_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-legacy-regressions/xdg-data"
+  },
+  "policy": "raw-source-isolated-child/v2",
+  "private_directory_mode": "0700"
+}

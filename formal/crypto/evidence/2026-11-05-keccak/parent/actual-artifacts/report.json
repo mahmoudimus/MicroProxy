@@ -1,0 +1,141 @@
+{
+  "bundle": {
+    "crypto_class_count": 84,
+    "nonce_smoke": {
+      "21": {
+        "cases": 9,
+        "classload_sha256": "05e1281c472b1076d66a5b940c5472776e2f6921f3f32d0715bb09cfd654fb96"
+      },
+      "25": {
+        "cases": 9,
+        "classload_sha256": "837f19143eea61182e172a3e017c075243f1b6de95fd4a31baaeadacd45df603"
+      }
+    },
+    "receipt": "bundle-check/receipt.json",
+    "receipt_sha256": "35153097ce2dc8670f993c1642897db1be8aaa9bd5d4938aafbb96029989bf57",
+    "resources": [
+      "META-INF/LICENSE-dafny.txt",
+      "META-INF/LICENSE-go-mlkem.txt",
+      "META-INF/NOTICE-crypto.txt"
+    ],
+    "retained_library_class_count": 468,
+    "runs": {
+      "21": 9,
+      "25": 9
+    },
+    "runtime_class_count": 37
+  },
+  "commands": [
+    {
+      "argv": [
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "-version"
+      ],
+      "exit": 0,
+      "label": "jdk-0-version",
+      "stderr_sha256": "da6bb29c482c0fd5ea827d1eecfcf573d88175541589705d776142562e788e18",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home/bin/java",
+        "-version"
+      ],
+      "exit": 0,
+      "label": "jdk-1-version",
+      "stderr_sha256": "dc25d4c269605476cbe8abf0a71814a943b1303a7249657c140d7e2878f5fa46",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/views-002/epoch-project/formal/crypto/delivery.py",
+        "check",
+        "--stage",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/evidence/stage",
+        "--classes",
+        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/target/classes",
+        "--jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/release-081-current-001/quic-0.8.1.jar",
+        "--runtime",
+        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "--java-home",
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home"
+      ],
+      "exit": 0,
+      "label": "delivery-check",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "85114cffff4f4293bdb0d2d8c33f5ec449964b56a44296698fd0a72e8fb8fab8"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/views-002/epoch-project/formal/crypto/bundle_checks.py",
+        "--library",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/release-081-current-001/quic-0.8.1.jar",
+        "--bundle",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/release-081-current-001/microproxy-starlark-0.8.1-all.jar",
+        "--delivery-receipt",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/actual-artifacts/delivery-check.json",
+        "--stage",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/evidence/stage",
+        "--runtime",
+        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "--java-home",
+        "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+        "--java-home",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home",
+        "--output",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/actual-artifacts/bundle-check"
+      ],
+      "exit": 0,
+      "label": "bundle-check",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "a37007e449cd71cd0f33dc09d5926cb122fcd69b1b5964dd989cc04ea92ef6af"
+    }
+  ],
+  "delivery": {
+    "class_count": 468,
+    "generated_class_count": 66,
+    "handwritten_sources": 194,
+    "jar_sha256": "cfea38faef12a10bcc183a28691f63e8dee58c5d121c9ff67258656f4f466132",
+    "receipt": "delivery-check.json",
+    "receipt_sha256": "85114cffff4f4293bdb0d2d8c33f5ec449964b56a44296698fd0a72e8fb8fab8",
+    "stage_receipt_sha256": "e32e262cef769319e4aae57ee5c02b24623d8abbcd03bc9292efe1df9e4b30b7"
+  },
+  "inputs": {
+    "bundle": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/release-081-current-001/microproxy-starlark-0.8.1-all.jar",
+    "bundle_sha256": "4de352aa57308176b08ef08f236170dd3b103f7f5d0eaea0575ddddff32749dd",
+    "classes": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/target/classes",
+    "classes_tree_sha256": "f9519c178be73d1678793130196a8eee8e3dcc0cd4b291836066dbbff2cdc0b9",
+    "delivery_manifest_sha256": "51cae8d5ca9f8562dbccda60be3a00818e0d996e5da87afcbc641c6f5857f0ca",
+    "java_homes": [
+      "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+      "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home"
+    ],
+    "library": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/release-081-current-001/quic-0.8.1.jar",
+    "library_sha256": "cfea38faef12a10bcc183a28691f63e8dee58c5d121c9ff67258656f4f466132",
+    "runtime": "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+    "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "stage": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/evidence/stage",
+    "stage_receipt_sha256": "e32e262cef769319e4aae57ee5c02b24623d8abbcd03bc9292efe1df9e4b30b7"
+  },
+  "java_homes": {
+    "21": "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home",
+    "25": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/jdk25/jdk-25.0.5+8/Contents/Home"
+  },
+  "report_path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/actual-artifacts/report.json",
+  "report_sha256": "7ea6db03a5d99461a6d54bd41949c882508596d533fa923469ed0d8c5fe09408",
+  "repository_root": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/views-002/epoch-project",
+  "schema": "microproxy.crypto-current-release-artifact-validation/v1",
+  "scope": "Actual current QUIC library class/JAR identity, minimized-bundle crypto/retained-library/runtime/notice identity and JDK21/JDK25 origin-checked handshake smoke; no timing, whole-proxy security, deployment identity or expert-review claim",
+  "status": "complete",
+  "tool_root": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/views-002/epoch-project",
+  "tools": {
+    "formal/crypto/bundle_checks.py": "d40c5fe6dbfcb6e30b26bc7c21cb26d5e99dbad72baec28fed757e563a940e87",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
+    "formal/nonce/BundleNonceSmoke.java": "fa7d29664d70d8abb6f417995d4f32a188417ecad3b086ac67c207d53d1b7232",
+    "scripts/security/check_crypto_release.py": "6605a1a2053882be9e37799380d3f222933fd0ceb35e97dd77a14674f5c52871",
+    "scripts/security/crypto_current_release.py": "08be8a24065e965fdd051c83f308d75aa9fa7be1d33352f732c3d9fe571a8be7"
+  }
+}

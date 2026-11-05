@@ -1,0 +1,4 @@
+/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/observation-002/api-included-assumption/formal/crypto/NativeShake.dfy(21,4): Warning: Xof: Definition has `assume {:axiom}` statement in body. Possible mitigation: Replace with `assert` and prove.
+Dafny auditor completed with 1 findings
+
+Dafny program verifier did not attempt verification

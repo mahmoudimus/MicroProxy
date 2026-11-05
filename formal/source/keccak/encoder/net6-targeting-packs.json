@@ -1,0 +1,34 @@
+{
+  "authority": "Official NuGet.org versioned HTTPS package downloads authenticated against official catalog SHA512 and packageSize records",
+  "packages": [
+    {
+      "catalog_sha256": "e2a2eda560da669abb91117140e2e2871e50267de085cfc7b9b186fca2ef9ee8",
+      "catalog_url": "https://api.nuget.org/v3/catalog0/data/2024.11.12.18.32.57/microsoft.netcore.app.ref.6.0.36.json",
+      "expanded_size": 29804180,
+      "file_count": 293,
+      "filename": "microsoft.netcore.app.ref.6.0.36.nupkg",
+      "id": "microsoft.netcore.app.ref",
+      "installed_name": "Microsoft.NETCore.App.Ref",
+      "sha256": "f4b66056820517ca8dc94bbc91d26b6062eeb4c17f70bd8af361cddb2c30971f",
+      "sha512_base64": "qAcjjw2vDNJrTIw7R4UWLQuvslJbUpXxTrd1ckfDpWPqE0cEehOd9CvwizbD7HADjewzVv+LKvB5aOWYnpNmKA==",
+      "size": 4792411,
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/6.0.36/microsoft.netcore.app.ref.6.0.36.nupkg",
+      "version": "6.0.36"
+    },
+    {
+      "catalog_sha256": "2881a6ddef143fd7e404f476fbd5d007e96015a4350b08dbd444ba777be3aa52",
+      "catalog_url": "https://api.nuget.org/v3/catalog0/data/2024.11.12.19.09.49/microsoft.aspnetcore.app.ref.6.0.36.json",
+      "expanded_size": 13575438,
+      "file_count": 284,
+      "filename": "microsoft.aspnetcore.app.ref.6.0.36.nupkg",
+      "id": "microsoft.aspnetcore.app.ref",
+      "installed_name": "Microsoft.AspNetCore.App.Ref",
+      "sha256": "f630e459b8f0fe777ccaa7735536a00aeaabea8c09fc350c8b80655194f88565",
+      "sha512_base64": "7hUCPQ2cFc920o+IO1kkTolILrJ1ozLiH1ppUQVFxSQ94z2A8t41KCxUOYxEHwoaDqKWJ0LKjDMSGuU113DVzA==",
+      "size": 3366333,
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/6.0.36/microsoft.aspnetcore.app.ref.6.0.36.nupkg",
+      "version": "6.0.36"
+    }
+  ],
+  "schema": "microproxy.keccak-net6-targeting-packs/1"
+}

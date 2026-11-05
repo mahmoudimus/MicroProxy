@@ -1,0 +1,75 @@
+{
+  "all_other_guard_fields_identical": true,
+  "changed_records": [
+    {
+      "after": {
+        "file": "NativeKeccak/__default.java",
+        "line": 142,
+        "method": "NewOffsets",
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = (__default.Offset(_0_i));"
+      },
+      "before": {
+        "file": "NativeKeccak/__default.java",
+        "line": 142,
+        "method": "NewOffsets",
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.Offset(_0_i);"
+      }
+    },
+    {
+      "after": {
+        "file": "NativeKeccak/__default.java",
+        "line": 208,
+        "method": "NewSources",
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = (__default.Source(_0_i));"
+      },
+      "before": {
+        "file": "NativeKeccak/__default.java",
+        "line": 208,
+        "method": "NewSources",
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.Source(_0_i);"
+      }
+    },
+    {
+      "after": {
+        "file": "NativeKeccak/__default.java",
+        "line": 232,
+        "method": "Theta",
+        "source": "_2_d = (long) (long) (((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (4)), 5))]) ^ ((__default.Rotate((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (1)), 5))], 1))));"
+      },
+      "before": {
+        "file": "NativeKeccak/__default.java",
+        "line": 232,
+        "method": "Theta",
+        "source": "_2_d = (long) (long) (((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (4)), 5))]) ^ (__default.Rotate((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (1)), 5))], 1)));"
+      }
+    },
+    {
+      "after": {
+        "file": "NativeKeccak/__default.java",
+        "line": 247,
+        "method": "RhoPi",
+        "source": "(b)[dafny.Helpers.toInt((_0_i))] = (__default.Rotate((a)[(_1_j)], (offsets)[(_1_j)]));"
+      },
+      "before": {
+        "file": "NativeKeccak/__default.java",
+        "line": 247,
+        "method": "RhoPi",
+        "source": "(b)[dafny.Helpers.toInt((_0_i))] = __default.Rotate((a)[(_1_j)], (offsets)[(_1_j)]);"
+      }
+    }
+  ],
+  "class_map_sha256": "d4ddec01f6a1550fae5b066580741d2560c12b566056cf9969ee02138cce7a64",
+  "complete72_class_maps_identical": true,
+  "count": 193,
+  "current_native_receipt_sha256": "370c08f6984b3c03d7644377af7ffaeeb4e14962110db69d831f6acebe346827",
+  "historical_receipt": {
+    "path": "formal/crypto/evidence/2026-11-04-poly/kem-mac/receipt.json",
+    "sha256": "132c0436b848d218abfacab5ad39f1424f7db76de5e5c75396b84eb1baa711a8"
+  },
+  "new_inventory_sha256": "3b0066f611520e01c7f7480d6e9251fa7e4c74aff0b2e6700233f4ba3ae202e1",
+  "old_inventory_sha256": "7dbe4d9f78df2f27a03dde97d3d28c4240f9547983decd61fcb5edb68695562a",
+  "qualification": false,
+  "review": "Independent reviewer reconstructed inventories from actual generated Java and rehashed all66 Java and72 class files per replay, plus396 prior erasure class files on JDK21/25. Only grouping parentheses changed; no generic normalization is admitted.",
+  "schema": "microproxy.keccak004-runtime-inventory-delta/1",
+  "unchanged_records": 189
+}

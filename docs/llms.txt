@@ -79,6 +79,8 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 - [Executable Dafny assurance](https://mahmoudimus.github.io/MicroProxy/project/2026-11-03-dafny-source-assurance/): This records the source-first direction approved for issue #117 on 2026-11-03.
 - [Source assurance execution](https://mahmoudimus.github.io/MicroProxy/project/2026-11-03-dafny-source-assurance-plan/): Goal: Complete the owned crypto source-level obligations using the actual verified Dafny implementation and its generated Java, preserving explicit remaining trust boundaries.
+- [Full trace composition](https://mahmoudimus.github.io/MicroProxy/project/2026-11-04-full-trace-composition/): This executes the approved source-first direction in issue #117.
+- [Keccak trace execution](https://mahmoudimus.github.io/MicroProxy/project/2026-11-04-keccak-trace-plan/): Goal: Qualify complete same-body logical observations for all eleven native Keccak methods and four pure functions without changing production class bytes.
 - [External crypto review brief](https://mahmoudimus.github.io/MicroProxy/project/2026-11-04-crypto-external-review-brief/): Issue #117 remains open.
 - [SHAKE API proof design](https://mahmoudimus.github.io/MicroProxy/superpowers/specs/2026-11-04-shake-api-state-design/): The approved architecture for issue #117 proves properties over executable Dafny, then generates Java from that source.
 - [SHAKE API proof execution](https://mahmoudimus.github.io/MicroProxy/superpowers/plans/2026-11-04-shake-api-state/): Goal: Prove public state/status coupling across actual SHAKE API calls with arbitrary secret contents, retaining an explicit gap to complete logical traces.

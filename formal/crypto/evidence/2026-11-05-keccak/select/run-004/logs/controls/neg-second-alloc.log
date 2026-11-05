@@ -1,0 +1,17 @@
+CASE-CONTEXT case=neg-second-alloc operand_sha256=cfb2d7f3e6b371266be595f6903cf4b18225d807b0d8ec9f431d43619e15aead expected_fixture_sha256=cfb2d7f3e6b371266be595f6903cf4b18225d807b0d8ec9f431d43619e15aead argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-second-alloc/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build/checker/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-second-alloc/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(288,9): Error: Select must allocate its returned buffer exactly once
+    |
+288 |     r := new bv8[32 as T.I];
+    |          ^^^
+
+NativeMlKem.dfy(287,24): Error: Select: stale observation Alloc
+    |
+287 |     trace := trace + ST.Alloc(0,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(249,9): Error: Select: expected exactly one exact returned-buffer allocation
+    |
+249 |   method Select(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>) returns(r: array<bv8>, ghost trace: seq<int>)
+    |          ^^^^^^
+
+3 resolution/type errors detected in NativeMlKem.dfy

@@ -1,0 +1,6 @@
+formal/crypto/NativeKeccak.dfy(881,10): Error: KMC004: missing Read observation in ordinary assignment
+    |
+881 |     trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0);
+    |           ^^
+
+1 resolution/type errors detected in NativeKeccak.dfy

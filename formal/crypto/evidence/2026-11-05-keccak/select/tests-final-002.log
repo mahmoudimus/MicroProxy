@@ -1,0 +1,51 @@
+test_changed_build_authority (__main__.AdmissionTests.test_changed_build_authority) ... ok
+test_changed_legacy_helper (__main__.AdmissionTests.test_changed_legacy_helper) ... ok
+test_changed_legacy_package (__main__.AdmissionTests.test_changed_legacy_package) ... ok
+test_changed_profile (__main__.AdmissionTests.test_changed_profile) ... ok
+test_current_source_substituted_into_history (__main__.AdmissionTests.test_current_source_substituted_into_history) ... ok
+test_extra_current_source (__main__.AdmissionTests.test_extra_current_source) ... ok
+test_fourth_current_source_change (__main__.AdmissionTests.test_fourth_current_source_change) ... ok
+test_hardlink_source_alias (__main__.AdmissionTests.test_hardlink_source_alias) ... ok
+test_historical_source_substitution_and_self_renewed_map (__main__.AdmissionTests.test_historical_source_substitution_and_self_renewed_map) ... ok
+test_manifest_external_digest_required (__main__.AdmissionTests.test_manifest_external_digest_required) ... ok
+test_missing_current_source (__main__.AdmissionTests.test_missing_current_source) ... ok
+test_real_authenticated_views (__main__.AdmissionTests.test_real_authenticated_views) ... ok
+test_receipt_sources_map_must_match_manifest (__main__.AdmissionTests.test_receipt_sources_map_must_match_manifest) ... ok
+test_receipt_success_flag_is_not_authority (__main__.AdmissionTests.test_receipt_success_flag_is_not_authority) ... ok
+test_symlink_source_substitution (__main__.AdmissionTests.test_symlink_source_substitution) ... ok
+test_view_receipt_external_digest_required (__main__.AdmissionTests.test_view_receipt_external_digest_required) ... ok
+test_changed_mapped_reference (__main__.EvaluationTests.test_changed_mapped_reference) ... ok
+test_exact_old_select_source_layout (__main__.EvaluationTests.test_exact_old_select_source_layout) ... ok
+test_isolation_property_mismatch (__main__.EvaluationTests.test_isolation_property_mismatch) ... ok
+test_missing_authored_encoder (__main__.EvaluationTests.test_missing_authored_encoder) ... ok
+test_unmapped_external_import (__main__.EvaluationTests.test_unmapped_external_import) ... ok
+test_unmapped_reference (__main__.EvaluationTests.test_unmapped_reference) ... ok
+test_wrong_authored_source (__main__.EvaluationTests.test_wrong_authored_source) ... ok
+test_captured_source_ignores_valid_poisoned_pyc (__main__.LogTests.test_captured_source_ignores_valid_poisoned_pyc) ... ok
+test_minimal_environment_fails_closed_on_injection (__main__.LogTests.test_minimal_environment_fails_closed_on_injection) ... ok
+test_missing_named_anchor_rejected (__main__.LogTests.test_missing_named_anchor_rejected) ... ok
+test_mixed_failure_is_not_semantic_evidence (__main__.LogTests.test_mixed_failure_is_not_semantic_evidence) ... ok
+test_named_semantic_failure (__main__.LogTests.test_named_semantic_failure) ... ok
+test_reviewed_environment_drops_injection_selectors (__main__.LogTests.test_reviewed_environment_drops_injection_selectors) ... ok
+test_wrong_exit_rejected (__main__.LogTests.test_wrong_exit_rejected) ... ok
+test_zero_filtered_proof_rejected (__main__.LogTests.test_zero_filtered_proof_rejected) ... ok
+test_actual_current_evidence (__main__.EvidenceTests.test_actual_current_evidence) ... ok
+test_all_proofs_reject_duplicate_summary (__main__.EvidenceTests.test_all_proofs_reject_duplicate_summary) ... ok
+test_all_proofs_reject_mixed_summary_units (__main__.EvidenceTests.test_all_proofs_reject_mixed_summary_units) ... ok
+test_all_proofs_reject_wrong_summary_unit (__main__.EvidenceTests.test_all_proofs_reject_wrong_summary_unit) ... ok
+test_all_proofs_require_full_anchored_summary (__main__.EvidenceTests.test_all_proofs_require_full_anchored_summary) ... ok
+test_case_source_substitution_with_self_renewed_map (__main__.EvidenceTests.test_case_source_substitution_with_self_renewed_map) ... ok
+test_command_and_context_cannot_disagree_with_raw_header (__main__.EvidenceTests.test_command_and_context_cannot_disagree_with_raw_header) ... ok
+test_current_keccak_parser_dependency_cannot_be_dropped (__main__.EvidenceTests.test_current_keccak_parser_dependency_cannot_be_dropped) ... ok
+test_focused_solver_flags_cannot_be_changed_with_renewed_header (__main__.EvidenceTests.test_focused_solver_flags_cannot_be_changed_with_renewed_header) ... ok
+test_mixed_named_failure_and_crash_rejected (__main__.EvidenceTests.test_mixed_named_failure_and_crash_rejected) ... ok
+test_observed_failure_requires_original_named_assertion (__main__.EvidenceTests.test_observed_failure_requires_original_named_assertion) ... ok
+test_observed_paired_harness_cannot_supply_native_pin (__main__.EvidenceTests.test_observed_paired_harness_cannot_supply_native_pin) ... ok
+test_parser_raw_record_cannot_be_omitted (__main__.EvidenceTests.test_parser_raw_record_cannot_be_omitted) ... ok
+test_positive_paired_harness_cannot_supply_native_pin (__main__.EvidenceTests.test_positive_paired_harness_cannot_supply_native_pin) ... ok
+test_source_closure_digest_cannot_be_substituted (__main__.EvidenceTests.test_source_closure_digest_cannot_be_substituted) ... ok
+
+----------------------------------------------------------------------
+Ran 46 tests in 12.267s
+
+OK

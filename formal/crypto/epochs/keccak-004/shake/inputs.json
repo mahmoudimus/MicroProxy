@@ -1,0 +1,535 @@
+{
+  "schema": "microproxy.keccak004-shake-inputs/1",
+  "qualification": false,
+  "scope": "functional-consumer-only",
+  "source_epoch_manifest_sha256": "294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec",
+  "source_view_constructor_sha256": "65eb424c4c0b5ce44498ded72cb8600c02252e18122b8d1f28fcfb0b00eaa3eb",
+  "source_map_sha256": "4cd8e0957af4d15b3620fa4541dbfbeda4b664f9eb2b848f31353548fbacc9fb",
+  "helpers": {
+    "formal/crypto/native_shake_checks.py": "0f9f7c9167849591b036b7846e5864f7d7fe717a240c5681b8cf9071d023e487",
+    "formal/crypto/shake_checks.py": "dfef8955684371f875584c126e12acee6394fb8894f01aa96467245f885f8ef6",
+    "formal/crypto/native_shake_java/io/github/mahmoudimus/quic/tls/NativeShakeTest.java": "cfe65fbc09d5818a4dbb446fd840c20c25182e4bc3b0ff0fff91fbff9ec36ddf",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6"
+  },
+  "entry": "formal/crypto/native_shake_domain.dfy",
+  "closure": [
+    "formal/crypto/NativeKeccak.dfy",
+    "formal/crypto/NativeShake.dfy",
+    "formal/crypto/NativeTypes.dfy",
+    "formal/crypto/SpongeSpec.dfy",
+    "formal/crypto/native_shake_domain.dfy",
+    "formal/primitives/Keccak.dfy",
+    "formal/source/SourceTrace.dfy",
+    "formal/source/vocabulary/ObservationVocabulary.dfy"
+  ],
+  "controls": [
+    {
+      "name": "padding-suffix",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Start.",
+      "original": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "XorByte(position,0x06); XorByte(rate-1,0x80);"
+      ],
+      "mutation": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "XorByte(position,0x06); XorByte(rate-1,0x80);"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 156,
+          "column": 20,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "padding-final-bit",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Start.",
+      "original": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "XorByte(position,0x1f); XorByte(rate-1,0x00);"
+      ],
+      "mutation": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "XorByte(position,0x1f); XorByte(rate-1,0x00);"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 156,
+          "column": 20,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "padding-shared-octet",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Start.",
+      "original": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "if position != rate-1 { XorByte(position,0x1f); } XorByte(rate-1,0x80);"
+      ],
+      "mutation": [
+        "XorByte(position,0x1f); XorByte(rate-1,0x80);",
+        "if position != rate-1 { XorByte(position,0x1f); } XorByte(rate-1,0x80);"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 156,
+          "column": 20,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "zero-read-phase",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Read.",
+      "original": [
+        "      Start();\n      ghost var initial := Model();",
+        "      if output.Length == 0 { return; }\n      Start();\n      ghost var initial := Model();"
+      ],
+      "mutation": [
+        "      Start();\n      ghost var initial := Model();",
+        "      if output.Length == 0 { return; }\n      Start();\n      ghost var initial := Model();"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 187,
+          "column": 30,
+          "message": "a postcondition could not be proved on this return path"
+        },
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 187,
+          "column": 30,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "input-after-output",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Update.",
+      "original": [
+        "if squeezing { return 1; }",
+        "if squeezing { return 0; }"
+      ],
+      "mutation": [
+        "if squeezing { return 1; }",
+        "if squeezing { return 0; }"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 129,
+          "column": 21,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "overflow-safe-slices",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Update.",
+      "original": [
+        "length > size-offset",
+        "offset+length > size"
+      ],
+      "mutation": [
+        "length > size-offset",
+        "offset+length > size"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 131,
+          "column": 60,
+          "message": "result of operation might violate newtype constraint for 'I'"
+        }
+      ]
+    },
+    {
+      "name": "absorb-boundary",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.AbsorbOne.",
+      "original": [
+        "if position+1 == rate {",
+        "if position == rate {"
+      ],
+      "mutation": [
+        "if position+1 == rate {",
+        "if position == rate {"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 109,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        },
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 109,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "squeeze-boundary",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Next.",
+      "original": [
+        "if position == rate { Permute(); position := 0; }",
+        "if false { Permute(); position := 0; }"
+      ],
+      "mutation": [
+        "if position == rate { Permute(); position := 0; }",
+        "if false { Permute(); position := 0; }"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 169,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        },
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 169,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "absorb-byte-order",
+      "source": "NativeShake",
+      "symbol": "NativeShake.XorWord.",
+      "original": [
+        "{ word ^ ((value as bv64) << (8*(at%8))) }",
+        "{ word ^ ((value as bv64) << (8*(7-at%8))) }"
+      ],
+      "mutation": [
+        "{ word ^ ((value as bv64) << (8*(at%8))) }",
+        "{ word ^ ((value as bv64) << (8*(7-at%8))) }"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 14,
+          "column": 9,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "squeeze-byte-order",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Next.",
+      "original": [
+        "value := ((lanes[position/8] >> (8*(position%8))) & 255) as bv8;",
+        "value := ((lanes[position/8] >> (8*(7-position%8))) & 255) as bv8;"
+      ],
+      "mutation": [
+        "value := ((lanes[position/8] >> (8*(position%8))) & 255) as bv8;",
+        "value := ((lanes[position/8] >> (8*(7-position%8))) & 255) as bv8;"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 169,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "wipe-scratch",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Destroy.",
+      "original": [
+        "K.Wipe(lanes); K.Wipe(scratch); K.Wipe(parity);",
+        "K.Wipe(lanes); K.Wipe(parity);"
+      ],
+      "mutation": [
+        "wipeScratchTrace := K.Wipe(scratch);",
+        "wipeScratchTrace := [];"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 209,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "wipe-parity",
+      "source": "NativeShake",
+      "symbol": "NativeShake.Sponge.Destroy.",
+      "original": [
+        "K.Wipe(lanes); K.Wipe(scratch); K.Wipe(parity);",
+        "K.Wipe(lanes); K.Wipe(scratch);"
+      ],
+      "mutation": [
+        "wipeParityTrace := K.Wipe(parity);",
+        "wipeParityTrace := [];"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeShake.dfy",
+          "line": 209,
+          "column": 4,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "round-constant",
+      "source": "NativeKeccak",
+      "symbol": "NativeKeccak.Constant.",
+      "original": [
+        "{ if i == 0 then 0x0000000000000001",
+        "{ if i == 0 then 0x0000000000000000"
+      ],
+      "mutation": [
+        "{ if i == 0 then (0x0000000000000001, ghost",
+        "{ if i == 0 then (0x0000000000000000, ghost"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeKeccak.dfy",
+          "line": 522,
+          "column": 19,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "rotation-table",
+      "source": "NativeKeccak",
+      "symbol": "NativeKeccak.Offset.",
+      "original": [
+        "else if i == 2 then 62",
+        "else if i == 2 then 61"
+      ],
+      "mutation": [
+        "else if i == 2 then (62, ghost",
+        "else if i == 2 then (61, ghost"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeKeccak.dfy",
+          "line": 618,
+          "column": 24,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "source-table",
+      "source": "NativeKeccak",
+      "symbol": "NativeKeccak.Source.",
+      "original": [
+        "else if i == 1 then 6",
+        "else if i == 1 then 7"
+      ],
+      "mutation": [
+        "else if i == 1 then (6, ghost",
+        "else if i == 1 then (7, ghost"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeKeccak.dfy",
+          "line": 741,
+          "column": 24,
+          "message": "a postcondition could not be proved on this return path"
+        }
+      ]
+    },
+    {
+      "name": "round-count",
+      "source": "NativeKeccak",
+      "symbol": "NativeKeccak.PermuteScratch.",
+      "original": [
+        "for i: T.I := 0 to 24",
+        "for i: T.I := 0 to 23"
+      ],
+      "mutation": [
+        "for i: T.I := 0 to 24",
+        "for i: T.I := 0 to 23"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/NativeKeccak.dfy",
+          "line": 1092,
+          "column": 11,
+          "message": "assertion might not hold"
+        }
+      ]
+    },
+    {
+      "name": "domain-rates",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllRates.",
+      "original": [
+        "constructor(r: T.I)\n      requires S.ValidRate(r as int)",
+        "constructor(r: T.I)\n      requires r == 136"
+      ],
+      "mutation": [
+        "constructor(r: T.I)\n      requires S.ValidRate(r as int)",
+        "constructor(r: T.I)\n      requires r == 136"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 48,
+          "column": 10,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    },
+    {
+      "name": "domain-empty-reads",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllReads.",
+      "original": [
+        "requires Valid() && T.JavaLength(output.Length)",
+        "requires Valid() && T.JavaLength(output.Length) && output.Length > 0"
+      ],
+      "mutation": [
+        "requires Valid() && T.JavaLength(output.Length)",
+        "requires Valid() && T.JavaLength(output.Length) && output.Length > 0"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 77,
+          "column": 4,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    },
+    {
+      "name": "domain-squeeze-boundary",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllReads.",
+      "original": [
+        "requires Valid() && T.JavaLength(output.Length)",
+        "requires Valid() && T.JavaLength(output.Length) && position < rate"
+      ],
+      "mutation": [
+        "requires Valid() && T.JavaLength(output.Length)",
+        "requires Valid() && T.JavaLength(output.Length) && position < rate"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 77,
+          "column": 4,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    },
+    {
+      "name": "domain-input",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllUpdates.",
+      "original": [
+        "requires Valid() && T.JavaLength(input.Length)",
+        "requires Valid() && T.JavaLength(input.Length) && input.Length > 0"
+      ],
+      "mutation": [
+        "requires Valid() && T.JavaLength(input.Length)",
+        "requires Valid() && T.JavaLength(input.Length) && input.Length > 0"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 62,
+          "column": 15,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    },
+    {
+      "name": "domain-slices",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllUpdates.",
+      "original": [
+        "requires Valid() && T.JavaLength(input.Length)",
+        "requires Valid() && T.JavaLength(input.Length) && 0 <= offset && 0 <= length"
+      ],
+      "mutation": [
+        "requires Valid() && T.JavaLength(input.Length)",
+        "requires Valid() && T.JavaLength(input.Length) && 0 <= offset && 0 <= length"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 62,
+          "column": 15,
+          "message": "a precondition for this call could not be proved"
+        },
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 62,
+          "column": 15,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    },
+    {
+      "name": "domain-output-length",
+      "source": "NativeShake",
+      "symbol": "NativeShakePublicDomain.AllXofs.",
+      "original": [
+        "requires S.ValidRate(rate as int) && T.JavaLength(input.Length) && 0 <= length",
+        "requires S.ValidRate(rate as int) && T.JavaLength(input.Length) && 0 < length"
+      ],
+      "mutation": [
+        "requires S.ValidRate(rate as int) && T.JavaLength(input.Length) && 0 <= length",
+        "requires S.ValidRate(rate as int) && T.JavaLength(input.Length) && 0 < length"
+      ],
+      "errors": [
+        {
+          "file": "formal/crypto/native_shake_domain.dfy",
+          "line": 90,
+          "column": 15,
+          "message": "a precondition for this call could not be proved"
+        }
+      ]
+    }
+  ],
+  "flags": [
+    "--verification-time-limit",
+    "30",
+    "--resource-limit",
+    "50000000",
+    "--cores",
+    "2",
+    "--solver-option",
+    "O:smt.case_split=0"
+  ],
+  "expected_tests": {
+    "vectors": 198,
+    "partitions": 198,
+    "permutations": 1728,
+    "slices": 24,
+    "assertions": 25218
+  },
+  "vectors_sha256": "6ee22c84ac0e738d6805a92692777100e1d94a7718ad30b1a03123a1d72b6cb3",
+  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+}

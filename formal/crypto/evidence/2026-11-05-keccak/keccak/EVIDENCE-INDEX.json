@@ -1,0 +1,485 @@
+{
+  "schema": "microproxy.keccak004-public-proof-evidence/1",
+  "status": "locally-completed-and-reauthenticated",
+  "qualification": false,
+  "parent_epoch_qualified": false,
+  "production_adopted_by_this_component": false,
+  "scope": "Keccak source body proofs, direct audits and semantic controls; coverage receipt consumption only; no parent epoch, Java, delivery or timing qualification",
+  "result": {
+    "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/run-002/result.json",
+    "sha256": "96ea8f409ed401245961d93e53a86f6f1fe56fb0ca63e3eb1c917774e8b26f56"
+  },
+  "package_root": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/source/epochs/keccak-004/keccak",
+  "package_files": {
+    "AddressPairProbe.dfy.in": "71b97e4ac2ab1b50960c17e40fb24d5b10a274600e808448da96e8b824ca484f",
+    "FunctionPairProbe.dfy.in": "e21019113ac5535eb71f7a3acfcfeb6b7b437922e3ec0f8ccd1023d6b9d8d287",
+    "README.md": "537f82608f60913f0a2ee87dab90dfeecff5d962505460672e3fc88610e480c6",
+    "inputs.json": "8d16aa8af321ab74b1e899ddfb11628efcee1826c4e58854d8090f8820560dcd",
+    "mutations.json": "7f54b9587be54c22f1da3a264fcb8a56feb276b477c2effea0f7f35e72213d56",
+    "replay.py": "01f59bf24463faa7ebbfbec5dfb0a3b2a9fcd367b9e7e60505281fd2caba6912",
+    "stale-mutant.stdout.in": "a3d084d8b75fce4dba6cbf3a50894ad6254bf25ba214cab1b4abb6fcb284abed",
+    "stale-positive.stdout.in": "62848155ec6c9477cf690c641d3d8ba6dc3764691233e96171520a09e3b597fb",
+    "test_replay.py": "b7668e3bc766e3333c4aa92b4e7be747f91749facc7a0ae0dd8798d21c4be953"
+  },
+  "selected_input_manifest_sha256": "8d16aa8af321ab74b1e899ddfb11628efcee1826c4e58854d8090f8820560dcd",
+  "source_production_count": 85,
+  "source_paired_stage_count": 86,
+  "source_map_sha256": "4cd8e0957af4d15b3620fa4541dbfbeda4b664f9eb2b848f31353548fbacc9fb",
+  "counts": {
+    "body_overlapping_checks": 1877,
+    "body_roots": 9,
+    "clean_audits": 9,
+    "combined_plugin_tasks": 1,
+    "commands": 44,
+    "consumed_function_coverage_cases": 18,
+    "consumed_method_coverage_cases": 61,
+    "included_assumption_tasks": 1,
+    "private_address_tasks": 15,
+    "private_branch_tasks": 6,
+    "stale_capture_tasks": 3
+  },
+  "body_root_counts": {
+    "body-NativeKeccak": [
+      698,
+      0
+    ],
+    "body-NativeShake": [
+      790,
+      0
+    ],
+    "body-native_shake_domain": [
+      25,
+      0
+    ],
+    "body-NativeTypes": [
+      5,
+      0
+    ],
+    "body-Keccak": [
+      122,
+      0
+    ],
+    "body-SpongeSpec": [
+      159,
+      0
+    ],
+    "body-SourceTrace": [
+      17,
+      0
+    ],
+    "body-ObservationVocabulary": [
+      29,
+      0
+    ],
+    "body-NativeKeccakTraceHarness": [
+      32,
+      0
+    ]
+  },
+  "body_count_note": "1877 overlapping body checks, not 1877 unique theorems; other proof/control summaries counted separately",
+  "semantic_and_combined_outcomes": {
+    "combined-coverage": {
+      "exit": 0,
+      "classification": {
+        "function_roots": [
+          "NativeKeccak.Constant",
+          "NativeKeccak.Offset",
+          "NativeKeccak.Rotate",
+          "NativeKeccak.Source"
+        ],
+        "kind": "combined",
+        "method_roots": [
+          "NativeKeccak.Chi",
+          "NativeKeccak.Iota",
+          "NativeKeccak.NewOffsets",
+          "NativeKeccak.NewSources",
+          "NativeKeccak.Permute",
+          "NativeKeccak.PermuteScratch",
+          "NativeKeccak.RhoPi",
+          "NativeKeccak.Round",
+          "NativeKeccak.SetLane",
+          "NativeKeccak.Theta",
+          "NativeKeccak.Wipe"
+        ]
+      }
+    },
+    "address-positive-resolve": {
+      "exit": 0,
+      "classification": {
+        "kind": "resolve"
+      }
+    },
+    "address-faithful-resolve": {
+      "exit": 0,
+      "classification": {
+        "kind": "resolve"
+      }
+    },
+    "address-forged-resolve": {
+      "exit": 0,
+      "classification": {
+        "kind": "resolve"
+      }
+    },
+    "address-omitted-resolve": {
+      "exit": 0,
+      "classification": {
+        "kind": "resolve"
+      }
+    },
+    "address-positive-method-coverage": {
+      "exit": 0,
+      "classification": {
+        "kind": "method",
+        "method_roots": [
+          "NativeKeccak.Chi",
+          "NativeKeccak.Iota",
+          "NativeKeccak.NewOffsets",
+          "NativeKeccak.NewSources",
+          "NativeKeccak.Permute",
+          "NativeKeccak.PermuteScratch",
+          "NativeKeccak.RhoPi",
+          "NativeKeccak.Round",
+          "NativeKeccak.SetLane",
+          "NativeKeccak.Theta",
+          "NativeKeccak.Wipe"
+        ]
+      }
+    },
+    "address-faithful-method-coverage": {
+      "exit": 0,
+      "classification": {
+        "kind": "method",
+        "method_roots": [
+          "NativeKeccak.Chi",
+          "NativeKeccak.Iota",
+          "NativeKeccak.NewOffsets",
+          "NativeKeccak.NewSources",
+          "NativeKeccak.Permute",
+          "NativeKeccak.PermuteScratch",
+          "NativeKeccak.RhoPi",
+          "NativeKeccak.Round",
+          "NativeKeccak.SetLane",
+          "NativeKeccak.Theta",
+          "NativeKeccak.Wipe"
+        ]
+      }
+    },
+    "address-forged-method-coverage": {
+      "exit": 2,
+      "classification": {
+        "errors": [
+          {
+            "column": 121,
+            "file": "formal/crypto/NativeKeccak.dfy",
+            "line": 881,
+            "message": "KMC007: Read address is not typed-identical to the actual index expression"
+          }
+        ],
+        "kind": "reject"
+      }
+    },
+    "address-omitted-method-coverage": {
+      "exit": 2,
+      "classification": {
+        "errors": [
+          {
+            "column": 10,
+            "file": "formal/crypto/NativeKeccak.dfy",
+            "line": 881,
+            "message": "KMC004: missing Read observation in ordinary assignment"
+          }
+        ],
+        "kind": "reject"
+      }
+    },
+    "address-positive-function-coverage": {
+      "exit": 0,
+      "classification": {
+        "function_roots": [
+          "NativeKeccak.Constant",
+          "NativeKeccak.Offset",
+          "NativeKeccak.Rotate",
+          "NativeKeccak.Source"
+        ],
+        "kind": "function"
+      }
+    },
+    "address-positive-iota-body": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          3,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "address-positive-pair": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          2,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "address-faithful-function-coverage": {
+      "exit": 0,
+      "classification": {
+        "function_roots": [
+          "NativeKeccak.Constant",
+          "NativeKeccak.Offset",
+          "NativeKeccak.Rotate",
+          "NativeKeccak.Source"
+        ],
+        "kind": "function"
+      }
+    },
+    "address-faithful-iota-body": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          3,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "address-faithful-pair": {
+      "exit": 4,
+      "classification": {
+        "counts": [
+          1,
+          1
+        ],
+        "kind": "proof"
+      }
+    },
+    "address-faithful-trace-helper": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          1,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "branch-private-method-coverage": {
+      "exit": 0,
+      "classification": {
+        "kind": "method",
+        "method_roots": [
+          "NativeKeccak.Chi",
+          "NativeKeccak.Iota",
+          "NativeKeccak.NewOffsets",
+          "NativeKeccak.NewSources",
+          "NativeKeccak.Permute",
+          "NativeKeccak.PermuteScratch",
+          "NativeKeccak.RhoPi",
+          "NativeKeccak.Round",
+          "NativeKeccak.SetLane",
+          "NativeKeccak.Theta",
+          "NativeKeccak.Wipe"
+        ]
+      }
+    },
+    "branch-private-coverage": {
+      "exit": 0,
+      "classification": {
+        "function_roots": [
+          "NativeKeccak.Constant",
+          "NativeKeccak.Offset",
+          "NativeKeccak.Rotate",
+          "NativeKeccak.Source"
+        ],
+        "kind": "function"
+      }
+    },
+    "branch-private-body": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          3,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "branch-private-helper": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          1,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "branch-positive-pair": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          2,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "branch-private-pair": {
+      "exit": 4,
+      "classification": {
+        "counts": [
+          1,
+          1
+        ],
+        "kind": "proof"
+      }
+    },
+    "included-owned-assumption": {
+      "exit": 0,
+      "classification": {
+        "findings": 1,
+        "kind": "audit"
+      }
+    },
+    "stale-positive-assert-position": {
+      "exit": 0,
+      "classification": {
+        "counts": [
+          11,
+          0
+        ],
+        "kind": "proof"
+      }
+    },
+    "stale-mutant-assert-position": {
+      "exit": 4,
+      "classification": {
+        "counts": [
+          10,
+          1
+        ],
+        "kind": "proof"
+      }
+    },
+    "stale-mutant-theta-root": {
+      "exit": 4,
+      "classification": {
+        "counts": [
+          259,
+          1
+        ],
+        "kind": "proof"
+      }
+    }
+  },
+  "bounded_tests": {
+    "unit_regressions": 13,
+    "actual_cli_controls": 14,
+    "root_also_independently_ran_unit_regressions": true
+  },
+  "source_input_tool_coverage_closure": {
+    "all_before_after_maps_equal": true,
+    "frozen_tool_files": 285,
+    "source_view_files": 434,
+    "source_fixture_variant_count": 7,
+    "variant_files_each": {
+      "address-faithful": 88,
+      "address-forged": 88,
+      "address-omitted": 88,
+      "base": 88,
+      "branch-private": 88,
+      "included-assumption": 88,
+      "stale-mutant": 88
+    },
+    "fresh_raw_logs": 88,
+    "consumed_coverage_cases": {
+      "method": 61,
+      "function": 18
+    },
+    "consumed_coverage_raw_logs": 354,
+    "consumed_coverage_scope": "Keccak resolved-AST method and pure-function observation coverage only; no value/body-proof, NI, Java, delivery, or physical timing qualification",
+    "coverage_rebuilt_or_79_controls_rerun": false,
+    "coverage_tool_scope": "Retained selected package/DLL/source/tool-pin maps, all case inputs and raw-log bindings authenticated before and after. Prior SDK/pack build provenance remains in the externally selected coverage report; no .NET build or Java replay here."
+  },
+  "artifacts": {
+    "ROOT-SUMMARY-UNIT-SELECTION.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/ROOT-SUMMARY-UNIT-SELECTION.json",
+      "sha256": "79de9513fa958ef35b49b37e21e469ce677939e3ad48f311122721a9b500a534"
+    },
+    "SUMMARY-UNIT-DIFF-FINAL.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/SUMMARY-UNIT-DIFF-FINAL.json",
+      "sha256": "8b1df684ea33d97ce24270d9515e0fca52441eb44836cd7b3404e407179c2e93"
+    },
+    "FULL-COMMAND-002.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/FULL-COMMAND-002.json",
+      "sha256": "cb85c2892a0369f76b948d8b89cba9abc818090b15cdb455cb27c831c03f0b22"
+    },
+    "LAUNCH-002.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/LAUNCH-002.json",
+      "sha256": "4e37d9e1440c5c69d287132ae9fab6b2d9b385c86ac8a46ee5c48919962d6b50"
+    },
+    "owned-process-samples-002.jsonl": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/owned-process-samples-002.jsonl",
+      "sha256": "ae053566cc1b35cf8592d4f314a5a1ee66105bc26839378eba52e2752598e7dc"
+    },
+    "full-002.stdout.log": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/full-002.stdout.log",
+      "sha256": "63c96bca79076b029b4d4563a01346ba292906b4b07bc60de931cc5870029fb6"
+    },
+    "full-002.stderr.log": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/full-002.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "TERMINAL-VALIDATION.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/TERMINAL-VALIDATION.json",
+      "sha256": "bf35a74a6d522756c6569adf541abd0bb1d86a210344979680240080bcbe4c7c"
+    },
+    "authenticate_success.py": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/authenticate_success.py",
+      "sha256": "06f0541a1954942cf92f07648c03747deecb29c27186680b86f48a31469327cd"
+    },
+    "tests-summary-green-002.log": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/tests-summary-green-002.log",
+      "sha256": "f9a0c09e2f7ff59b0197a1a0d5d4f761e0b55776a926ea464d9432401445ae6b"
+    },
+    "tests-mixed-summary-red.log": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/tests-mixed-summary-red.log",
+      "sha256": "62f0588a2854a8529492ae16be390bcd48d22404de2662a2f2e3de170f1a45b6"
+    },
+    "admission-controls-005/RESULT.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/admission-controls-005/RESULT.json",
+      "sha256": "f8632dcc4614c84d7749d182909f0e443bd5e06f7e9085a8eda6be4e84164db1"
+    },
+    "admission_controls_003.py": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/admission_controls_003.py",
+      "sha256": "f201f04d6d0cd42a9826f6c82dd10b6f663b4351ddf060676f10614d1fde85e9"
+    },
+    "RED-RUN-CLOSURE.json": {
+      "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/RED-RUN-CLOSURE.json",
+      "sha256": "a4667cd2e5a19472666f2140310fcd2909126da86a0c5642bfb0221fcf7f9ca3"
+    }
+  },
+  "historical_exclusions": [
+    {
+      "artifact": {
+        "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/run-001/result.json",
+        "sha256": "7fc7ea47b72f8c478bd8eec5b8604f6cdd4205736fc3466b65cace522f32e29d"
+      },
+      "status": "failed",
+      "reason": "First41 tasks passed; task42 actual positive proof returned11 assertions/0 but old classifier did not recognize assertion summary unit. Never relabeled success; final frozen/source/tool/plugin/coverage/variant closure authenticated separately."
+    }
+  ],
+  "commands": {
+    "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-public-proof/FULL-COMMAND-002.json",
+    "sha256": "cb85c2892a0369f76b948d8b89cba9abc818090b15cdb455cb27c831c03f0b22"
+  },
+  "limits": [
+    "Component source proof/audit/coverage/semantic-control evidence only. No parent-epoch, Java, delivery, physical timing, or whole-crypto qualification.",
+    "Owned-process observations are sampled; direct children were waited, no observed descendants remain.",
+    "Python standard library and host OS remain trusted; selected interpreter/hashlib and official Dafny identities are authenticated."
+  ]
+}

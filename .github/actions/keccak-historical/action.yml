@@ -1,0 +1,61 @@
+name: Prepare authenticated crypto source views
+description: Prepare historical Baf and current Keccak views under explicit authorities
+inputs:
+  selection-sha256:
+    description: Independently selected Keccak CI manifest SHA256
+    required: true
+outputs:
+  prepared:
+    description: Fresh prepared epoch directory
+    value: ${{ steps.prepare.outputs.prepared }}
+  prepared-sha256:
+    description: Byte identity of the derived preparation receipt
+    value: ${{ steps.prepare.outputs.prepared-sha256 }}
+  historical-root:
+    description: Complete authenticated historical Baf project
+    value: ${{ steps.prepare.outputs.historical-root }}
+  views:
+    description: Authenticated historical and current project views
+    value: ${{ steps.prepare.outputs.views }}
+  capsule:
+    description: Extracted retained component evidence
+    value: ${{ steps.prepare.outputs.capsule }}
+runs:
+  using: composite
+  steps:
+    - name: Construct separately authenticated historical and current views
+      id: prepare
+      shell: bash
+      env:
+        KECCAK_SELECTION_SHA: ${{ inputs.selection-sha256 }}
+      run: |
+        python -I -B formal/source/epochs/keccak-004/ci/run.py prepare \
+          --repository "$GITHUB_WORKSPACE" \
+          --selection "$GITHUB_WORKSPACE/formal/source/epochs/keccak-004/ci/selection.json" \
+          --expected-selection-sha256 "$KECCAK_SELECTION_SHA" \
+          --output "$RUNNER_TEMP/keccak-prepared"
+        python -I -B - <<'PY'
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        prepared = Path(os.environ["RUNNER_TEMP"]) / "keccak-prepared"
+        raw = (prepared / "receipt.json").read_bytes()
+        receipt = json.loads(raw)
+        outputs = {
+            "prepared": str(prepared),
+            "prepared-sha256": hashlib.sha256(raw).hexdigest(),
+            "historical-root": receipt["historical_root"],
+            "views": receipt["views"],
+            "capsule": receipt["capsule"],
+        }
+        with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+            for key, value in outputs.items():
+                out.write(key + "=" + value + "\n")
+        with open(os.environ["GITHUB_ENV"], "a") as out:
+            out.write("CRYPTO_HISTORICAL_ROOT=" + receipt["historical_root"] + "\n")
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+            out.write("Historical checks use complete Baf commit baf0e693c7d4344c7232ea3c3b9d64e1fac03ab3. "
+                      "Their statuses apply to that source. The required Keccak current-epoch gate separately "
+                      "checks the changed source and retained Darwin qualification.\n")
+        PY

@@ -1,0 +1,17 @@
+{
+  "admission_controls": 14,
+  "changed_task_rules": [
+    "stale-positive-assert-position.summary_unit=assertions",
+    "stale-mutant-assert-position.summary_unit=assertions"
+  ],
+  "independent_reconstruction_matches_predecessor": true,
+  "manifest_sha256": "8d16aa8af321ab74b1e899ddfb11628efcee1826c4e58854d8090f8820560dcd",
+  "other_source_tool_coverage_control_count_flag_authorities_unchanged": true,
+  "predecessor_selected_manifest_sha256": "2c1900d1c3c9bdd5aac70e52e207a7e23b0e115137e5682a7bf309c3ea823d15",
+  "qualification": false,
+  "red_run_closure_sha256": "a4667cd2e5a19472666f2140310fcd2909126da86a0c5642bfb0221fcf7f9ca3",
+  "runner_sha256": "01f59bf24463faa7ebbfbec5dfb0a3b2a9fcd367b9e7e60505281fd2caba6912",
+  "scope": "Fresh complete44-command replay required; red run001 remains failed and historical",
+  "status": "externally-selected",
+  "tests": "Root independently ran13/13 including retained actual summaries, mixed-unit rejection, timeout/stubborn-child cleanup"
+}

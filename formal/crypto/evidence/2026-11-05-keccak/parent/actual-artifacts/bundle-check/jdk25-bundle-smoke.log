@@ -1,0 +1,11 @@
+{"certificate_chain_sha256":"f03f9a9381b17a3d7814ff11e158a3a42606819052089371c79db61cdb634ffe"}
+{"sample":0,"completed_full_handshakes":1,"wall_ns":134892000,"cpu_ns":120275000,"allocated_bytes":6103984}
+{"sample":1,"completed_full_handshakes":1,"wall_ns":15794250,"cpu_ns":15372000,"allocated_bytes":893152}
+{"sample":2,"completed_full_handshakes":1,"wall_ns":25653125,"cpu_ns":15080000,"allocated_bytes":957544}
+{"sample":3,"completed_full_handshakes":1,"wall_ns":11578250,"cpu_ns":11356000,"allocated_bytes":892800}
+{"sample":4,"completed_full_handshakes":1,"wall_ns":10831584,"cpu_ns":10497000,"allocated_bytes":892320}
+{"sample":5,"completed_full_handshakes":1,"wall_ns":9824791,"cpu_ns":9574000,"allocated_bytes":892520}
+{"sample":6,"completed_full_handshakes":1,"wall_ns":8277041,"cpu_ns":8115000,"allocated_bytes":892768}
+{"sample":7,"completed_full_handshakes":1,"wall_ns":9544125,"cpu_ns":8414000,"allocated_bytes":892816}
+{"sample":8,"completed_full_handshakes":1,"wall_ns":6530041,"cpu_ns":6336000,"allocated_bytes":891552}
+{"sink":0}

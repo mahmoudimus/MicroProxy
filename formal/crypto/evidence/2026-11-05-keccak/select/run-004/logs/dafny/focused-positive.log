@@ -1,0 +1,9 @@
+CASE-CONTEXT case=focused-positive operand_sha256=267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","verify","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/current-program/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--verification-time-limit","30","--resource-limit","50000000","--cores","2","--filter-symbol","NativeMlKem.Select","--progress","Symbol","--log-format","csv;LogFileName=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/positive.csv","--solver-option","O:smt.case_split=3"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/current-program/formal/crypto
+Verified 0/5 symbols. Waiting for NativeMlKem.SelectDiffPrefix to verify.
+Verified 1/5 symbols. Waiting for NativeMlKem.SelectOutPrefix to verify.
+Verified 2/5 symbols. Waiting for NativeMlKem.SelectDiffStep to verify.
+Verified 3/5 symbols. Waiting for NativeMlKem.SelectOutStep to verify.
+Verified 4/5 symbols. Waiting for NativeMlKem.Select to verify.
+
+Dafny program verifier finished with 8 verified, 0 errors
+Results File: /Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/positive.csv

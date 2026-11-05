@@ -1,0 +1,50 @@
+{
+  "address-faithful": {
+    "parent": "base",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+    "after_sha256": "b08e3b5cfe7f03e8d7d8e97c5b5e3d579caa6950476e97732e887a1cf6b1b541",
+    "search": "  method Iota(a: array<bv64>, rc: bv64) returns(ghost trace: seq<int>)\n    requires a.Length == 25\n    modifies a\n    ensures a[..] == S.Iota(old(a[..]),rc)\n    ensures trace == IotaTrace()\n  {\n    trace := ST.Read(0,0,0) + ST.Ops(0,0,0,0,0,1,0);\n    var value := a[0]^rc;\n    ghost var childTrace: seq<int>;\n    childTrace := SetLane(a,0,value);\n    trace := trace + ST.Call(1,10,3) + childTrace;\n",
+    "replacement": "  ghost function PrivateAddressIotaTrace(rc: bv64): seq<int>\n  { ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,(((((rc%2) as bv4) as T.I)*4)*4) as int)\n    + ST.Read(1,0,0) + ST.Ops(0,0,0,0,0,1,0) + ST.Call(2,10,3) + SetLaneTrace(0) }\n\n  method Iota(a: array<bv64>, rc: bv64) returns(ghost trace: seq<int>)\n    requires a.Length == 25\n    modifies a\n    ensures a[..] == S.Iota(old(a[..]),rc)\n    ensures trace == PrivateAddressIotaTrace(rc)\n  {\n    trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,(((((rc%2) as bv4) as T.I)*4)*4) as int);\n    var unused := a[((((rc%2) as bv4) as T.I)*4)*4];\n    trace := trace + ST.Read(1,0,0) + ST.Ops(0,0,0,0,0,1,0);\n    var value := a[0]^rc;\n    ghost var childTrace: seq<int>;\n    childTrace := SetLane(a,0,value);\n    trace := trace + ST.Call(2,10,3) + childTrace;\n"
+  },
+  "address-forged": {
+    "parent": "address-faithful",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "b08e3b5cfe7f03e8d7d8e97c5b5e3d579caa6950476e97732e887a1cf6b1b541",
+    "after_sha256": "44144bbac1268ad4b8ec4f890b979d4256bc763ac0f724ff3133cca6ef003489",
+    "search": "    trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,(((((rc%2) as bv4) as T.I)*4)*4) as int);\n",
+    "replacement": "    trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,((((rc%2) as bv4)*4)*4) as int);\n"
+  },
+  "address-omitted": {
+    "parent": "address-faithful",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "b08e3b5cfe7f03e8d7d8e97c5b5e3d579caa6950476e97732e887a1cf6b1b541",
+    "after_sha256": "05a0f819c642c369a758b81f9cfccf8080f42bffd6713d4818ff4a5ea5eee52a",
+    "search": "    trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,(((((rc%2) as bv4) as T.I)*4)*4) as int);\n",
+    "replacement": "    trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0);\n"
+  },
+  "branch-private": {
+    "parent": "base",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+    "after_sha256": "5a3be7699f1b61d876348ea0b81f8ae753fc785169e4266f7745ee767978b4ef",
+    "search": "  function Rotate(v: bv64, n: T.I): (bv64, ghost seq<int>)\n    requires 0 <= n < 64\n    ensures Rotate(v,n).0 == S.Rotate(v,n as int)\n    ensures Rotate(v,n).1 == RotateTrace(n)\n  { if n == 0 then (v, ghost ST.Branch(0,true))\n",
+    "replacement": "  ghost function PrivateRotateTrace(v: bv64, n: T.I): seq<int>\n    requires 0 <= n < 64\n  { if n == 0 then ST.Branch(0,true) + ST.Branch(1,v == 0)\n    else ST.Branch(0,false) + ST.Ops(0,1,0,0,0,1,2) }\n  function Rotate(v: bv64, n: T.I): (bv64, ghost seq<int>)\n    requires 0 <= n < 64\n    ensures Rotate(v,n).0 == S.Rotate(v,n as int)\n    ensures Rotate(v,n).1 == PrivateRotateTrace(v,n)\n  { if n == 0 then (if v == 0 then (0, ghost ST.Branch(0,true) + ST.Branch(1,true)) else (v, ghost ST.Branch(0,true) + ST.Branch(1,false)))\n"
+  },
+  "included-assumption": {
+    "parent": "base",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+    "after_sha256": "c6485409f80d17f2bd1e3446dd515f673153e30136c74c256cd229c9972d4b53",
+    "search": "  {\n    trace := [];\n",
+    "replacement": "  {\n    assume {:axiom} false;\n    trace := [];\n"
+  },
+  "stale-mutant": {
+    "parent": "base",
+    "file": "formal/crypto/NativeKeccak.dfy",
+    "before_sha256": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+    "after_sha256": "95db815e34e718ad9342718e71ec15f7d8ecad61fe971a32756a4db9f5353664",
+    "search": "      modifies a\n      invariant 0 <= x <= 5\n      invariant forall k: int :: 0 <= k < 25 && k%5 < x as int ==> a[k] == S.Theta(start)[k]\n      invariant forall k: int :: 0 <= k < 25 && x as int <= k%5 ==> a[k] == start[k]\n      invariant trace == ThetaColumns() + ST.LoopBound(9,0) + ST.LoopBound(10,5) + ThetaLaneUpTo(x as int)\n    {\n      ghost var callWitness := Rotate(c[(x+1)%5],1);\n      trace := trace + ST.LoopCheck(11,true,x as int)\n        + ST.Ops(1,0,0,0,0,0,0) + ST.Ops(0,0,0,0,1,0,0) + ST.Read(12,1,((x+4)%5) as int)\n        + ST.Ops(1,0,0,0,0,0,0) + ST.Ops(0,0,0,0,1,0,0) + ST.Read(13,1,((x+1)%5) as int)\n        + ST.Call(14,20,2) + callWitness.1 + ST.Ops(0,0,0,0,0,1,0);\n      assert callWitness.1 == RotateTrace(1);\n      assert callWitness == Rotate(c[(x+1)%5],1);\n      var d := c[(x+4)%5] ^ Rotate(c[(x+1)%5],1).0;\n      trace := trace + ST.LoopBound(15,0) + ST.LoopBound(16,5);\n      ThetaInnerUpToZero(x as int);\n      for y: T.I := 0 to 5\n        modifies a\n",
+    "replacement": "      modifies a,c\n      invariant 0 <= x <= 5\n      invariant forall k: int :: 0 <= k < 25 && k%5 < x as int ==> a[k] == S.Theta(start)[k]\n      invariant forall k: int :: 0 <= k < 25 && x as int <= k%5 ==> a[k] == start[k]\n      invariant trace == ThetaColumns() + ST.LoopBound(9,0) + ST.LoopBound(10,5) + ThetaLaneUpTo(x as int)\n    {\n      ghost var callWitness := Rotate(c[(x+1)%5],1);\n      trace := trace + ST.LoopCheck(11,true,x as int)\n        + ST.Ops(1,0,0,0,0,0,0) + ST.Ops(0,0,0,0,1,0,0) + ST.Read(12,1,((x+4)%5) as int)\n        + ST.Ops(1,0,0,0,0,0,0) + ST.Ops(0,0,0,0,1,0,0) + ST.Read(13,1,((x+1)%5) as int)\n        + ST.Call(14,20,2) + callWitness.1 + ST.Ops(0,0,0,0,0,1,0);\n      assert callWitness.1 == RotateTrace(1);\n      c[(x+1)%5] := c[(x+1)%5] ^ (1 as bv64);\n      assert callWitness == Rotate(c[(x+1)%5],1);\n      var d := c[(x+4)%5] ^ Rotate(c[(x+1)%5],1).0;\n      trace := trace + ST.LoopBound(15,0) + ST.LoopBound(16,5);\n      ThetaInnerUpToZero(x as int);\n      for y: T.I := 0 to 5\n        modifies a,c\n"
+  }
+}

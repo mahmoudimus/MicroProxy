@@ -1,0 +1,42 @@
+CASE-CONTEXT case=neg-public-branch-after-alloc operand_sha256=17cdb1eef287646861a924d5988f072cda8635aa646708e7b7df71b6c49dc450 expected_fixture_sha256=17cdb1eef287646861a924d5988f072cda8635aa646708e7b7df71b6c49dc450 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-public-branch-after-alloc/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build/checker/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-public-branch-after-alloc/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(273,41): Error: expected exact SourceTrace.Branch for branch guard 1 == 2, found LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: expected exact SourceTrace.Write for array write r[0], found LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: LoopBound marker is not adjacent-before its executable operation
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: mismatched LoopBound observation for for end 32
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: expected exact SourceTrace.Read for array read candidate[i], found LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: expected exact SourceTrace.Read for array read fallback[i], found LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: expected exact SourceTrace.Write for array write r[i], found LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+NativeMlKem.dfy(273,41): Error: Select: stale observation LoopBound
+    |
+273 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                                          ^^^^^^^^^
+
+8 resolution/type errors detected in NativeMlKem.dfy

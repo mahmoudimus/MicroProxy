@@ -1,0 +1,3 @@
+CASE-CONTEXT case=plain-observed-harness operand_sha256=4e2337bca4edf8df1afc7394f31072ea4e8fd2c1bc32160fe1ec51a9b8a24b04 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/observed/formal/source/select/observed/SelectObservedHarness.dfy","--allow-external-contracts"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/observed/formal/source/select/observed
+
+Dafny program verifier did not attempt verification

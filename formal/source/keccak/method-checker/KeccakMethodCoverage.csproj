@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>KeccakMethodCoverage</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestoreSources></RestoreSources>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="KeccakMethodCoverage.cs" />
+    <Compile Include="../encoder/NativeCanonicalEncoderPolicy.cs" Link="NativeCanonicalEncoderPolicy.cs" />
+    <Reference Include="DafnyCore"><HintPath>$(DafnyHome)/DafnyCore.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Boogie.Core"><HintPath>$(DafnyHome)/Boogie.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Boogie.BaseTypes"><HintPath>$(DafnyHome)/Boogie.BaseTypes.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

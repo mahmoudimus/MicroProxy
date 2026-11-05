@@ -1,0 +1,15 @@
+CASE-CONTEXT case=focused-f2 operand_sha256=83bf0bb21ae57d4d47b8d9d2e8a88259254ef3a9d8f68e55fc92636dcccfa2b4 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","verify","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/coverage-private-loop-bound/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--verification-time-limit","30","--resource-limit","50000000","--cores","2","--filter-symbol","NativeMlKem.Select","--progress","Symbol","--log-format","csv;LogFileName=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/f2.csv","--solver-option","O:smt.case_split=3"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/coverage-private-loop-bound/formal/crypto
+Verified 0/5 symbols. Waiting for NativeMlKem.SelectDiffPrefix to verify.
+Verified 1/5 symbols. Waiting for NativeMlKem.SelectOutPrefix to verify.
+Verified 2/5 symbols. Waiting for NativeMlKem.SelectDiffStep to verify.
+Verified 3/5 symbols. Waiting for NativeMlKem.SelectOutStep to verify.
+Verified 4/5 symbols. Waiting for NativeMlKem.Select to verify.
+NativeMlKem.dfy(261,16): Error: this loop invariant could not be proved on entry
+ Related message: loop invariant violation
+    |
+261 |       invariant trace == ST.LoopBound(0,0) + ST.LoopBound(0,1088) + SelectDiffPrefix(i as int)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 7 verified, 1 error
+Results File: /Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/csv/f2.csv
