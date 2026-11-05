@@ -71,6 +71,8 @@ must settle its concrete instrumentation interface before production changes.
   five genuine assertion controls. This does not close operation-trace coverage.
 - [ ] Extend the same mechanism through SHAKE/Keccak, polynomial/NTT, ML-KEM,
   HKDF and retained adapters/comparison paths. Preserve actual heap/call effects.
+  Execution starts with the [complete Keccak plan](2026-11-04-keccak-trace-plan.md)
+  under the [full-composition scope](2026-11-04-full-trace-composition.md).
 - [ ] Prove paired observations over the complete stated public/secret domains,
   including permitted output declassifications and invalid-input behavior.
 
