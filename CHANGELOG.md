@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.0...v0.8.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **h2:** release a stream's server connection before its response ends ([#144](https://github.com/mahmoudimus/MicroProxy/issues/144)) ([e080ee5](https://github.com/mahmoudimus/MicroProxy/commit/e080ee525e8d986eedd0c1728ffd689b35a64f05))
+
 ## [0.8.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.7.0...v0.8.0) (2026-11-04)
 
 

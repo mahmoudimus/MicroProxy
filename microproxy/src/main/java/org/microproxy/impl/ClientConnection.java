@@ -571,6 +571,11 @@ final class ClientConnection implements Runnable {
         Map<ChainedProxy, Integer> unprocessedStreams;
         /** The response was written in full ({@link HttpFilters#proxyToClientResponseSent} called). */
         boolean completed;
+        /**
+         * The server connection that {@link #releaseBeforeEnd} made reusable once the response on it
+         * had been read: another exchange may own it now, so this one must not close it.
+         */
+        ServerConnection releasedServer;
         /** {@link HttpFilters#exchangeEnded} has been called. */
         boolean ended;
         /** The connect timeout for this exchange, once asked; -1 before. */
@@ -2540,15 +2545,18 @@ final class ClientConnection implements Runnable {
             }
             return respondFailure(ex, new ProxyFailure.BadServerResponse(conn.hostAndPort, reason), false);
         } catch (RuntimeException e) {
-            // A bug, in a filter or the proxy: the server connection's state is unknown. The client
-            // connection is closed (and the error logged) by run().
-            conn.close();
-            reportServerFailure(conn.flowContext, e);
+            // A bug, in a filter or the proxy: the server connection's state is unknown (unless
+            // its response had been read and it was released). The client connection is closed
+            // (and the error logged) by run().
+            if (ex.releasedServer != conn) {
+                conn.close();
+                reportServerFailure(conn.flowContext, e);
+            }
             throw e;
         } catch (ClientFailure e) {
             LOG.log(Level.DEBUG, ex.log + "client failure", e);
             clientFailed(ex, e);
-            conn.close();
+            if (ex.releasedServer != conn) conn.close();
             if (e.getCause() instanceof HttpParseException bad && !ex.responseStarted) {
                 // A malformed request body (bad chunk framing): tell the client before closing.
                 ex.channel.reject(bad.status());
@@ -2853,6 +2861,11 @@ final class ClientConnection implements Runnable {
         // it flushes: the head goes out with it, one write (and one segment) instead of two.
         boolean bodyFollows = relayed && writeBody && !(finalResponse instanceof FullHttpMessage)
                 && body.declaredLength() > 0 && body.hasBufferedInput();
+        boolean keepAlive = serverKeepAlive;
+        if (!switching && (body == null || !body.hasBody())) {
+            // Nothing more to read from the server, and the head may end the response.
+            releaseBeforeEnd(ex, conn, keepAlive);
+        }
         writeToClient(() -> ex.channel.writeHead(finalResponse, writeBody, bodyFollows));
         ResponseSource source = source(ResponseSource.SERVER, head, upstreamStatus, finalResponse);
         sent(ex, finalResponse, source);
@@ -2861,7 +2874,7 @@ final class ClientConnection implements Runnable {
             countFull(ex, finalResponse, true);
         }
         if (relayed) {
-            relayResponseBody(ex, body);
+            relayResponseBody(ex, body, () -> releaseBeforeEnd(ex, conn, keepAlive));
         } else if (body != null) {
             boolean lastWritten = false;
             while (true) {
@@ -2880,6 +2893,10 @@ final class ClientConnection implements Runnable {
                 }
                 if (o == null) {
                     return abort(ex, conn);
+                }
+                if (body.isDone() && prefetched.isEmpty()) {
+                    // The server's last piece, which filters let through: before it goes out.
+                    releaseBeforeEnd(ex, conn, keepAlive);
                 }
                 if (o instanceof HttpContent piece && !lastWritten) {
                     writeToClient(() -> ex.channel.writeContent(piece));
@@ -2908,7 +2925,9 @@ final class ClientConnection implements Runnable {
             conn.close();
             return false;
         }
-        if (conn.multiplexed()) {
+        if (ex.releasedServer == conn) {
+            // Already reusable (releaseBeforeEnd), and perhaps another exchange's.
+        } else if (conn.multiplexed()) {
             // A stream carries one exchange: it ends here (reset if the request is still being
             // sent), and its connection goes on serving others.
             ex.channel.serverConnectionDone(conn);
@@ -2919,20 +2938,44 @@ final class ClientConnection implements Runnable {
             // connection that an intercepted proxy refused a tunnel on is kept by no one.)
             conn.close();
         } else {
-            conn.exchangeDone();
-            conn.inExchange = false;
-            if (conn.perRequestLease) {
-                serverConnections.remove(conn.key, conn);
-                conn.pool.release(conn);
-            } else if (ex.channel.multiplexed()) {
-                streamConnections.release(conn);
-            }
+            reuse(ex, conn);
         }
         if (closeClient) {
             ex.channel.close();
             return false;
         }
         return true;
+    }
+
+    /**
+     * The server's response on {@code conn} has been read in full: for a multiplexed client (HTTP/2,
+     * HTTP/3), makes the connection reusable now, before the client can see the response end. Its
+     * next stream may come as soon as it does, on another thread, and must find the connection
+     * idle rather than make another. Only a connection the end of {@link #relayResponse} would keep
+     * is released here, on the same conditions; anything else is still left to it. An HTTP/1
+     * client's next request is read on this thread, after the end of {@code relayResponse}.
+     */
+    private void releaseBeforeEnd(Exchange ex, ServerConnection conn, boolean serverKeepAlive) {
+        if (ex.releasedServer == conn || !ex.channel.multiplexed() || conn.multiplexed() || !serverKeepAlive
+                || ex.forwarding != null || !ex.channel.serverConnectionDone(conn)) {
+            // (A cancelled exchange's connection is closed at the end, where serverConnectionDone
+            // answers false again: its transport cancelled it for good.)
+            return;
+        }
+        ex.releasedServer = conn;
+        reuse(ex, conn);
+    }
+
+    /** The exchange is done with {@code conn}, which is reusable: back to whoever keeps it. */
+    private void reuse(Exchange ex, ServerConnection conn) {
+        conn.exchangeDone();
+        conn.inExchange = false;
+        if (conn.perRequestLease) {
+            serverConnections.remove(conn.key, conn);
+            conn.pool.release(conn);
+        } else if (ex.channel.multiplexed()) {
+            streamConnections.release(conn);
+        }
     }
 
     /** The response to the current request has been written in full. */
@@ -2943,11 +2986,15 @@ final class ClientConnection implements Runnable {
         ex.filters.proxyToClientResponseSent(response, source);
     }
 
-    /** Gives up the exchange: the server connection and the client's are in an unknown state. */
+    /**
+     * Gives up the exchange: the server connection and the client's are in an unknown state, unless
+     * the server connection was released with its response read in full (and is perhaps another
+     * exchange's now).
+     */
     private static boolean abort(Exchange ex, ServerConnection conn) {
         ex.flow.addResponseFlag(ResponseFlag.LOCAL_RESET);
         ex.flow.defaultResponseCodeDetails("filter_aborted");
-        conn.close();
+        if (ex.releasedServer != conn) conn.close();
         ex.channel.close();
         return false;
     }
@@ -2972,16 +3019,17 @@ final class ClientConnection implements Runnable {
      * Copies a response body straight from the server to the client, without message objects: no
      * filter needs its pieces.
      */
-    private void relayResponseBody(Exchange ex, MessageBody body) throws IOException {
+    private void relayResponseBody(Exchange ex, MessageBody body, Runnable read) throws IOException {
         byte[] buf = server.relayBuffers.take();
         try {
-            relayResponseBody(ex, body, buf);
+            relayResponseBody(ex, body, read, buf);
         } finally {
             server.relayBuffers.give(buf);
         }
     }
 
-    private static void relayResponseBody(Exchange ex, MessageBody body, byte[] buf)
+    /** Copies {@code body}, then runs {@code read} once it has been read in full, before its end goes out. */
+    private static void relayResponseBody(Exchange ex, MessageBody body, Runnable read, byte[] buf)
             throws IOException {
         ClientChannel client = ex.channel;
         ClientFlowContext flow = ex.flow;
@@ -3001,6 +3049,7 @@ final class ClientConnection implements Runnable {
             flow.addBytesSent(n);
         }
         HttpHeaders trailers = body.trailers();
+        read.run();
         writeToClient(() -> client.writeEnd(trailers));
         if (trailers != null && !trailers.isEmpty()) ex.sentTrailers = trailers;
     }

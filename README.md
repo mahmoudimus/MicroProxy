@@ -64,7 +64,7 @@ From the command line (build with `mvn package`, or download the jars from the
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.8.0
+MICROPROXY_VERSION=0.8.1
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080                  # a forward proxy
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm           # intercept HTTPS
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8443 --reverse https://example.com
@@ -119,12 +119,12 @@ needs nothing else; the other modules are optional.
 <dependency>
     <groupId>io.github.mahmoudimus</groupId>
     <artifactId>microproxy</artifactId>
-    <version>0.8.0</version>
+    <version>0.8.1</version>
 </dependency>
 ```
 
 ```kotlin
-implementation("io.github.mahmoudimus:microproxy:0.8.0")
+implementation("io.github.mahmoudimus:microproxy:0.8.1")
 ```
 <!-- x-release-please-end -->
 

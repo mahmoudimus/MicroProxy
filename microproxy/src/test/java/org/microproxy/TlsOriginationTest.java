@@ -27,12 +27,19 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.microproxy.http.HttpHeaderNames;
+import org.microproxy.http.HttpObject;
+import org.microproxy.http.HttpRequest;
+import org.microproxy.http.HttpResponse;
+import org.microproxy.http.LastHttpContent;
 import org.microproxy.stats.Counter;
 import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tls.CertificateAuthority;
@@ -275,6 +282,166 @@ class TlsOriginationTest {
         assertEquals(List.of(https(origin, "/h2?q=1"), https(origin, "/upload")), seen);
         // The second stream took the idle connection the first left.
         assertEquals(List.of(authority(origin)), connected);
+    }
+
+    /** How the response of the first of two h2c streams reaches the client. */
+    enum Ending {
+        /** Its body is copied straight through: no filter sees the pieces. */
+        RELAYED,
+        /** Filters see its body piece by piece. */
+        PIECES,
+        /** Buffered whole for a filter, then written with its head. */
+        BUFFERED,
+        /** It has no body: its head ends the stream. */
+        NO_BODY,
+        /** It has no body, and filters see its empty last piece after the head ended the stream. */
+        NO_BODY_PIECES,
+        /** On a connection leased from the shared pool for the one request. */
+        POOLED
+    }
+
+    /**
+     * Filters that hold the exchange of the request for {@code /first...} once its response has
+     * reached the client in full (in {@code proxyToClientResponseSent}, or, if {@link #abortLast},
+     * when filters see the response's last piece, which they then drop), until another request has
+     * been sent to the server. The client sends that one as soon as it reads the first one's end,
+     * so it finds the first one's connection idle only if the connection became reusable before
+     * the client could read that end.
+     */
+    private static final class HoldFirst implements HttpFiltersSource {
+        final CountDownLatch otherSent = new CountDownLatch(1);
+        final int buffer;
+        final boolean pieces;
+        final boolean abortLast;
+        volatile boolean held;
+
+        HoldFirst(int buffer, boolean pieces, boolean abortLast) {
+            this.buffer = buffer;
+            this.pieces = pieces;
+            this.abortLast = abortLast;
+        }
+
+        void hold() {
+            try {
+                held = otherSent.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        @Override
+        public HttpFilters filterRequest(HttpRequest request, FlowContext flowContext) {
+            boolean first = request.uri().contains("/first");
+            return pieces ? new SeeingPieces(this, first) : new Holding(this, first);
+        }
+
+        /** The hooks of both kinds; this class sees no response piece, so bodies are relayed as bytes. */
+        private static class Holding implements HttpFilters {
+            final HoldFirst gate;
+            final boolean first;
+
+            Holding(HoldFirst gate, boolean first) {
+                this.gate = gate;
+                this.first = first;
+            }
+
+            @Override
+            public void proxyToServerRequestSent() {
+                if (!first) gate.otherSent.countDown();
+            }
+
+            @Override
+            public int responseBufferSizeInBytes(HttpResponse response) {
+                return gate.buffer;
+            }
+
+            @Override
+            public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
+                if (first) gate.hold();
+            }
+        }
+
+        private static final class SeeingPieces extends Holding {
+            SeeingPieces(HoldFirst gate, boolean first) {
+                super(gate, first);
+            }
+
+            @Override
+            public HttpObject serverToProxyResponse(HttpObject httpObject) {
+                if (first && gate.abortLast && httpObject instanceof LastHttpContent) {
+                    gate.hold();
+                    return null;
+                }
+                return httpObject;
+            }
+        }
+    }
+
+    /** An HTTPS origin that answers {@code /empty...} with 204 (No Content), and echoes the rest. */
+    private HttpsServer noContentOrEchoOrigin() {
+        HttpsServer server = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
+            if (exchange.getRequestURI().getPath().startsWith("/empty")) {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            } else {
+                TestSupport.echo().handle(exchange);
+            }
+        });
+        closeables.add(() -> server.stop(0));
+        return server;
+    }
+
+    @ParameterizedTest
+    @EnumSource(Ending.class)
+    void anH2cStreamTakesTheConnectionThePreviousStreamLeftAsSoonAsItsResponseHasEnded(Ending ending)
+            throws Exception {
+        boolean noBody = ending == Ending.NO_BODY || ending == Ending.NO_BODY_PIECES;
+        HoldFirst gate = new HoldFirst(ending == Ending.BUFFERED ? 1 << 16 : 0,
+                ending == Ending.PIECES || ending == Ending.NO_BODY_PIECES, false);
+        HttpProxyServerBootstrap b = forward().withHttp2Cleartext(true).plusFiltersSource(gate);
+        if (ending == Ending.POOLED) {
+            b.withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true).withPoolPerRequestInMitm(true);
+        }
+        proxy = b.start();
+        HttpsServer server = noContentOrEchoOrigin();
+        String authority = authority(server);
+        try (H2TestClient c = H2TestClient.cleartext(proxy.getListenAddress(), authority).handshake()) {
+            c.headers(1, h2Request("GET", authority, noBody ? "/empty/first" : "/first"), true);
+            H2TestClient.Response first = c.response(1);
+            assertEquals(noBody ? 204 : 200, first.status());
+            if (!noBody) assertEquals("/first", echoedUri(first.text()));
+            // The next stream goes as soon as the first one's end has been read.
+            c.headers(3, h2Request("GET", authority, "/second"), true);
+            H2TestClient.Response second = c.response(3);
+            assertEquals(200, second.status());
+            assertEquals("/second", echoedUri(second.text()));
+        }
+        assertTrue(gate.held, "the first exchange was held until the second request was sent");
+        assertEquals(List.of(authority), connected, "the second stream took the connection the first left");
+    }
+
+    @Test
+    void aFilterThatDropsTheLastPieceOfAResponseThatHasEndedLeavesItsConnectionToTheNextStream()
+            throws Exception {
+        // The 204's head ends the stream; filters see its last piece afterwards and drop it,
+        // which aborts the exchange. Its connection, already reusable, may be another stream's.
+        HoldFirst gate = new HoldFirst(0, true, true);
+        proxy = forward().withHttp2Cleartext(true).plusFiltersSource(gate).start();
+        HttpsServer server = noContentOrEchoOrigin();
+        String authority = authority(server);
+        try (H2TestClient c = H2TestClient.cleartext(proxy.getListenAddress(), authority).handshake()) {
+            c.headers(1, h2Request("GET", authority, "/empty/first"), true);
+            assertEquals(204, c.response(1).status());
+            for (int stream = 3; stream <= 5; stream += 2) {
+                c.headers(stream, h2Request("GET", authority, "/next/" + stream), true);
+                H2TestClient.Response next = c.response(stream);
+                assertEquals(200, next.status(), "stream " + stream);
+                assertEquals("/next/" + stream, echoedUri(next.text()));
+            }
+        }
+        assertTrue(gate.held, "the first exchange was held until the second request was sent");
+        assertEquals(List.of(authority), connected, "every stream took the connection the first left");
     }
 
     // --- HTTP/2 and HTTP/3 to servers --------------------------------------------------------
