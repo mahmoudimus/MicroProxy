@@ -188,8 +188,6 @@ final class Http3Connection extends Http3Endpoint {
      * The rest of its end is its own threads'. The bound's lock is taken under stateLock, last.
      */
     private void udpFlowEnded(long streamId) {
-        // Most streams carry no flow: their requests' ends take no lock here.
-        if (!udpFlows.containsKey(streamId)) return;
         stateLock.lock();
         try {
             UdpFlow flow = udpFlows.remove(streamId);
