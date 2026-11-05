@@ -239,7 +239,7 @@ unchanged complete before/after maps. A relocatable 3,194-file capsule retains
 the component evidence. Its 9.8 MB archive excludes full tool executable
 distributions. The current CI gate checks that retained Darwin-arm64
 qualification, repeats the cold component checks, and binds all 467 actual
-checkout inputs and 468 freshly compiled classes to the sealed maps. The six
+checkout inputs and 468 freshly compiled classes to the sealed maps. The seven
 historical source-sensitive jobs use the complete released Baf project.
 
 Local verification of the CI route passes 198 boundary/evidence tests and a

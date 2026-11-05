@@ -521,6 +521,11 @@ this component enables no additional whole-SHAKE trace or release claim.
 
 ### Existing bytecode trace evidence
 
+The bytecode replay's source pins retain their released Baf scope. Its CI job
+runs against that complete authenticated project; the current epoch gate
+separately checks that all 468 compiled classes still match the qualified map.
+The certificates retain their original preconditions and outstanding assumptions.
+
 The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)
 adds a Dafny paired-execution model and a checked extraction route for selected
 compiled methods. Its observer and public/secret classifications are explicit.

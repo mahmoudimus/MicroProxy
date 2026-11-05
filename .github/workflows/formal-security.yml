@@ -129,6 +129,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
@@ -137,22 +139,29 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - name: Install Dafny's Linux globalization dependency
+      - name: Prepare authenticated historical Baf scope
+        uses: ./.github/actions/keccak-historical
+        with:
+          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+      - name: Historical - Install Dafny's Linux globalization dependency
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Prepare pinned tools and actual canonical Java classes
+      - name: Historical - Prepare pinned tools and actual canonical Java classes
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           DAFNY_TRACE_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
           echo "MICROPROXY_DAFNY=$DAFNY_TRACE_TOOL" >> "$GITHUB_ENV"
           mvn -q -pl quic -am -DskipTests package
-      - name: Reject trace counterexamples and replay the supported scope
+      - name: Historical - Reject trace counterexamples and replay the supported scope
+        working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           python -m unittest discover -s formal/timing -p 'test_*.py' -v
           python formal/timing/run.py --dafny "$MICROPROXY_DAFNY" --java-home "$JAVA_HOME" --classes quic/target/classes --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --output target/secret-traces
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: scoped-secret-traces-jdk-21
-          path: target/secret-traces/
+          name: historical-baf-scoped-secret-traces-jdk-21
+          path: ${{ env.CRYPTO_HISTORICAL_ROOT }}/target/secret-traces/
           if-no-files-found: ignore
 
   dafny-native-crypto-delivery:
