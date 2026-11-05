@@ -184,8 +184,9 @@ review and physical timing visible independently.
 ## Candidate checkpoint (2026-11-05 UTC)
 
 Draft [#147](https://github.com/mahmoudimus/MicroProxy/pull/147) publishes the
-complete Keccak source candidate and its checked replay. Production adoption
-still requires the parent assurance and delivery gates below.
+complete Keccak source candidate and its checked replay. The composed parent and
+actual-artifact qualification now pass. Adoption additionally requires the
+current checkout gate and eligible exact-head CI checks.
 
 The source replay passes all 44 gates: nine full proof roots with 1,877
 overlapping checks, nine clean audits, the independent-state paired harness,
@@ -217,7 +218,7 @@ Parent integration uses three distinct authenticated views:
 3. A full current delivery project using the selected successor at its canonical
    configuration path, with unchanged helper code.
 
-The parent must require current replacement evidence for every affected claim.
+The parent requires current replacement evidence for every affected claim.
 Only unchanged complete polynomial theorem closures may inherit their old
 proofs. Old ML-KEM composition and package-wide erasure claims cannot be relabeled.
 The actual checkout's generated Java must match the canonical source; placing
@@ -231,6 +232,22 @@ nine nonce cases pass on each of JDK 21 and 25, with checked class origins.
 The complete project and actual checkout input maps remain unchanged afterward.
 This establishes artifact compatibility; it does not substitute for the parent
 prerequisite policy or complete its adoption gate.
+
+The selected parent qualification subsequently passes all eight mandatory
+current prerequisites and the actual-artifact API in one invocation, with
+unchanged complete before/after maps. A relocatable 3,194-file capsule retains
+the component evidence. Its 9.8 MB archive excludes full tool executable
+distributions. The current CI gate checks that retained Darwin-arm64
+qualification, repeats the cold component checks, and binds all 467 actual
+checkout inputs and 468 freshly compiled classes to the sealed maps. The six
+historical source-sensitive jobs use the complete released Baf project.
+
+Local verification of the CI route passes 198 boundary/evidence tests and a
+fresh JDK21 Maven package build. Independent development review approved the
+integration after regression tests fixed access-time drift and protected
+artifact inputs before output creation. These checks preserve the earlier
+989 passing QUIC tests and browser fingerprints. GitHub CI remains a separate
+exact-head merge gate.
 
 Physical JVM timing and independent external
 expert review remain outstanding. Full SHAKE/sponge, NTT/KEM, HKDF and owned

@@ -16,7 +16,10 @@ this proof scope. The published
 contains the generated-backend source integration. Its downloadable artifacts
 passed [scoped actual-artifact validation](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/releases/v0.7.0)
 for the recorded library and bundle SHA-256 digests, with identity and
-loaded-origin checks on JDK 21/25. A source commit alone does not certify binary
+loaded-origin checks on JDK 21/25. The exact published 0.8.1 library and bundle
+also pass the actual-artifact validator, including the complete Keccak source
+epoch described below. These are recorded artifact qualifications; a source
+commit alone does not certify binary
 files. [Current source builds](getting-started/install.md#building-from-source)
 and later releases still need validation for their exact supplied artifacts.
 
@@ -380,6 +383,45 @@ does not remove compiler/runtime assumptions or establish physical JVM timing.
 The existing bytecode results below remain supplementary evidence for their
 stated scopes; they are not the primary route for proving Dafny ownership.
 
+### Complete Keccak source observations
+
+The [Keccak source epoch](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/epochs/keccak-004)
+covers all eleven executable methods and four pure functions. Direct ghost
+outputs and full-result call witnesses connect the source bodies to their
+declared observations. Paired proofs permit independently varying private
+state words and retain the original ranges, frames and allowed aliases.
+Allocations, initialization, child calls, all 24 rounds and cleanup are included.
+
+The replay requires 44 gates: nine complete proof roots with 1,877 overlapping
+checks, nine clean assumption audits, paired proofs and intended-failure controls.
+Separate resolved-AST method and pure-body observers must accept the same
+program; their 61 method and 18 function controls reject omitted or forged
+observations. These C# observers remain trusted reviewed tooling. Buffer roles
+are logical identities. The seven-field arithmetic event summarizes its declared
+operation families; it is not an ordered JVM instruction trace.
+
+The parent gate requires current SHAKE functional, ownership/API, Select,
+native composition, canonical delivery and Keccak evidence together. Only seven
+unchanged polynomial theorem closures reuse their original proofs; the changed
+whole ML-KEM composition is reverified. The complete canonical stage verifies
+all 20 source roots. All 66 generated classes match separately compiled
+released-source baselines within each qualified JDK21 and JDK25 profile,
+including debug attributes.
+The five raw Java changes are grouping-parenthesis pairs.
+
+The selected actual-artifact invocation checks all 468 library classes, the
+bundle's 84 crypto and 37 runtime classes, required notices, and nine handshake
+and nine nonce cases on each of JDK 21 and 25. The
+[current CI gate](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/epochs/keccak-004/ci)
+revalidates the retained Darwin-arm64 evidence and binds the current checkout's
+complete source and fresh JDK21 class maps to that qualification. It does not
+claim fresh Linux proof or artifact execution. Changed sources, classes or later
+artifacts require explicit requalification.
+
+This completes the Keccak component's logical observation scope. Full
+SHAKE/sponge, NTT/ML-KEM and HKDF call-path composition, owned adapters and error
+paths remain open. Compiler/runtime behavior, physical JVM timing and independent
+external expert review remain separate assurance boundaries.
 
 The [HKDF source-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/hkdf)
 uses the actual production Extract, Expand, LabelInfo and ExpandLabel bodies with
@@ -427,8 +469,8 @@ contracts return a fresh 32-byte result, preserve existing input arrays through
 the method frame, and retain permitted input aliases. The paired harness calls
 the real method with independently varying expected/candidate/fallback bytes,
 including permitted aliases, and proves equal logical observations. Its six
-checks cover the fixed 1088-byte comparison and 32-byte selection trace; the
-complete ML-KEM body replay has 2,773 overlapping checks. These counts are not
+checks cover the fixed 1088-byte comparison and 32-byte selection trace; its
+original complete ML-KEM body replay has 2,773 overlapping checks. These counts are not
 independent security theorems.
 
 The resolved-AST coverage checker binds reads, writes, loop observations and
@@ -440,12 +482,12 @@ inventory is a separate scope. These source, generation and delivery checks
 retain their compiler/runtime/provider assumptions. Complete ML-KEM trace
 composition, physical JVM timing and external expert review remain open.
 
-Some component READMEs are frozen proof inputs. In particular, the polynomial
-README's 2,767 row records its earlier snapshot; the current full report and
-obligation ledger record 2,773. The frozen package README's candidate wording
-likewise describes its qualification snapshot. Current support is determined
-by the gated ledger and actual evidence, rather than renewing a receipt to
-accept a documentation edit.
+Some component READMEs are frozen proof inputs. The polynomial README's 2,767
+row and the released Baf ledger's 2,773 row describe their respective historical
+snapshots. The new Keccak parent separately qualifies the affected current
+consumers, including Select's focused eight-check proof and 118-check observed
+root. Historical package-wide composition and erasure receipts are not relabeled
+for the changed dependency graph.
 
 The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
 adds a SHAKE ownership harness that calls the actual constructor and methods.
@@ -467,8 +509,9 @@ segmented calls, rate boundaries and destruction/reuse. The actual
 [qualification snapshot](https://github.com/mahmoudimus/MicroProxy/tree/main/assurance/shake-api/evidence/2026-11-04-macos)
 records 1,558 included-body checks, 51 overlapping root-only checks, seven clean
 source audits, five named assertion-failure controls and an included-body axiom
-audit control. Its own pinned replay and CI qualify this additive root; existing
-production source and Select inputs remain unchanged.
+audit control. That historical snapshot remains unchanged. The Keccak parent
+requalifies the affected ownership/API bodies against the changed source graph,
+including the same arbitrary-state, status, alias and error domains.
 
 This is an API state/status theorem, not a full SHAKE trace theorem. An internal
 secret-dependent branch could leave these public fields unchanged. Checked
@@ -533,18 +576,27 @@ remaining provider call. The concrete certificate proves that property; it is
 not a new assumption about our helpers. Completed finite controls exercise all
 24 rounds and check public heaps as well as registers and traces. They are not
 JVM timing evidence. The compiler/runtime, reviewed extraction and oracle
-mapping remain trusted. Full Sponge, `Permute` wrapper, KEM and adapter trace
-composition is still open; the original 19 caller assumptions, 13 open roots
+mapping remain trusted. Within this supplementary bytecode route, full Sponge,
+`Permute` wrapper, KEM and adapter trace composition is still open; the direct
+source Keccak result above has its own scope. The original 19 caller assumptions, 13 open roots
 and 31 aggregate labels remain explicit. Receiver/ownership prototypes have
 not been promoted into this evidence.
 
 ### Obligation and release-claim gates
 
-The [unified ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)
-tracks V0-V8, their dependencies, source/tool pins, proof and control receipts,
-trust assumptions and remaining blockers. Its validator rejects missing evidence,
-stale hashes and claims stronger than the selected evidence policy. It is a
-tested Python gate, not a proof of the validator or of all project code.
+The [original ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)
+tracks V0-V8, dependencies, source/tool pins, proof/control receipts and remaining
+blockers. Its source-sensitive results now run against the complete authenticated
+released Baf project and are explicitly historical. Its default CLI fails closed
+against changed inputs; renewing old pins is not the current qualification route.
+
+The [Keccak parent](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/epochs/keccak-004/parent)
+adds mandatory current replacements for every affected claim. It keeps the
+historical project, current source views and full current delivery project
+distinct, then requires the unchanged actual-artifact API. The required CI gate
+checks those current prerequisites, the selected completed qualification, and
+actual checkout identity. Both gates are tested Python tooling, not proofs of
+the validators or of all project code.
 
 Functional production claims, a current artifact identity check, complete upstream
 reference replay, source-trace independence, physical timing and external expert
@@ -552,10 +604,12 @@ review are separate claims. A scoped functional claim can pass while the aggrega
 `--require-all` gate fails. The latter must continue to fail while required work
 remains open; agent review cannot satisfy external expert review.
 
-The release CLI accepts explicit classes, library JAR, minimized bundle, canonical
+The actual-artifact API accepts explicit classes, library JAR, minimized bundle, canonical
 stage, runtime and JDK 21/25 inputs. It freshly runs the complete delivery and
 bundle checks and supports `current-release-jar-identity` only for that invocation
-and those unchanged artifacts. CI uses this route. The committed ledger keeps the
+and those unchanged artifacts. The current parent uses this route; CI clearly
+distinguishes its retained execution from fresh source/class identity checks.
+The committed historical ledger keeps the
 claim deferred, so a historical build receipt cannot authenticate a later build
 or deployment. See the ledger guide for the command, output protections and trust
 boundaries. This artifact check adds no timing or cryptographic-security theorem.

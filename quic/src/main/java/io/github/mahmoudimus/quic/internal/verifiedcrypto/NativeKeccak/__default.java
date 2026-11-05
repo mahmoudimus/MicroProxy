@@ -139,7 +139,7 @@ public class __default {
       r = _nw0;
       int _hi0 = 25;
       for (int _0_i = 0; _0_i < _hi0; _0_i++) {
-        (r)[dafny.Helpers.toInt((_0_i))] = __default.Offset(_0_i);
+        (r)[dafny.Helpers.toInt((_0_i))] = (__default.Offset(_0_i));
       }
     }
     return r;
@@ -205,7 +205,7 @@ public class __default {
       r = _nw0;
       int _hi0 = 25;
       for (int _0_i = 0; _0_i < _hi0; _0_i++) {
-        (r)[dafny.Helpers.toInt((_0_i))] = __default.Source(_0_i);
+        (r)[dafny.Helpers.toInt((_0_i))] = (__default.Source(_0_i));
       }
     }
     return r;
@@ -229,7 +229,7 @@ public class __default {
     int _hi1 = 5;
     for (int _1_x = 0; _1_x < _hi1; _1_x++) {
       long _2_d;
-      _2_d = (long) (long) (((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (4)), 5))]) ^ (__default.Rotate((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (1)), 5))], 1)));
+      _2_d = (long) (long) (((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (4)), 5))]) ^ ((__default.Rotate((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (1)), 5))], 1))));
       int _hi2 = 5;
       for (int _3_y = 0; _3_y < _hi2; _3_y++) {
         int _4_i;
@@ -244,7 +244,7 @@ public class __default {
     for (int _0_i = 0; _0_i < _hi0; _0_i++) {
       int _1_j;
       _1_j = (sources)[(_0_i)];
-      (b)[dafny.Helpers.toInt((_0_i))] = __default.Rotate((a)[(_1_j)], (offsets)[(_1_j)]);
+      (b)[dafny.Helpers.toInt((_0_i))] = (__default.Rotate((a)[(_1_j)], (offsets)[(_1_j)]));
     }
   }
   public static void Chi(long[] a, long[] b)
@@ -269,7 +269,7 @@ public class __default {
   {
     int _hi0 = 24;
     for (int _0_i = 0; _0_i < _hi0; _0_i++) {
-      __default.Round(a, b, c, offsets, sources, __default.Constant(_0_i));
+      __default.Round(a, b, c, offsets, sources, (__default.Constant(_0_i)));
     }
   }
   public static void Permute(long[] a)
