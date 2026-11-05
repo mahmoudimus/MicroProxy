@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "-I",
+    "-B",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/parent.py",
+    "_worker",
+    "--request",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/request.json",
+    "--expected-request-sha256",
+    "8b8f6bae40432ab8de691cb69ffe2bd532237a2f1e91726d8e3a1921248083c5"
+  ],
+  "cleanup": "TERM/KILL owned process group after every exit, independent of direct-child state",
+  "environment": {
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/child/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/child/tmp",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/child/tmp",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-parent/root-qualify-002/child/tmp",
+    "TZ": "UTC"
+  },
+  "exit": 0,
+  "log": "worker.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

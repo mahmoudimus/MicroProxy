@@ -1,0 +1,16 @@
+{
+  "all_actual_JAR_maps_and_current_checkout_inputs_reauthenticated": true,
+  "all_raw_command_and_classload_logs_authenticated": true,
+  "api_report_sha256": "f9f22c6fd5c5c7d8d2fd883525fda96ff082b9daaf9d72f8639ecb31c21f4aa6",
+  "crypto_classes": 84,
+  "handshakes_each_JDK": 9,
+  "library_classes": 468,
+  "nonce_cases_each_JDK": 9,
+  "notices": 3,
+  "parent_report_sha256": "9d9196284585f556e918b1336b072e08f9f18e465d774e1ffc68169291a38faa",
+  "qualification": false,
+  "runtime_classes": 37,
+  "scope": "retained Darwin-arm64 parent qualification and exact published0.8.1/current-checkout identity",
+  "source_files": 467,
+  "status": "authenticated"
+}
