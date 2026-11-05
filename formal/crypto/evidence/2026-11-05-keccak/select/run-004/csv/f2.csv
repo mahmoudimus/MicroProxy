@@ -1,0 +1,9 @@
+TestResult.DisplayName,TestResult.Outcome,TestResult.Duration,TestResult.ResourceCount,RandomSeed
+NativeMlKem.SelectDiffPrefix (well-formedness),Passed,00:00:00.1358127,38236,0
+NativeMlKem.SelectOutPrefix (well-formedness),Passed,00:00:00.1238345,38978,0
+NativeMlKem.Select (correctness),Failed,00:00:00.1019820,152992,0
+NativeMlKem.Select (well-formedness),Passed,00:00:00.0504660,59759,0
+NativeMlKem.SelectDiffStep (well-formedness),Passed,00:00:00.0317882,39081,0
+NativeMlKem.SelectOutStep (well-formedness),Passed,00:00:00.0250377,39823,0
+NativeMlKem.SelectOutStep (correctness),Passed,00:00:00.0203242,40776,0
+NativeMlKem.SelectDiffStep (correctness),Passed,00:00:00.0169997,36721,0

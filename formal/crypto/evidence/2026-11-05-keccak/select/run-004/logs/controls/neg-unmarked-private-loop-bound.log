@@ -1,0 +1,57 @@
+CASE-CONTEXT case=neg-unmarked-private-loop-bound operand_sha256=47b10e2fa1ec1183f9f859de6372ab15f23047803459042b576463d9a3f252d9 expected_fixture_sha256=47b10e2fa1ec1183f9f859de6372ab15f23047803459042b576463d9a3f252d9 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-unmarked-private-loop-bound/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/checker-build/checker/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-unmarked-private-loop-bound/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(258,16): Error: expected exact SourceTrace.Read for array read expected[0], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                 ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: mismatched LoopBound observation for for end expected[0] as T.I
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Read for array read c[i], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Read for array read expected[i], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Alloc for exact Select allocation Alloc(0,32), found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: mismatched LoopBound observation for for start 0
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: mismatched LoopBound observation for for end 32
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Read for array read candidate[i], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Read for array read fallback[i], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: expected exact SourceTrace.Write for array write r[i], found LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+NativeMlKem.dfy(258,36): Error: Select: stale observation LoopBound
+    |
+258 |     trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
+    |                                     ^^^^^^^^^
+
+11 resolution/type errors detected in NativeMlKem.dfy

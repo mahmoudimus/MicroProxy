@@ -1,0 +1,3 @@
+TestResult.DisplayName,TestResult.Outcome,TestResult.Duration,TestResult.ResourceCount,RandomSeed
+SelectObservedHarness.Check (correctness),Failed,00:00:00.1734888,147505,0
+SelectObservedHarness.Check (well-formedness),Passed,00:00:00.0999306,10130,0

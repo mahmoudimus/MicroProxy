@@ -1,0 +1,3 @@
+CASE-CONTEXT case=plain-neg-shadow-select operand_sha256=1ad0584d1ff643dc92d304228e40ea007d3a25bca40840c7cca276c93c6dabd7 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-shadow-select/formal/crypto/NativeMlKem.dfy","--allow-external-contracts"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-select/run-004/trees/neg-shadow-select/formal/crypto
+
+Dafny program verifier did not attempt verification
