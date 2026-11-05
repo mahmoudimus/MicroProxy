@@ -180,3 +180,51 @@ The erasure experiments are nonqualifying. Their two JDK class comparisons do
 not close any trace proof, coverage-checker review or Linux qualification.
 Keep #117 open until its stated engineering obligations are met; keep external
 review and physical timing visible independently.
+
+## Candidate checkpoint (2026-11-05 UTC)
+
+Draft [#147](https://github.com/mahmoudimus/MicroProxy/pull/147) publishes the
+complete Keccak source candidate and its checked replay. Production adoption
+still requires the parent assurance and delivery gates below.
+
+The source replay passes all 44 gates: nine full proof roots with 1,877
+overlapping checks, nine clean audits, the independent-state paired harness,
+and controls for secret-dependent addresses, branches and stale full-result
+captures. The coverage replay checks all eleven methods and four pure functions,
+with 61 method and 18 function controls. Both observers must accept the same
+actual program. Their C# rules and the Python evidence tooling remain trusted.
+
+The changed dependency graph also has fresh SHAKE functional, ownership/API
+and Select consumer evidence. The original historical packages and receipts
+remain unchanged. Replays reject altered source/dependency identities, forged
+command/log bindings and ambiguous proof summaries. The published data bundles
+retain raw logs and support checked relocation without private-cache fallback.
+
+The fresh full canonical stage verifies every one of its 20 source roots. Its
+66 source/provider files compile to the same complete 66-class map as the
+released 0.8.1 baseline on the qualified compiler profile. The sole raw Java
+change is five grouping-parenthesis pairs in one file. Four of those lines
+appear in the literal runtime caller inventory, so the old delivery contract
+correctly rejects the new digest. A separately selected successor retains the
+193-site inventory, helper/boxing policy and reviews, adds current source pins,
+and preserves the original configuration. It does not normalize arbitrary
+source changes or accept both digests indiscriminately.
+
+Parent integration uses three distinct authenticated views:
+
+1. A complete released Baf project for historical ledger/package checks.
+2. The current 85-source view and its separate paired proof program.
+3. A full current delivery project using the selected successor at its canonical
+   configuration path, with unchanged helper code.
+
+The parent must require current replacement evidence for every affected claim.
+Only unchanged complete polynomial theorem closures may inherit their old
+proofs. Old ML-KEM composition and package-wide erasure claims cannot be relabeled.
+The actual checkout's generated Java must match the canonical source; placing
+canonical files only in a private project does not establish checkout identity.
+
+The original artifact-only validator can then qualify exact supplied JARs and
+the bundle from that selected delivery project. Its results do not substitute
+for the parent prerequisite policy. Physical JVM timing and independent external
+expert review remain outstanding. Full SHAKE/sponge, NTT/KEM, HKDF and owned
+adapter trace composition are the later stages, not conclusions of this slice.
