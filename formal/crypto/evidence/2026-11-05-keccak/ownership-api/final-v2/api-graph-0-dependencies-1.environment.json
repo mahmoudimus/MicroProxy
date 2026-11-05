@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+    "/printIncludes:Immediate",
+    "/noResolve",
+    "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/frozen/formal/crypto/NativeShake.dfy"
+  ],
+  "configuration_initially_empty": true,
+  "environment": {
+    "DOTNET_CLI_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/dotnet-home",
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/temporary",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/temporary",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/temporary",
+    "TZ": "UTC",
+    "XDG_CACHE_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/xdg-cache",
+    "XDG_CONFIG_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/xdg-config",
+    "XDG_DATA_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-graph-0-dependencies-1/xdg-data"
+  },
+  "policy": "raw-source-isolated-child/v2",
+  "private_directory_mode": "0700"
+}

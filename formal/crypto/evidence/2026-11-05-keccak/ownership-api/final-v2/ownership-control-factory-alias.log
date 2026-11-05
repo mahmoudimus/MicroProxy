@@ -1,0 +1,7 @@
+formal/source/Control-factory-alias.dfy(77,11): Error: assertion might not hold
+   |
+77 |     assert s.lanes == s.scratch;
+   |            ^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error

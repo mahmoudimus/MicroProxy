@@ -1,0 +1,7 @@
+assurance/shake-api/controls/NegativeControls.dfy(39,11): Error: assertion might not hold
+   |
+39 |     assert status == 0; // NEGATIVE invalid-slice
+   |            ^^^^^^^^^^^
+
+
+Dafny program verifier finished with 0 verified, 1 error

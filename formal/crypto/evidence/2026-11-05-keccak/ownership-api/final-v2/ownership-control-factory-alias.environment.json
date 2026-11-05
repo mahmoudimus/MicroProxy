@@ -1,0 +1,36 @@
+{
+  "argv": [
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+    "verify",
+    "formal/source/Control-factory-alias.dfy",
+    "--filter-symbol",
+    "NativeShakeOwnership.NewOwned",
+    "--verification-time-limit",
+    "30",
+    "--resource-limit",
+    "50000000",
+    "--solver-option",
+    "O:smt.case_split=0",
+    "--cores",
+    "2",
+    "--solver-path",
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+  ],
+  "configuration_initially_empty": true,
+  "environment": {
+    "DOTNET_CLI_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/dotnet-home",
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/temporary",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/temporary",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/temporary",
+    "TZ": "UTC",
+    "XDG_CACHE_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/xdg-cache",
+    "XDG_CONFIG_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/xdg-config",
+    "XDG_DATA_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/ownership-control-factory-alias/xdg-data"
+  },
+  "policy": "raw-source-isolated-child/v2",
+  "private_directory_mode": "0700"
+}

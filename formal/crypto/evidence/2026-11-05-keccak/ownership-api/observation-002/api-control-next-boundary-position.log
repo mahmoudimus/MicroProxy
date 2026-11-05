@@ -1,0 +1,7 @@
+assurance/shake-api/controls/NegativeControls.dfy(64,11): Error: assertion might not hold
+   |
+64 |     assert s.position == 0; // NEGATIVE next-boundary-position
+   |            ^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 0 verified, 1 error

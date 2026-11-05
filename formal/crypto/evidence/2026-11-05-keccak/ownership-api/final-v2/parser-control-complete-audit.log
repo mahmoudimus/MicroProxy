@@ -1,0 +1,4 @@
+Hidden.dfy(1,51): Warning: Impossible: Definition has `assume {:axiom}` statement in body. Possible mitigation: Replace with `assert` and prove.
+Dafny auditor completed with 1 findings
+
+Dafny program verifier did not attempt verification

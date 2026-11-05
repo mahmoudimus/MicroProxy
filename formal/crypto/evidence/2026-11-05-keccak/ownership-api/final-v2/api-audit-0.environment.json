@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+    "audit",
+    "assurance/shake-api/ApiStateHarness.dfy"
+  ],
+  "configuration_initially_empty": true,
+  "environment": {
+    "DOTNET_CLI_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/dotnet-home",
+    "HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "TEMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/temporary",
+    "TMP": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/temporary",
+    "TMPDIR": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/temporary",
+    "TZ": "UTC",
+    "XDG_CACHE_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/xdg-cache",
+    "XDG_CONFIG_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/xdg-config",
+    "XDG_DATA_HOME": "/Users/mahmoud/.cache/microproxy-formal/issue117-full-composition-20261104/keccak-current-ownership-api/requalification-002/child-state/api-audit-0/xdg-data"
+  },
+  "policy": "raw-source-isolated-child/v2",
+  "private_directory_mode": "0700"
+}

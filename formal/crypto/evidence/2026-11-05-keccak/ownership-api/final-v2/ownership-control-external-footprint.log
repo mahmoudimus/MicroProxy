@@ -1,0 +1,7 @@
+formal/source/Control-external-footprint.dfy(157,11): Error: assertion might not hold
+    |
+157 |     assert (buffer as object) == (s.offsets as object);
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 1 verified, 1 error
