@@ -55,21 +55,44 @@ by ambient environment selectors. It reports each accepted executable call and
 its witness binding; unsupported or uncovered bindings are errors. This focused
 gate does not claim full operation coverage.
 
-- [ ] Write positive actual-source fixtures for local and array-read arguments,
+- [x] Write positive actual-source fixtures for local and array-read arguments,
   and failing controls for mismatched private arguments, ghost reassignment,
   interposed writes, shadows, by-method functions, unbound second calls and
   fabricated witnesses.
-- [ ] Run the controls against the old checker and preserve its rejection of
+- [x] Run the controls against the old checker and preserve its rejection of
   the new representation; do not weaken its frozen expectations.
-- [ ] Implement exact resolved declaration/argument/prestate binding with a
+- [x] Implement exact resolved declaration/argument/prestate binding with a
   single-definition full-tuple ghost witness, inline actual `.0`, and exactly
   one ordered `.1` consumption. Reject unsupported syntax.
 - [x] Add and verify a direct Dafny value/full-result bridge over actual Rotate.
   A changed private value between snapshot and actual call must fail a genuine
   assertion under the same policy as its original positive counterpart.
-- [ ] Run the plugin against actual mutated resolved ASTs. Require each negative
+- [x] Run the plugin against actual mutated resolved ASTs. Require each negative
   to fail for its intended binding error, with unchanged positives passing.
-- [ ] Obtain fresh independent design/code review and commit only explicit paths.
+- [x] Obtain fresh independent design/code review and commit only explicit paths.
+
+The local resolver-only gate passed 64 records, including 42 typed AST negatives.
+Independent review checked the exact checker/DLL/input identities and raw logs.
+The separate direct value bridge has six verified checks; its focused stable-word
+positive has two, and an intervening private-word mutation fails the intended
+assertion. These results are a binding prerequisite, not full Keccak coverage.
+The component deliberately reports `qualification: false`.
+
+To replay the separate proofs after the component runner materializes its
+candidate under `/fresh/binding-output/stage`, use the same fixed policy:
+
+```sh
+/path/to/dafny verify /fresh/binding-output/stage/formal/crypto/NativeKeccak.dfy \
+  --filter-symbol NativeKeccak.Rotate --verification-time-limit 30 \
+  --resource-limit 50000000 --cores 2 --solver-option O:smt.case_split=0
+/path/to/dafny verify \
+  /fresh/binding-output/stage/formal/source/keccak/controls/SnapshotValueBridge.dfy \
+  --verification-time-limit 30 --resource-limit 50000000 --cores 2 \
+  --solver-option O:smt.case_split=0
+```
+
+Expect two and six verified checks respectively, with zero errors. The component
+runner resolves ASTs without a solver; these commands remain separate from it.
 
 ## Task 2: Complete executable Keccak instrumentation and coverage
 
@@ -86,6 +109,9 @@ outputs. Do not introduce a separate executable Keccak model.
   allocation/initialization, loops and cleanup; confirm missing coverage rejects.
 - [ ] Instrument all actual bodies and preserve their functional contracts.
   Thread traces through `Round`, `PermuteScratch`, factories and `Permute`.
+  At each pure-call snapshot, directly prove full-result equality after the
+  pre-runtime packet and immediately before its actual inline call. Reject a
+  parallel packet mutation with the actual Dafny assertion as well as coverage.
 - [ ] Implement resolved AST coverage in evaluation order, including argument
   reads, each declared operation family and the snapshot protocol. Require the
   exact root sets and reject unknown syntax/callees.

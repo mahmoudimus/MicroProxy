@@ -124,6 +124,22 @@ supported array-read and local-variable sites, including writes to a separate
 output array. A faithful intervening private mutation must break that theorem.
 This complements the trusted AST rule; it is not a proof of that C# rule.
 
+The complete Keccak instrumentation must also assert full-result equality in
+the actual executable source, immediately after the pre-runtime packet and
+before the inline call:
+
+```dafny
+assert callWitness == Rotate(actualWord, actualDistance);
+```
+
+This lets Dafny itself reject a stale captured value at the actual call site,
+including a mutation hidden inside a parallel trace assignment. The observer
+must bind the assertion to that call and still check all surrounding operations;
+the assertion does not replace coverage. The initial binding-only regression
+fixture deliberately retains its narrower four-statement grammar. Admission of
+this five-statement production pattern is a reviewed extension in the complete
+Keccak package, with its own body proofs and controls.
+
 ## Controls and evidence
 
 Keep the frozen Select checker, fixtures and historical evidence unchanged.
