@@ -1,0 +1,536 @@
+// Paired-observation harness for the complete NativeKeccak source candidate.
+//
+// Each of the fifteen actual declarations is exercised on two independent,
+// arbitrary, original-valid states. Every within-run alias/range/freshness/
+// table requirement is the original one verbatim: nothing is added about
+// private words, `rc` constants or private array contents, and no private
+// values are required to be equal or different. The only added premises are
+// explicit cross-run object frames that keep the second call's original
+// precondition valid after the first call wrote its own arrays (write -> the
+// other run's content-constrained lookup arrays, stated symmetrically), plus
+// the public equality of the shared parameter (index or length) that the
+// observation depends on.
+//
+// These are logical observation theorems over the executable Dafny source.
+// They are not JVM timing, address or runtime claims.
+include "../crypto/NativeKeccak.dfy"
+
+module NativeKeccakTraceHarness {
+  import T = NativeTypes
+  import S = KeccakSpec
+  import K = NativeKeccak
+
+  // ---------------- pure functions: equal public input only ----------------
+  // Private Rotate words may vary; public table indices are explicitly equal.
+
+  lemma RotatePair(v1: bv64, v2: bv64, n: T.I)
+    requires 0 <= n < 64
+    ensures K.Rotate(v1,n).1 == K.RotateTrace(n)
+    ensures K.Rotate(v1,n).1 == K.Rotate(v2,n).1
+  {}
+
+  lemma ConstantPair(i1: T.I, i2: T.I)
+    requires 0 <= i1 < 24 && i1 == i2
+    ensures K.Constant(i1).1 == K.ConstantTrace(i1)
+    ensures K.Constant(i1).1 == K.Constant(i2).1
+    ensures K.Constant(i1).0 == K.Constant(i2).0
+  {}
+
+  lemma OffsetPair(i1: T.I, i2: T.I)
+    requires 0 <= i1 < 25 && i1 == i2
+    ensures K.Offset(i1).1 == K.OffsetTrace(i1)
+    ensures K.Offset(i1).1 == K.Offset(i2).1
+    ensures K.Offset(i1).0 == K.Offset(i2).0
+  {}
+
+  lemma SourcePair(i1: T.I, i2: T.I)
+    requires 0 <= i1 < 25 && i1 == i2
+    ensures K.Source(i1).1 == K.SourceTraceTable(i1)
+    ensures K.Source(i1).1 == K.Source(i2).1
+    ensures K.Source(i1).0 == K.Source(i2).0
+  {}
+
+  // ---------------- factories: no inputs at all ----------------
+
+  method PairNewOffsets()
+  {
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    var r1, a1 := K.NewOffsets();
+    t1 := a1;
+    assert fresh(r1) && r1.Length == 25;
+    assert t1 == K.NewOffsetsTrace();
+    var r2, a2 := K.NewOffsets();
+    t2 := a2;
+    assert fresh(r2) && r2.Length == 25;
+    assert t2 == K.NewOffsetsTrace();
+    assert t1 == t2;
+    // separate allocations: the second result is fresh after the first was allocated
+    assert r1 != r2;
+    assert forall i: int :: 0 <= i < 25 ==> r1[i] == r2[i];
+  }
+
+  method PairNewSources()
+  {
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    var r1, a1 := K.NewSources();
+    t1 := a1;
+    assert fresh(r1) && r1.Length == 25;
+    assert t1 == K.NewSourcesTrace();
+    var r2, a2 := K.NewSources();
+    t2 := a2;
+    assert fresh(r2) && r2.Length == 25;
+    assert t2 == K.NewSourcesTrace();
+    assert t1 == t2;
+    assert r1 != r2;
+    assert forall i: int :: 0 <= i < 25 ==> r1[i] == r2[i];
+  }
+
+  // ---------------- SetLane / Iota: arbitrary private words ----------------
+
+  method PairSetLane(a1: array<bv64>, a2: array<bv64>, index1: T.I, index2: T.I, value1: bv64, value2: bv64)
+    requires a1.Length == 25 && a2.Length == 25
+    requires 0 <= index1 < 25 && 0 <= index2 < 25
+    requires index1 == index2
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    modifies a1,a2
+  {
+    ghost var entry2_a2 := a2[..];
+
+    ghost var before1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.SetLane(a1,index1,value1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    ghost var after1_a1 := a1[..];
+    assert t1 == K.SetLaneTrace(index1);
+    assert a1[..] == before1[index1 as int := value1];
+    ghost var before2 := a2[..];
+    t2 := K.SetLane(a2,index2,value2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert t2 == K.SetLaneTrace(index2);
+    assert a2[..] == before2[index2 as int := value2];
+    assert t1 == t2;
+  }
+
+  method PairIota(a1: array<bv64>, a2: array<bv64>, rc1: bv64, rc2: bv64)
+    requires a1.Length == 25 && a2.Length == 25
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    modifies a1,a2
+  {
+    ghost var entry2_a2 := a2[..];
+
+    ghost var before1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Iota(a1,rc1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    ghost var after1_a1 := a1[..];
+    assert t1 == K.IotaTrace();
+    assert a1[..] == S.Iota(before1,rc1);
+    ghost var before2 := a2[..];
+    t2 := K.Iota(a2,rc2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert t2 == K.IotaTrace();
+    assert a2[..] == S.Iota(before2,rc2);
+    assert t1 == t2;
+  }
+
+  // ---------------- Theta / Chi: no content-constrained lookup inputs ----------------
+  // Theta modifies a,c; Chi modifies a only. Independent Pair* calls use
+  // explicit symmetric cross-run frames and preserve both initial-state domains.
+
+  method PairTheta(a1: array<bv64>, c1: array<bv64>, a2: array<bv64>, c2: array<bv64>)
+    requires a1.Length == 25 && c1.Length == 5 && a1 != c1
+    requires a2.Length == 25 && c2.Length == 5 && a2 != c2
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    requires (a1 as object) != (c2 as object)
+    requires (a2 as object) != (c1 as object)
+    requires (c1 as object) != (c2 as object)
+    modifies a1,c1,a2,c2
+  {
+    ghost var entry2_a2 := a2[..];
+    ghost var entry2_c2 := c2[..];
+
+    ghost var before1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Theta(a1,c1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    assert c2[..] == entry2_c2;
+    ghost var after1_a1 := a1[..];
+    ghost var after1_c1 := c1[..];
+    assert t1 == K.ThetaTrace();
+    assert a1[..] == S.Theta(before1);
+    ghost var before2 := a2[..];
+    t2 := K.Theta(a2,c2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert c1[..] == after1_c1;
+    assert t2 == K.ThetaTrace();
+    assert a2[..] == S.Theta(before2);
+    assert t1 == t2;
+  }
+
+  method PairChi(a1: array<bv64>, b1: array<bv64>, a2: array<bv64>, b2: array<bv64>)
+    requires a1.Length == 25 && b1.Length == 25 && a1 != b1
+    requires a2.Length == 25 && b2.Length == 25 && a2 != b2
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    requires (a1 as object) != (b2 as object)
+    requires (a2 as object) != (b1 as object)
+    modifies a1,a2
+  {
+    ghost var entry2_a2 := a2[..];
+    ghost var entry2_b2 := b2[..];
+
+    ghost var b1Before := b1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Chi(a1,b1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    assert b2[..] == entry2_b2;
+    ghost var after1_a1 := a1[..];
+    ghost var after1_b1 := b1[..];
+    assert t1 == K.ChiTrace();
+    assert a1[..] == S.Chi(b1Before);
+    ghost var b2Before := b2[..];
+    t2 := K.Chi(a2,b2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert b1[..] == after1_b1;
+    assert t2 == K.ChiTrace();
+    assert a2[..] == S.Chi(b2Before);
+    assert t1 == t2;
+  }
+
+  // ---------------- RhoPi: modifies b only; the tables are content-constrained ----------------
+
+  method PairRhoPi(a1: array<bv64>, b1: array<bv64>, offsets1: array<T.I>, sources1: array<T.I>,
+                   a2: array<bv64>, b2: array<bv64>, offsets2: array<T.I>, sources2: array<T.I>)
+    requires a1.Length == 25 && b1.Length == 25 && a1 != b1
+    requires offsets1.Length == 25 && (offsets1 as object) != (b1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets1[i] < 64 && offsets1[i] as int == S.Offsets()[i]%64
+    requires sources1.Length == 25
+    requires (sources1 as object) != (b1 as object) && (sources1 as object) != (a1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources1[i] < 25 && sources1[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    requires a2.Length == 25 && b2.Length == 25 && a2 != b2
+    requires offsets2.Length == 25 && (offsets2 as object) != (b2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets2[i] < 64 && offsets2[i] as int == S.Offsets()[i]%64
+    requires sources2.Length == 25
+    requires (sources2 as object) != (b2 as object) && (sources2 as object) != (a2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources2[i] < 25 && sources2[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    // cross-run write -> other run's content-constrained lookup arrays (symmetric).
+    // The two runs may share the same readonly tables.
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (b2 as object)
+    requires (a2 as object) != (b1 as object)
+    requires (b1 as object) != (b2 as object)
+    requires (b1 as object) != (offsets2 as object)
+    requires (b1 as object) != (sources2 as object)
+    requires (b2 as object) != (offsets1 as object)
+    requires (b2 as object) != (sources1 as object)
+    modifies b1,b2
+  {
+    ghost var entry2_a2 := a2[..];
+    ghost var entry2_b2 := b2[..];
+    ghost var entry2_offsets2 := offsets2[..];
+    ghost var entry2_sources2 := sources2[..];
+
+    ghost var run1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.RhoPi(a1,b1,offsets1,sources1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    assert b2[..] == entry2_b2;
+    assert offsets2[..] == entry2_offsets2;
+    assert sources2[..] == entry2_sources2;
+    ghost var after1_a1 := a1[..];
+    ghost var after1_b1 := b1[..];
+    ghost var after1_offsets1 := offsets1[..];
+    ghost var after1_sources1 := sources1[..];
+    assert t1 == K.RhoPiTrace();
+    assert b1[..] == S.Pi(S.Rho(run1));
+    ghost var run2 := a2[..];
+    t2 := K.RhoPi(a2,b2,offsets2,sources2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert b1[..] == after1_b1;
+    assert offsets1[..] == after1_offsets1;
+    assert sources1[..] == after1_sources1;
+    assert t2 == K.RhoPiTrace();
+    assert b2[..] == S.Pi(S.Rho(run2));
+    assert t1 == t2;
+  }
+
+  // ---------------- Round / PermuteScratch: modify a,b,c ----------------
+
+  method PairRound(a1: array<bv64>, b1: array<bv64>, c1: array<bv64>, offsets1: array<T.I>,
+                   sources1: array<T.I>, rc1: bv64,
+                   a2: array<bv64>, b2: array<bv64>, c2: array<bv64>, offsets2: array<T.I>,
+                   sources2: array<T.I>, rc2: bv64)
+    requires a1.Length == 25 && b1.Length == 25 && c1.Length == 5
+    requires a1 != b1 && a1 != c1 && b1 != c1
+    requires offsets1.Length == 25
+    requires (offsets1 as object) != (a1 as object) && (offsets1 as object) != (b1 as object) && (offsets1 as object) != (c1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets1[i] < 64 && offsets1[i] as int == S.Offsets()[i]%64
+    requires sources1.Length == 25
+    requires (sources1 as object) != (b1 as object) && (sources1 as object) != (a1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources1[i] < 25 && sources1[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    requires (sources1 as object) != (c1 as object)
+    requires a2.Length == 25 && b2.Length == 25 && c2.Length == 5
+    requires a2 != b2 && a2 != c2 && b2 != c2
+    requires offsets2.Length == 25
+    requires (offsets2 as object) != (a2 as object) && (offsets2 as object) != (b2 as object) && (offsets2 as object) != (c2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets2[i] < 64 && offsets2[i] as int == S.Offsets()[i]%64
+    requires sources2.Length == 25
+    requires (sources2 as object) != (b2 as object) && (sources2 as object) != (a2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources2[i] < 25 && sources2[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    requires (sources2 as object) != (c2 as object)
+    // cross-run write -> other run's content-constrained lookup arrays (symmetric)
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    requires (a1 as object) != (b2 as object)
+    requires (a1 as object) != (c2 as object)
+    requires (a1 as object) != (offsets2 as object)
+    requires (a1 as object) != (sources2 as object)
+    requires (a2 as object) != (b1 as object)
+    requires (a2 as object) != (c1 as object)
+    requires (a2 as object) != (offsets1 as object)
+    requires (a2 as object) != (sources1 as object)
+    requires (b1 as object) != (b2 as object)
+    requires (b1 as object) != (c2 as object)
+    requires (b1 as object) != (offsets2 as object)
+    requires (b1 as object) != (sources2 as object)
+    requires (b2 as object) != (c1 as object)
+    requires (b2 as object) != (offsets1 as object)
+    requires (b2 as object) != (sources1 as object)
+    requires (c1 as object) != (c2 as object)
+    requires (c1 as object) != (offsets2 as object)
+    requires (c1 as object) != (sources2 as object)
+    requires (c2 as object) != (offsets1 as object)
+    requires (c2 as object) != (sources1 as object)
+    modifies a1,b1,c1,a2,b2,c2
+  {
+    ghost var entry2_a2 := a2[..];
+    ghost var entry2_b2 := b2[..];
+    ghost var entry2_c2 := c2[..];
+    ghost var entry2_offsets2 := offsets2[..];
+    ghost var entry2_sources2 := sources2[..];
+
+    ghost var run1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Round(a1,b1,c1,offsets1,sources1,rc1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    assert b2[..] == entry2_b2;
+    assert c2[..] == entry2_c2;
+    assert offsets2[..] == entry2_offsets2;
+    assert sources2[..] == entry2_sources2;
+    ghost var after1_a1 := a1[..];
+    ghost var after1_b1 := b1[..];
+    ghost var after1_c1 := c1[..];
+    ghost var after1_offsets1 := offsets1[..];
+    ghost var after1_sources1 := sources1[..];
+    assert t1 == K.RoundTrace();
+    assert a1[..] == S.Round(run1,rc1);
+    ghost var run2 := a2[..];
+    t2 := K.Round(a2,b2,c2,offsets2,sources2,rc2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert b1[..] == after1_b1;
+    assert c1[..] == after1_c1;
+    assert offsets1[..] == after1_offsets1;
+    assert sources1[..] == after1_sources1;
+    assert t2 == K.RoundTrace();
+    assert a2[..] == S.Round(run2,rc2);
+    assert t1 == t2;
+  }
+
+  method PairPermuteScratch(a1: array<bv64>, b1: array<bv64>, c1: array<bv64>, offsets1: array<T.I>,
+                            sources1: array<T.I>,
+                            a2: array<bv64>, b2: array<bv64>, c2: array<bv64>, offsets2: array<T.I>,
+                            sources2: array<T.I>)
+    requires a1.Length == 25 && b1.Length == 25 && c1.Length == 5
+    requires a1 != b1 && a1 != c1 && b1 != c1
+    requires offsets1.Length == 25
+    requires (offsets1 as object) != (a1 as object) && (offsets1 as object) != (b1 as object) && (offsets1 as object) != (c1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets1[i] < 64 && offsets1[i] as int == S.Offsets()[i]%64
+    requires sources1.Length == 25
+    requires (sources1 as object) != (b1 as object) && (sources1 as object) != (a1 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources1[i] < 25 && sources1[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    requires (sources1 as object) != (c1 as object)
+    requires a2.Length == 25 && b2.Length == 25 && c2.Length == 5
+    requires a2 != b2 && a2 != c2 && b2 != c2
+    requires offsets2.Length == 25
+    requires (offsets2 as object) != (a2 as object) && (offsets2 as object) != (b2 as object) && (offsets2 as object) != (c2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= offsets2[i] < 64 && offsets2[i] as int == S.Offsets()[i]%64
+    requires sources2.Length == 25
+    requires (sources2 as object) != (b2 as object) && (sources2 as object) != (a2 as object)
+    requires forall i: int :: 0 <= i < 25 ==> 0 <= sources2[i] < 25 && sources2[i] as int == ((i%5)+3*(i/5))%5+5*(i%5)
+    requires (sources2 as object) != (c2 as object)
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    requires (a1 as object) != (b2 as object)
+    requires (a1 as object) != (c2 as object)
+    requires (a1 as object) != (offsets2 as object)
+    requires (a1 as object) != (sources2 as object)
+    requires (a2 as object) != (b1 as object)
+    requires (a2 as object) != (c1 as object)
+    requires (a2 as object) != (offsets1 as object)
+    requires (a2 as object) != (sources1 as object)
+    requires (b1 as object) != (b2 as object)
+    requires (b1 as object) != (c2 as object)
+    requires (b1 as object) != (offsets2 as object)
+    requires (b1 as object) != (sources2 as object)
+    requires (b2 as object) != (c1 as object)
+    requires (b2 as object) != (offsets1 as object)
+    requires (b2 as object) != (sources1 as object)
+    requires (c1 as object) != (c2 as object)
+    requires (c1 as object) != (offsets2 as object)
+    requires (c1 as object) != (sources2 as object)
+    requires (c2 as object) != (offsets1 as object)
+    requires (c2 as object) != (sources1 as object)
+    modifies a1,b1,c1,a2,b2,c2
+  {
+    ghost var entry2_a2 := a2[..];
+    ghost var entry2_b2 := b2[..];
+    ghost var entry2_c2 := c2[..];
+    ghost var entry2_offsets2 := offsets2[..];
+    ghost var entry2_sources2 := sources2[..];
+
+    ghost var run1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.PermuteScratch(a1,b1,c1,offsets1,sources1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    assert b2[..] == entry2_b2;
+    assert c2[..] == entry2_c2;
+    assert offsets2[..] == entry2_offsets2;
+    assert sources2[..] == entry2_sources2;
+    ghost var after1_a1 := a1[..];
+    ghost var after1_b1 := b1[..];
+    ghost var after1_c1 := c1[..];
+    ghost var after1_offsets1 := offsets1[..];
+    ghost var after1_sources1 := sources1[..];
+    assert t1 == K.PermuteScratchTrace();
+    assert a1[..] == S.Iter(run1,24);
+    ghost var run2 := a2[..];
+    t2 := K.PermuteScratch(a2,b2,c2,offsets2,sources2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert b1[..] == after1_b1;
+    assert c1[..] == after1_c1;
+    assert offsets1[..] == after1_offsets1;
+    assert sources1[..] == after1_sources1;
+    assert t2 == K.PermuteScratchTrace();
+    assert a2[..] == S.Iter(run2,24);
+    assert t1 == t2;
+  }
+
+  // ---------------- Permute / Wipe: own scratch, arbitrary private contents ----------------
+
+  method PairPermute(a1: array<bv64>, a2: array<bv64>)
+    requires a1.Length == 25 && a2.Length == 25
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    modifies a1,a2
+  {
+    ghost var entry2_a2 := a2[..];
+
+    ghost var run1 := a1[..];
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Permute(a1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    ghost var after1_a1 := a1[..];
+    assert t1 == K.PermuteTrace();
+    assert a1[..] == S.Iter(run1,24);
+    ghost var run2 := a2[..];
+    t2 := K.Permute(a2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert t2 == K.PermuteTrace();
+    assert a2[..] == S.Iter(run2,24);
+    assert t1 == t2;
+  }
+
+  method PairWipe(a1: array<bv64>, a2: array<bv64>)
+    requires T.JavaLength(a1.Length) && T.JavaLength(a2.Length)
+    // the public length is the shared parameter; it may be zero in both runs
+    requires a1.Length == a2.Length
+    // Symmetric cross-run object frames; no premise on private contents.
+    requires (a1 as object) != (a2 as object)
+    modifies a1,a2
+  {
+    ghost var entry2_a2 := a2[..];
+
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Wipe(a1);
+    // First execution preserves the second INITIAL array contents.
+    assert a2[..] == entry2_a2;
+    ghost var after1_a1 := a1[..];
+    assert t1 == K.WipeTrace(a1.Length);
+    assert forall i: int :: 0 <= i < a1.Length ==> a1[i] == 0;
+    t2 := K.Wipe(a2);
+    // Second execution preserves the first completed state/read-only inputs.
+    assert a1[..] == after1_a1;
+    assert t2 == K.WipeTrace(a2.Length);
+    assert t1 == t2;
+    assert forall i: int :: 0 <= i < a2.Length ==> a2[i] == 0;
+  }
+
+  // ---------------- explicitly shared buffers (same array, sequential) ----------
+  //
+  // SetLane and Wipe keep their original preconditions under a repeated call on
+  // the same buffer, so these are in-domain compositions rather than paired
+  // disjoint runs. Every other declaration above stays cross-run framed.
+
+  method SharedSetLane(a: array<bv64>, i1: T.I, i2: T.I, v1: bv64, v2: bv64)
+    requires a.Length == 25 && 0 <= i1 < 25 && 0 <= i2 < 25
+    modifies a
+  {
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.SetLane(a,i1,v1);
+    // the original precondition of the second call still holds after the first
+    assert a.Length == 25 && 0 <= i2 < 25;
+    t2 := K.SetLane(a,i2,v2);
+    assert t1 == K.SetLaneTrace(i1) && t2 == K.SetLaneTrace(i2);
+    // the observation is a function of the public index only
+    assert i1 == i2 ==> t1 == t2;
+    assert forall k: int :: 0 <= k < 25 ==>
+      a[k] == (if k == i2 as int then v2 else if k == i1 as int then v1 else old(a[..])[k]);
+  }
+
+  method SharedWipe(a: array<bv64>)
+    requires T.JavaLength(a.Length)
+    modifies a
+  {
+    ghost var t1: seq<int>;
+    ghost var t2: seq<int>;
+    t1 := K.Wipe(a);
+    assert t1 == K.WipeTrace(a.Length);
+    // Wipe's original precondition is `T.JavaLength(a.Length)`, unchanged by a wipe
+    assert T.JavaLength(a.Length);
+    t2 := K.Wipe(a);
+    assert t2 == K.WipeTrace(a.Length);
+    assert t1 == t2;
+    assert forall i: int :: 0 <= i < a.Length ==> a[i] == 0;
+  }
+}
