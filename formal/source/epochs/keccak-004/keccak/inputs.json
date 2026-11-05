@@ -1,0 +1,1267 @@
+{
+  "schema": "microproxy.keccak004-public-proof-inputs/1",
+  "qualification": false,
+  "scope": "Keccak source body proofs, direct audits and semantic controls; coverage receipt consumption only; no parent epoch, Java, delivery or timing qualification",
+  "source_epoch_manifest_sha256": "294e28dbd13219477a285c0774c4d91928c4f536130011db024533efad683dec",
+  "source_view_constructor_sha256": "65eb424c4c0b5ce44498ded72cb8600c02252e18122b8d1f28fcfb0b00eaa3eb",
+  "source_view_receipt_sha256": "0205a06e606e02ba1753a1f905c660f8b642b091bf68104dabdd179c29702890",
+  "tools_manifest_sha256": "18624818cfd48e4854325007a250cf43ef88c5aa332c5dc2de60b27b61adc19e",
+  "coverage_receipt_sha256": "cd10f45024d20e2384fd5cb193445da677a7d102fcc0bd0099223bb0dd32f45b",
+  "coverage_package_map": {
+    "formal/source/keccak/coverage_replay.py": "c232ed9bc9e8db0a81c6e43fc22538b293ebe40aee940ffeb79637d59d7cff37",
+    "formal/source/keccak/encoder/NativeCanonicalEncoderPolicy.cs": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "formal/source/keccak/encoder/build_authority.py": "d1f3d75180cec03cdd88fe56afa9c505755ed3b6a5b514f6befa8600e9bd06e5",
+    "formal/source/keccak/encoder/net6-targeting-packs.json": "4a93358067580cb907bfa2d54202deee28d8887fda3a5734052e7cc7707de549",
+    "formal/source/keccak/function-checker/KeccakFunctionCoverage.cs": "fd2b09dc7ff564b821a18c9ae6ae5b7a1607a4f621ffff196c0cf50a5425b90b",
+    "formal/source/keccak/function-checker/KeccakFunctionCoverage.csproj": "f37010200480f28033114d1a7b50a17d2685cf5d0d068fc650410a3ea02beec4",
+    "formal/source/keccak/method-checker/KeccakMethodCoverage.cs": "f106ea52f289062c2110c31981ad916017c0735c25f294c5dc925ea793e1fab3",
+    "formal/source/keccak/method-checker/KeccakMethodCoverage.csproj": "2e7a4ebd10e7ed82f3672407dc494fec983e97e18c814e289aa1d86d44704fcd",
+    "formal/source/select/profiles/macos-sdk10.0.400.json": "9ec9f05ce8dd1083071e6fc0aecea69d9972abe7d94ca8e7be0266c032e99f84",
+    "global.json": "74483876b55f3b4d348ed33e4fab6c8dfeedc51f53fc2254e9f0037154c4752c"
+  },
+  "dlls": {
+    "function": "af1f0fec7e98cd51e4172b8ff98826ed830eee18df4d8beaa91c812d617e68dd",
+    "method": "a4905de3b46e39fd819dc7ad5e5245bbae449080bc8f2e6039cc2de69f33b3fd"
+  },
+  "combined_entries": [
+    "formal/crypto/NativeMlKem.dfy",
+    "formal/source/NativeKeccakTraceHarness.dfy",
+    "formal/crypto/native_shake_domain.dfy"
+  ],
+  "source_count": 85,
+  "stage_source_count": 86,
+  "source_map_sha256": "4cd8e0957af4d15b3620fa4541dbfbeda4b664f9eb2b848f31353548fbacc9fb",
+  "proof_total_overlapping": 1877,
+  "command_timeout_seconds": 1800,
+  "tasks": [
+    {
+      "label": "body-NativeKeccak",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          698,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-NativeKeccak",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-NativeShake",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeShake.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          790,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-NativeShake",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/NativeShake.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-native_shake_domain",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/native_shake_domain.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          25,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-native_shake_domain",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/native_shake_domain.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-NativeTypes",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeTypes.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          5,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-NativeTypes",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/NativeTypes.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-Keccak",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/primitives/Keccak.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          122,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-Keccak",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/primitives/Keccak.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-SpongeSpec",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/SpongeSpec.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          159,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-SpongeSpec",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/SpongeSpec.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-SourceTrace",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/source/SourceTrace.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          17,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-SourceTrace",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/source/SourceTrace.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-ObservationVocabulary",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          29,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-ObservationVocabulary",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "body-NativeKeccakTraceHarness",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/source/NativeKeccakTraceHarness.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          32,
+          0
+        ]
+      }
+    },
+    {
+      "label": "audit-NativeKeccakTraceHarness",
+      "variant": "base",
+      "action": "audit",
+      "entries": [
+        "formal/source/NativeKeccakTraceHarness.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 0
+      }
+    },
+    {
+      "label": "combined-coverage",
+      "variant": "base",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeMlKem.dfy",
+        "formal/source/NativeKeccakTraceHarness.dfy",
+        "formal/crypto/native_shake_domain.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "method",
+        "function"
+      ],
+      "rule": {
+        "kind": "combined"
+      }
+    },
+    {
+      "label": "address-positive-resolve",
+      "variant": "base",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "resolve"
+      }
+    },
+    {
+      "label": "address-faithful-resolve",
+      "variant": "address-faithful",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "resolve"
+      }
+    },
+    {
+      "label": "address-forged-resolve",
+      "variant": "address-forged",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "resolve"
+      }
+    },
+    {
+      "label": "address-omitted-resolve",
+      "variant": "address-omitted",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "resolve"
+      }
+    },
+    {
+      "label": "address-positive-method-coverage",
+      "variant": "base",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "method"
+      ],
+      "rule": {
+        "kind": "method"
+      }
+    },
+    {
+      "label": "address-faithful-method-coverage",
+      "variant": "address-faithful",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "method"
+      ],
+      "rule": {
+        "kind": "method"
+      }
+    },
+    {
+      "label": "address-forged-method-coverage",
+      "variant": "address-forged",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "method"
+      ],
+      "rule": {
+        "kind": "reject",
+        "diagnostic": "KMC007: Read address is not typed-identical to the actual index expression"
+      }
+    },
+    {
+      "label": "address-omitted-method-coverage",
+      "variant": "address-omitted",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "method"
+      ],
+      "rule": {
+        "kind": "reject",
+        "diagnostic": "KMC004: missing Read observation in ordinary assignment"
+      }
+    },
+    {
+      "label": "address-positive-function-coverage",
+      "variant": "base",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "function"
+      ],
+      "rule": {
+        "kind": "function"
+      }
+    },
+    {
+      "label": "address-positive-iota-body",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.Iota",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          3,
+          0
+        ]
+      }
+    },
+    {
+      "label": "address-positive-pair",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/source/AddressPairProbe.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          2,
+          0
+        ]
+      }
+    },
+    {
+      "label": "address-faithful-function-coverage",
+      "variant": "address-faithful",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--allow-external-contracts"
+      ],
+      "plugins": [
+        "function"
+      ],
+      "rule": {
+        "kind": "function"
+      }
+    },
+    {
+      "label": "address-faithful-iota-body",
+      "variant": "address-faithful",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.Iota",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          3,
+          0
+        ]
+      }
+    },
+    {
+      "label": "address-faithful-pair",
+      "variant": "address-faithful",
+      "action": "verify",
+      "entries": [
+        "formal/source/AddressPairProbe.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          1,
+          1
+        ],
+        "errors": [
+          {
+            "file": "formal/source/AddressPairProbe.dfy",
+            "line": 14,
+            "column": 11,
+            "message": "assertion might not hold"
+          }
+        ]
+      }
+    },
+    {
+      "label": "address-faithful-trace-helper",
+      "variant": "address-faithful",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.PrivateAddressIotaTrace",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "label": "branch-private-method-coverage",
+      "variant": "branch-private",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [],
+      "plugins": [
+        "method"
+      ],
+      "rule": {
+        "kind": "method"
+      }
+    },
+    {
+      "label": "branch-private-coverage",
+      "variant": "branch-private",
+      "action": "resolve",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [],
+      "plugins": [
+        "function"
+      ],
+      "rule": {
+        "kind": "function"
+      }
+    },
+    {
+      "label": "branch-private-body",
+      "variant": "branch-private",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.Rotate",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          3,
+          0
+        ]
+      }
+    },
+    {
+      "label": "branch-private-helper",
+      "variant": "branch-private",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.PrivateRotateTrace",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "label": "branch-positive-pair",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/source/FunctionPairProbe.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          2,
+          0
+        ]
+      }
+    },
+    {
+      "label": "branch-private-pair",
+      "variant": "branch-private",
+      "action": "verify",
+      "entries": [
+        "formal/source/FunctionPairProbe.dfy"
+      ],
+      "extra": [
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          1,
+          1
+        ],
+        "errors": [
+          {
+            "file": "formal/source/FunctionPairProbe.dfy",
+            "line": 7,
+            "column": 11,
+            "message": "assertion might not hold"
+          }
+        ]
+      }
+    },
+    {
+      "label": "included-owned-assumption",
+      "variant": "included-assumption",
+      "action": "audit",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [],
+      "plugins": [],
+      "rule": {
+        "kind": "audit",
+        "findings": 1,
+        "warning": "Wipe: Definition has `assume {:axiom}` statement in body."
+      }
+    },
+    {
+      "label": "stale-positive-assert-position",
+      "variant": "base",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-position",
+        "formal/crypto/NativeKeccak.dfy:925",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          11,
+          0
+        ],
+        "summary_unit": "assertions"
+      }
+    },
+    {
+      "label": "stale-mutant-assert-position",
+      "variant": "stale-mutant",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-position",
+        "formal/crypto/NativeKeccak.dfy:926",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          10,
+          1
+        ],
+        "errors": [
+          {
+            "file": "formal/crypto/NativeKeccak.dfy",
+            "line": 926,
+            "column": 13,
+            "message": "assertion might not hold"
+          }
+        ],
+        "summary_unit": "assertions"
+      }
+    },
+    {
+      "label": "stale-mutant-theta-root",
+      "variant": "stale-mutant",
+      "action": "verify",
+      "entries": [
+        "formal/crypto/NativeKeccak.dfy"
+      ],
+      "extra": [
+        "--filter-symbol",
+        "NativeKeccak.Theta",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--cores",
+        "2",
+        "--solver-option",
+        "O:smt.case_split=0"
+      ],
+      "plugins": [],
+      "rule": {
+        "kind": "proof",
+        "counts": [
+          259,
+          1
+        ],
+        "errors": [
+          {
+            "file": "formal/crypto/NativeKeccak.dfy",
+            "line": 926,
+            "column": 13,
+            "message": "assertion might not hold"
+          }
+        ]
+      }
+    }
+  ],
+  "task_count": 44,
+  "package_files": {
+    "AddressPairProbe.dfy.in": "71b97e4ac2ab1b50960c17e40fb24d5b10a274600e808448da96e8b824ca484f",
+    "FunctionPairProbe.dfy.in": "e21019113ac5535eb71f7a3acfcfeb6b7b437922e3ec0f8ccd1023d6b9d8d287",
+    "README.md": "537f82608f60913f0a2ee87dab90dfeecff5d962505460672e3fc88610e480c6",
+    "mutations.json": "7f54b9587be54c22f1da3a264fcb8a56feb276b477c2effea0f7f35e72213d56",
+    "replay.py": "01f59bf24463faa7ebbfbec5dfb0a3b2a9fcd367b9e7e60505281fd2caba6912",
+    "stale-mutant.stdout.in": "a3d084d8b75fce4dba6cbf3a50894ad6254bf25ba214cab1b4abb6fcb284abed",
+    "stale-positive.stdout.in": "62848155ec6c9477cf690c641d3d8ba6dc3764691233e96171520a09e3b597fb",
+    "test_replay.py": "b7668e3bc766e3333c4aa92b4e7be747f91749facc7a0ae0dd8798d21c4be953"
+  },
+  "derivation": {
+    "private_address": "e3898a02835f62ea032ab578c9e66b0080a6a64e6285607e829189866b200a5e",
+    "private_branch": "7cb546e36358852f4bd646b3662484b50eab30f14ca5108a3bc48660d6741c43",
+    "audits": "1d30866f4ea1e3e1852eb920fba97dfe674aeb730451308c00bf380ff78652d3",
+    "stale_capture": "3d11fe3ed8e1b22460aa7eb68b38d1bc5515638d98422782f3b1e21b87c10d45"
+  },
+  "coverage_case_diagnostics": {
+    "function": {
+      "positive": [],
+      "missing-rotate-branch": [
+        "formal/crypto/NativeKeccak.dfy(516,19): Error: KFC: trace omits/changes actual branch prefix or branch outcome"
+      ],
+      "wrong-rotate-outcome": [
+        "formal/crypto/NativeKeccak.dfy(516,19): Error: KFC: trace omits/changes actual branch prefix or branch outcome"
+      ],
+      "missing-rotate-ops": [
+        "formal/crypto/NativeKeccak.dfy(517,9): Error: KFC: trace omits actual scalar operation family counts"
+      ],
+      "wrong-shift-count": [
+        "formal/crypto/NativeKeccak.dfy(517,82): Error: KFC: scalar operation count mismatch at family 6"
+      ],
+      "higher-order-identity": [
+        "formal/crypto/NativeKeccak.dfy(516,36): Error: KFC: unsupported actual value expression (including calls, arrays or higher-order forms)"
+      ],
+      "inconsistent-constant-site": [
+        "formal/crypto/NativeKeccak.dfy(524,54): Error: KFC: same actual guard has inconsistent static site labels"
+      ],
+      "reused-constant-site": [
+        "formal/crypto/NativeKeccak.dfy(524,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(526,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(528,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(530,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(532,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(534,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(536,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(538,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(541,75): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(544,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(547,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(550,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(554,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(558,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(562,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(566,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(571,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(576,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(581,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(586,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(592,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(598,76): Error: KFC: different actual guards reuse a static site label",
+        "formal/crypto/NativeKeccak.dfy(604,60): Error: KFC: different actual guards reuse a static site label"
+      ],
+      "extra-executable-function": [
+        "(0,-1): Error: KFC: non-ghost function inventory differs from exact four native functions"
+      ],
+      "extern-rotate": [
+        "formal/crypto/NativeKeccak.dfy(512,21): Error: KFC: function is not concrete, read-free, executable, non-by-method native code"
+      ],
+      "opaque-rotate": [
+        "formal/crypto/NativeKeccak.dfy(512,21): Error: KFC: function is not concrete, read-free, executable, non-by-method native code"
+      ],
+      "ghost-trace-extra": [
+        "formal/crypto/NativeKeccak.dfy(516,52): Error: KFC: trace has unexpected extra observations"
+      ],
+      "forged-branch-wrapper": [
+        "formal/source/SourceTrace.dfy(21,17): Error: KFC: marker body is not exact canonical Encode(constructor(positional arguments)): Branch"
+      ],
+      "reordered-read-wrapper": [
+        "formal/source/SourceTrace.dfy(25,20): Error: KFC: marker changes/reorders formal 0",
+        "formal/source/SourceTrace.dfy(25,26): Error: KFC: marker changes/reorders formal 1"
+      ],
+      "forged-canonical-encode": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy(74,54): Error: KFC: canonical Encode does not implement the exact typed wire layout: field metadata changed or reordered"
+      ],
+      "reordered-canonical-encode": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy(74,42): Error: KFC: canonical Encode does not implement the exact typed wire layout: field metadata changed or reordered",
+        "formal/source/vocabulary/ObservationVocabulary.dfy(74,48): Error: KFC: canonical Encode does not implement the exact typed wire layout: field metadata changed or reordered"
+      ],
+      "faithful-private-branch": [],
+      "omitted-private-branch": [
+        "formal/crypto/NativeKeccak.dfy(516,35): Error: KFC: trace omits/changes actual branch prefix or branch outcome",
+        "formal/crypto/NativeKeccak.dfy(516,69): Error: KFC: trace omits/changes actual branch prefix or branch outcome"
+      ]
+    },
+    "method": {
+      "full-positive": [],
+      "missing-ops": [
+        "formal/crypto/NativeKeccak.dfy(877,10): Error: KMC004: missing Ops observation in ordinary assignment"
+      ],
+      "missing-read": [
+        "formal/crypto/NativeKeccak.dfy(877,16): Error: KMC004: trace packet event order mismatch: expected Read"
+      ],
+      "missing-write": [
+        "formal/crypto/NativeKeccak.dfy(865,13): Error: KMC004: missing PRE packet before AssignStatement"
+      ],
+      "missing-call": [
+        "formal/crypto/NativeKeccak.dfy(881,21): Error: KMC004: trace packet leaf is not an exact SourceTrace marker"
+      ],
+      "missing-alloc": [
+        "formal/crypto/NativeKeccak.dfy(715,6): Error: KMC004: missing PRE packet before AssignStatement"
+      ],
+      "missing-loopcheck": [
+        "formal/crypto/NativeKeccak.dfy(718,4): Error: KMC011: missing LoopCheck(false,end) immediately after loop"
+      ],
+      "wrong-loop-iterator": [
+        "formal/crypto/NativeKeccak.dfy(724,26): Error: KMC011: LoopCheck event does not match the actual guard/iteration/site"
+      ],
+      "mutated-loop-end": [
+        "formal/crypto/NativeKeccak.dfy(1129,4): Error: KMC011: loop end expression variable is assigned inside the loop body"
+      ],
+      "stale-address-scalar-gap": [
+        "formal/crypto/NativeKeccak.dfy(942,10): Error: KMC004: executable statement between PRE packet and its operation"
+      ],
+      "wrong-loop-end": [
+        "formal/crypto/NativeKeccak.dfy(731,24): Error: KMC011: LoopCheck event does not match the actual guard/iteration/site"
+      ],
+      "delayed-callee-child": [
+        "formal/crypto/NativeKeccak.dfy(880,18): Error: KMC005: effectful call POST packet must be the immediately next statement"
+      ],
+      "dropped-callee-child": [
+        "formal/crypto/NativeKeccak.dfy(881,10): Error: KMC005: missing Child observation in effectful call POST packet"
+      ],
+      "duplicate-callee-child": [
+        "formal/crypto/NativeKeccak.dfy(881,10): Error: KMC005: effectful POST packet must contain exactly Call and the actual child local"
+      ],
+      "reordered-callee-child": [
+        "formal/crypto/NativeKeccak.dfy(881,21): Error: KMC004: trace packet leaf is not an exact SourceTrace marker"
+      ],
+      "wrong-private-snapshot": [
+        "formal/crypto/NativeKeccak.dfy(926,28): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "stale-snapshot-gap": [
+        "formal/crypto/NativeKeccak.dfy(925,11): Error: KMC006: executable effect between snapshot capture and actual call"
+      ],
+      "snapshot-ghost-reassignment": [
+        "formal/crypto/NativeKeccak.dfy(919,6): Error: KMC006: snapshot witness must have exactly one definition across the entire method"
+      ],
+      "snapshot-suchthat": [
+        "formal/crypto/NativeKeccak.dfy(919,6): Error: KMC006: snapshot witness must have exactly one definition across the entire method"
+      ],
+      "snapshot-fabricated": [
+        "formal/crypto/NativeKeccak.dfy(926,28): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "wrong-callee-snapshot": [
+        "formal/crypto/NativeKeccak.dfy(926,28): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "full-tuple-assert-not-last": [
+        "formal/crypto/NativeKeccak.dfy(926,6): Error: KMC006: direct full-tuple assertion must be the LAST statement immediately before the actual inline call"
+      ],
+      "missing-full-tuple-assert": [
+        "formal/crypto/NativeKeccak.dfy(925,6): Error: KMC006: direct full-tuple assertion must be the LAST statement immediately before the actual inline call"
+      ],
+      "assumed-full-tuple": [
+        "formal/crypto/NativeKeccak.dfy(925,6): Error: KMC006: direct full-tuple assertion must be the LAST statement immediately before the actual inline call"
+      ],
+      "wrong-width-snapshot": [
+        "formal/crypto/NativeKeccak.dfy(926,28): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "prefix-unbound-call": [
+        "formal/crypto/NativeKeccak.dfy(877,19): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "trailing-unbound-call": [
+        "formal/crypto/NativeKeccak.dfy(882,19): Error: KMC006: unbound actual pure call has no exact full-tuple ghost witness"
+      ],
+      "parallel-trace-mutation": [
+        "formal/crypto/NativeKeccak.dfy(881,17): Error: KMC003: trace may not be assigned in a parallel statement"
+      ],
+      "suchthat-trace-mutation": [
+        "formal/crypto/NativeKeccak.dfy(881,10): Error: KMC003: trace may not be assigned by a such-that statement"
+      ],
+      "hidden-ghost-trace-write": [
+        "formal/crypto/NativeKeccak.dfy(882,20): Error: KMC003: later trace update must append to the same trace as its first leaf",
+        "formal/crypto/NativeKeccak.dfy(882,20): Error: KMC003: hidden ghost-branch trace assignment is not supported",
+        "formal/crypto/NativeKeccak.dfy(882,20): Error: KMC003: hidden ghost-branch trace assignment is not supported"
+      ],
+      "late-trace-reset": [
+        "formal/crypto/NativeKeccak.dfy(882,10): Error: KMC003: later trace update must append to the same trace as its first leaf"
+      ],
+      "call-output-trace-clobber": [
+        "formal/crypto/NativeKeccak.dfy(880,10): Error: KMC003: trace packet must be a ghost assignment",
+        "formal/crypto/NativeKeccak.dfy(880,10): Error: KMC003: later trace update must append to the same trace as its first leaf",
+        "formal/crypto/NativeKeccak.dfy(880,13): Error: KMC003: call output cannot clobber the trace formal"
+      ],
+      "extra-import-alias": [
+        "formal/crypto/NativeKeccak.dfy(14,9): Error: KMC001: unsupported NativeKeccak top-level declaration outside exact default class/imports: AliasModuleDecl"
+      ],
+      "wrong-import-target": [
+        "formal/crypto/NativeKeccak.dfy(13,9): Error: KMC001: NativeKeccak import is not the exact resolved admitted module: T"
+      ],
+      "extra-native-class": [
+        "formal/crypto/NativeKeccak.dfy(709,8): Error: KMC001: unsupported NativeKeccak top-level declaration outside exact default class/imports: ClassDecl"
+      ],
+      "extra-native-datatype": [
+        "formal/crypto/NativeKeccak.dfy(709,11): Error: KMC001: unsupported NativeKeccak top-level declaration outside exact default class/imports: IndDatatypeDecl"
+      ],
+      "extra-native-newtype": [
+        "formal/crypto/NativeKeccak.dfy(709,10): Error: KMC001: unsupported NativeKeccak top-level declaration outside exact default class/imports: NewtypeDecl"
+      ],
+      "extra-native-iterator": [
+        "formal/crypto/NativeKeccak.dfy(709,11): Error: KMC001: unsupported NativeKeccak top-level declaration outside exact default class/imports: IteratorDecl",
+        "(0,-1): Error: KMC001: non-ghost field/constant initialization is outside the exact NativeKeccak executable inventory: NativeKeccak.Extra.v",
+        "formal/crypto/NativeKeccak.dfy(709,11): Error: KMC001: extra non-ghost method in NativeKeccak: NativeKeccak.Extra._ctor",
+        "formal/crypto/NativeKeccak.dfy(709,11): Error: KMC001: extra non-ghost method in NativeKeccak: NativeKeccak.Extra.MoveNext"
+      ],
+      "foreign-uncalled-module": [],
+      "extra-executable-constant": [
+        "formal/crypto/NativeKeccak.dfy(709,8): Error: KMC001: non-ghost field/constant initialization is outside the exact NativeKeccak executable inventory: NativeKeccak._default.ExtraConstant"
+      ],
+      "extra-executable-method": [
+        "formal/crypto/NativeKeccak.dfy(709,9): Error: KMC001: extra non-ghost method in NativeKeccak: NativeKeccak._default.Extra",
+        "(0,-1): Error: KMC001: non-ghost method inventory differs from the exact eleven NativeKeccak methods"
+      ],
+      "shadow-method": [
+        "formal/crypto/NativeKeccak.dfy(880,18): Error: KMC005: unregistered effectful callee NativeTypes._default.SetLane"
+      ],
+      "shadow-function": [
+        "formal/crypto/NativeKeccak.dfy(926,30): Error: KMC006: inline call resolves to an unregistered/shadow pure declaration"
+      ],
+      "extern-pure": [
+        "formal/crypto/NativeKeccak.dfy(512,21): Error: KMC002: NativeKeccak.Rotate has an extern or missing concrete body"
+      ],
+      "bymethod-pure": [
+        "formal/crypto/NativeKeccak.dfy(512,11): Error: KMC002: NativeKeccak.Rotate uses function-by-method, which is unsupported"
+      ],
+      "extra-executable-function": [
+        "formal/crypto/NativeKeccak.dfy(709,11): Error: KMC001: extra non-ghost function in NativeKeccak: NativeKeccak._default.Extra",
+        "(0,-1): Error: KMC001: non-ghost function inventory differs from the exact four NativeKeccak functions"
+      ],
+      "missing-method": [
+        "formal/crypto/NativeKeccak.dfy(1119,9): Error: KMC001: extra non-ghost method in NativeKeccak: NativeKeccak._default.WipeRenamed",
+        "(0,-1): Error: KMC001: non-ghost method inventory differs from the exact eleven NativeKeccak methods",
+        "(0,-1): Error: KMC001: expected exactly one exact method NativeKeccak.Wipe"
+      ],
+      "extern-root": [
+        "formal/crypto/NativeKeccak.dfy(1119,19): Error: KMC002: NativeKeccak.Wipe must be a concrete executable non-lemma, non-extern method"
+      ],
+      "unknown-runtime-string": [
+        "formal/crypto/NativeKeccak.dfy(878,19): Error: KMC008: unsupported executable leaf type seq<unsupported-type>"
+      ],
+      "runtime-print": [
+        "formal/crypto/NativeKeccak.dfy(879,4): Error: KMC008: unsupported executable statement PrintStmt"
+      ],
+      "unknown-runtime-ite": [
+        "formal/crypto/NativeKeccak.dfy(878,17): Error: KMC008: unsupported executable expression ITEExpr"
+      ],
+      "unsupported-array-initializer": [
+        "formal/crypto/NativeKeccak.dfy(1101,13): Error: KMC010: allocation may not carry initializers, init calls or nondefault bindings/path"
+      ],
+      "parallel-child-redefinition": [
+        "formal/crypto/NativeKeccak.dfy(880,18): Error: KMC005: effectful child trace local must have exactly one defining output in this call"
+      ],
+      "faithful-private-address": [],
+      "forged-typed-address": [
+        "formal/crypto/NativeKeccak.dfy(877,121): Error: KMC007: Read address is not typed-identical to the actual index expression"
+      ],
+      "faithful-private-branch": [],
+      "missing-private-branch": [
+        "formal/crypto/NativeKeccak.dfy(879,4): Error: KMC012: missing PRE packet for the actual branch guard"
+      ],
+      "forged-private-branch-true": [
+        "formal/crypto/NativeKeccak.dfy(879,24): Error: KMC012: Branch event does not match the actual guard/site"
+      ],
+      "forged-private-branch-false": [
+        "formal/crypto/NativeKeccak.dfy(879,24): Error: KMC012: Branch event does not match the actual guard/site"
+      ],
+      "canonical-wrapper": [
+        "formal/source/SourceTrace.dfy(19,20): Error: KMC009: marker helper changes or reorders positional formal 0: SourceTrace._default.Call",
+        "formal/source/SourceTrace.dfy(19,28): Error: KMC009: marker helper changes or reorders positional formal 1: SourceTrace._default.Call"
+      ],
+      "canonical-encoder": [
+        "formal/source/vocabulary/ObservationVocabulary.dfy(72,42): Error: KMC009: canonical Encode does not implement the exact typed wire layout: field metadata changed or reordered",
+        "formal/source/vocabulary/ObservationVocabulary.dfy(72,50): Error: KMC009: canonical Encode does not implement the exact typed wire layout: field metadata changed or reordered"
+      ]
+    }
+  }
+}

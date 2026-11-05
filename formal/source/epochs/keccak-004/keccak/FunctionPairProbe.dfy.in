@@ -1,0 +1,8 @@
+include "../crypto/NativeKeccak.dfy"
+module FunctionPairProbe {
+  import K = NativeKeccak
+  import T = NativeTypes
+  lemma Pair(v1: bv64, v2: bv64, n: T.I)
+    requires 0 <= n < 64
+  { assert K.Rotate(v1,n).1 == K.Rotate(v2,n).1; }
+}

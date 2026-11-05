@@ -1,0 +1,16 @@
+include "../crypto/NativeKeccak.dfy"
+module AddressPairProbe {
+  import K = NativeKeccak
+  method Pair(a1: array<bv64>, a2: array<bv64>, rc1: bv64, rc2: bv64)
+    requires a1.Length == 25 && a2.Length == 25 && a1 != a2
+    modifies a1,a2
+  {
+    ghost var before2 := a2[..];
+    ghost var t1: seq<int>; t1 := K.Iota(a1,rc1);
+    assert a2[..] == before2;
+    ghost var after1 := a1[..];
+    ghost var t2: seq<int>; t2 := K.Iota(a2,rc2);
+    assert a1[..] == after1;
+    assert t1 == t2; // INTENDED PRIVATE ADDRESS PAIR
+  }
+}

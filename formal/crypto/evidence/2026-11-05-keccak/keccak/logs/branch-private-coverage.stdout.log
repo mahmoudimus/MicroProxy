@@ -1,0 +1,3 @@
+KECCAK-FUNCTION-OBSERVATIONS OK: exact functions [NativeKeccak.Rotate,NativeKeccak.Constant,NativeKeccak.Offset,NativeKeccak.Source]; FUNCTION-ONLY DEVELOPMENT SCOPE
+
+Dafny program verifier did not attempt verification

@@ -1,0 +1,6 @@
+formal/crypto/NativeKeccak.dfy(881,121): Error: KMC007: Read address is not typed-identical to the actual index expression
+    |
+881 |     trace := ST.Ops(0,0,0,0,1,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Ops(0,0,1,0,0,0,0) + ST.Read(0,0,((((rc%2) as bv4)*4)*4) as int);
+    |                                                                                                                          ^^
+
+1 resolution/type errors detected in NativeKeccak.dfy
