@@ -69,6 +69,10 @@ it does **not** validate their encoder bodies or prove value/trace observation
 semantics. The later complete Keccak observer must check canonical marker
 bodies, all operations and the full eleven-method/four-function closure.
 
+The two fixtures are stored as `.dfy.in` templates so they do not expand the
+production Dafny inventory. The runner authenticates their unchanged contents
+and materializes `.dfy` files only in its fresh private stage.
+
 `SnapshotValueBridge.dfy` is the separate direct Dafny value/full-result bridge,
 including shared input/output arrays. Its faithful stale-word mutation is a
 proof control, not an AST rejection control. Those root-owned proof receipts

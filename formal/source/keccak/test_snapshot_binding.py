@@ -378,9 +378,15 @@ def stage_sources(out):
         origins[rel] = {"origin": "git-blob", "commit": PINNED_COMMIT, "sha256": sha_bytes(data)}
 
     # Frozen current fixture and checker inputs (never the author's cache).
-    for rel, expected in ((BINDING_REL, BINDING_SHA), (BRIDGE_REL, BRIDGE_SHA),
-                          (CHECKER_REL, None), (CHECKER_PROJ_REL, None), (RUNNER_REL, RUNNER_SHA)):
-        src = REPO_ROOT / rel
+    # Keep fixture templates outside the production *.dfy inventory. Only the
+    # fresh private stage materializes them as actual Dafny source files.
+    for rel, source_rel, expected in (
+            (BINDING_REL, BINDING_REL + ".in", BINDING_SHA),
+            (BRIDGE_REL, BRIDGE_REL + ".in", BRIDGE_SHA),
+            (CHECKER_REL, CHECKER_REL, None),
+            (CHECKER_PROJ_REL, CHECKER_PROJ_REL, None),
+            (RUNNER_REL, RUNNER_REL, RUNNER_SHA)):
+        src = REPO_ROOT / source_rel
         if not src.is_file():
             raise GateError("frozen input is absent: " + rel)
         data = src.read_bytes()
@@ -389,7 +395,8 @@ def stage_sources(out):
         dest = tree / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
-        origins[rel] = {"origin": "frozen-repo-input", "sha256": sha_file(dest)}
+        origins[rel] = {"origin": "frozen-repo-input", "source_path": source_rel,
+                        "sha256": sha_file(dest)}
 
     # Authenticated include closure from the exact staged source.
     pending = [BINDING_REL, "formal/crypto/NativeKeccak.dfy"]
