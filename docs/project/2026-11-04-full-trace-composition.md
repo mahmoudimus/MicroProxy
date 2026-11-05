@@ -223,8 +223,15 @@ proofs. Old ML-KEM composition and package-wide erasure claims cannot be relabel
 The actual checkout's generated Java must match the canonical source; placing
 canonical files only in a private project does not establish checkout identity.
 
-The original artifact-only validator can then qualify exact supplied JARs and
-the bundle from that selected delivery project. Its results do not substitute
-for the parent prerequisite policy. Physical JVM timing and independent external
+The original artifact-only validator passed against the actual published 0.8.1
+library and bundle using the candidate's freshly built checkout classes. All
+468 library classes match. The bundle retains those classes, 84 crypto classes,
+37 runtime classes and all three required notices. Nine handshake cases and
+nine nonce cases pass on each of JDK 21 and 25, with checked class origins.
+The complete project and actual checkout input maps remain unchanged afterward.
+This establishes artifact compatibility; it does not substitute for the parent
+prerequisite policy or complete its adoption gate.
+
+Physical JVM timing and independent external
 expert review remain outstanding. Full SHAKE/sponge, NTT/KEM, HKDF and owned
 adapter trace composition are the later stages, not conclusions of this slice.
