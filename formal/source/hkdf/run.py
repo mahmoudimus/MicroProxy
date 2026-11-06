@@ -14,6 +14,7 @@ source-level observation result, not a JVM-timing, compiler-refinement,
 cryptographic-hardness or whole-crypto-source-trace proof.
 """
 import argparse
+import importlib.util
 import hashlib
 import json
 import os
@@ -562,492 +563,64 @@ def observed_mutants(base_text, root, harness_source=HARNESS):
     return list(out)
 
 
-def snapshot(root, pattern="*.java"):
-    return {str(p.relative_to(root)): digest(p) for p in sorted(root.rglob(pattern)) if p.is_file()}
-
-
-def translate(dafny, source, folder, log):
-    folder.mkdir(parents=True, exist_ok=True)
-    target = folder / "Hkdf.dfy"
-    target.write_text(source.read_text())
-    rc, text = run([dafny, "translate", "java", "--outer-module", OUTER_MODULE,
-                    "--output", OUTPUT_NAME, "--no-verify", target.name], log, cwd=folder)
-    if rc != 0 or BAD_RUN.search(text):
-        raise GateError("Dafny Java translation failed: " + folder.name)
-    generated = folder / f"{OUTPUT_NAME}-java"
-    if not generated.is_dir():
-        raise GateError("missing generated Java directory")
-    return generated, generated / f"{OUTPUT_NAME}.java"
-
-
-def find_jdk21():
-    candidates = []
-    if os.environ.get("JAVA_HOME"):
-        candidates.append(Path(os.environ["JAVA_HOME"]))
-    candidates += sorted(Path.home().glob(".sdkman/candidates/java/21*"))
-    candidates += sorted(Path("/Library/Java/JavaVirtualMachines").glob("*21*"))
-    for home in candidates:
-        javac = home / "bin/javac"
-        if javac.is_file():
-            try:
-                out = subprocess.check_output([str(javac), "-version"], stderr=subprocess.STDOUT, text=True)
-                m = re.search(r"javac (\d+)", out)
-                if m and int(m.group(1)) >= 21:
-                    return home
-            except subprocess.SubprocessError:
-                pass
-    raise GateError("a JDK 21+ is required for the Java ABI/inventory check")
-
-
-def compile_java(javac, runtime, sources, classes, log):
-    classes.mkdir(parents=True, exist_ok=True)
-    rc, text = run([javac, "--release", "21", "-g:none", "-encoding", "UTF-8",
-                    "-cp", str(runtime), "-d", str(classes)] + [str(s) for s in sources], log)
-    if rc != 0 or text.strip():
-        raise GateError("javac failed or emitted diagnostics: " + text[-4000:])
-
-
-def class_inventory(classes):
-    result = {}
-    for p in sorted(classes.rglob("*.class")):
-        result[str(p.relative_to(classes))] = digest(p)
-    return result
-
-
-def build_checker(dafny, work, checker_cs=CHECKER_CS, checker_csproj=CHECKER_CSPROJ):
-    folder = work / "checker-build" / "src"
-    folder.mkdir(parents=True, exist_ok=False)
-    copied = {}
-    for source in (checker_cs, checker_csproj):
-        target = folder / source.name
-        expected = digest(source)
-        shutil.copyfile(source, target)
-        if digest(target) != expected:
-            raise GateError("copied checker input changed: " + source.name)
-        copied[source.name] = expected
-    env = os.environ.copy()
-    env["DOTNET_CLI_HOME"] = str(folder.parent / "dotnet-home")
-    env["NUGET_PACKAGES"] = str(folder.parent / "nuget")
-    rc, sdk = run(["dotnet", "--version"], work / "checker-sdk.log", cwd=folder, env=env)
-    if rc or not re.fullmatch(r"\d+\.\d+\.\d+\s*", sdk):
-        raise GateError("cannot identify checker build SDK")
-    command = ["dotnet", "build", "-v:q", "HkdfCoverage.csproj",
-               "-p:DafnyHome=" + str(Path(dafny).parent),
-               "-p:ImportDirectoryBuildProps=false", "-p:ImportDirectoryBuildTargets=false"]
-    rc, text = run(command, work / "checker-build.log", cwd=folder, env=env)
-    if rc:
-        raise GateError("checker build failed: " + text[-4000:])
-    for name, expected in copied.items():
-        if digest(folder / name) != expected:
-            raise GateError("checker build changed source: " + name)
-    dll = folder / "bin/Debug/net6.0/HkdfCoverage.dll"
-    if not dll.is_file():
-        raise GateError("checker assembly missing")
-    record = {"source_pins": copied, "sdk": sdk.strip(), "command": command,
-              "assembly_sha256": digest(dll), "build_root": str(folder.parent),
-              "directory_build_imports_disabled": True}
-    (work / "checker-build.json").write_text(json.dumps(record, indent=2) + "\n")
-    return dll
-
-
-def inventory():
-    # Only the owned HKDF closure is pinned.  The copied A/formal tree contains
-    # unrelated worker files; they are deliberately not part of this proof
-    # component and are not read by this runner.
-    files = [
-        P / "formal/dafny/hkdf/Hkdf.dfy",
-        P / "formal/dafny/hkdf/GENERATED.json",
-        HARNESS,
-        CHECKER_CS,
-        CHECKER_CSPROJ,
-        HERE / "run.py",
-        HERE / "test_run.py",
-        HERE / "README.md",
-        FIXTURE_AGGREGATOR,
-        DECLARATIONS,
-        P / "formal/dafny/tools.json",
-        P / "formal/dafny/toolchain.py",
-        DELIVERY,
-    ]
-    files += sorted((JAVA_PRODUCTION / PACKAGE).glob("*.java"))
-    files += [JAVA_PRODUCTION / name for name in (
-        "io/github/mahmoudimus/quic/Hkdf.java",
-        "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
-        "io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
-    )]
-    files += [p for p in REVIEWER_DIR.rglob("*.dfy") if p.is_file()]
-    files += [p for p in REREVIEW_DIR.rglob("*.dfy") if p.is_file()]
-    files += [p for p in THIRD_DIR.rglob("*.dfy") if p.is_file()]
-    return sorted(str(p.relative_to(P)) for p in files)
-
-
-def pipeline(args, output, evidence):
-    manifest = json.loads((HERE / "inputs.json").read_text())
-    pins = manifest["inputs"]
-    expected = set(pins)
-    actual = set(inventory())
-    if expected != actual:
-        raise GateError("Proof input inventory changed; review before renewing pins: "
-                        f"missing={sorted(expected - actual)} extra={sorted(actual - expected)}")
-    for name, expected_hash in pins.items():
-        path = P / name
-        if not path.is_file() or digest(path) != expected_hash:
-            raise GateError("Input changed; review before renewing pin: " + name)
-
-    # Freeze every pinned input before importing the pinned toolchain/delivery
-    # modules.  The imports below come from the frozen copy, not from a mutable
-    # working tree.
-    frozen = output / "frozen"
-    shutil.rmtree(frozen, ignore_errors=True)
-    for name, expected_hash in pins.items():
-        target = frozen / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(P / name, target)
-        if digest(target) != expected_hash:
-            raise GateError("Frozen input changed: " + name)
-    sys.path.insert(0, str(frozen / "formal/dafny"))
-    sys.path.insert(0, str(frozen / "formal/crypto"))
-    import toolchain
-    import delivery
-
-    frozen_hkdf = frozen / "formal/dafny/hkdf/Hkdf.dfy"
-    frozen_harness = frozen / "formal/source/hkdf/HkdfTrace.dfy"
-    frozen_checker_cs = frozen / "formal/source/hkdf/checker/HkdfCoverage.cs"
-    frozen_checker_csproj = frozen / "formal/source/hkdf/checker/HkdfCoverage.csproj"
-    frozen_declarations = frozen / "formal/source/hkdf/declarations.txt"
-    frozen_fixture = frozen / "formal/source/hkdf/fixtures/HkdfCrypto.java"
-    frozen_reviewer = frozen / "formal/source/hkdf/controls/reviewer"
-    frozen_java = frozen / "quic/src/main/java"
-
-    dafny, runtime, tools, asset = toolchain.install(args.cache)
-    rc, text = run([dafny, "--version"], evidence / "logs/dafny-version.log")
-    if rc != 0 or not text.strip().startswith(tools["version"] + "+"):
-        raise GateError("unexpected Dafny version: " + text.strip())
-
-    def closure_call(label, command):
-        return run(command, evidence / f"logs/closure-{label}.log", cwd=P)
-
-    result = {
-        "schema": "microproxy.hkdf-source-traces/v1",
-        "status": "complete",
-        "tool": {"name": "dafny", "version": text.strip(), "asset_sha256": asset["sha256"],
-                 "runtime_sha256": digest(runtime)},
-        "flags": FLAGS,
-        "scope": {
-            "proved": [
-                "direct ghost observations on the actual VerifiedHkdf.Extract/Expand/LabelInfo/ExpandLabel bodies",
-                "universal two-run trace equality under equal public hash length/lengths/label units",
-                "arbitrary private salt/IKM/PRK/info/context byte contents and secret HMAC results",
-                "existing functional Extract/Expand/LabelInfo/ExpandLabel postconditions retained",
-            ],
-            "checked_not_proved": [
-                "trusted resolved-AST coverage checker over Dafny's official plugin AST",
-                "actual trace out formal is initialized once and append-only, with exact callee ghost composition",
-                "official Dafny include parser discovers and audits the full source closure",
-                "generated Java package source identity against committed production and class/ABI inventory",
-            ],
-            "trusted_or_open": [
-                "Dafny verifier, Boogie/Z3, Dafny compiler ghost erasure, javac, DafnyRuntime, JVM/JIT/CPU/GC",
-                "JDK JCE HMAC provider correctness and physical timing",
-                "Java adapter refinement, whole-crypto-source traces, cryptographic hardness, expert review",
-                "coverage checker is trusted C# and is not formally verified",
-                "HKDF private tags 10-21 are a scoped ghost trace, not the canonical typed vocabulary decoder",
-                "existing historical 13/19/31 bytecode inventories are unchanged and not promoted here",
-            ],
-        },
-        "audit": [], "positive": {}, "checker": {}, "controls": {},
-        "java": {}, "inputs": pins,
-    }
-
-    # Positive proofs.
-    rc, text = run([dafny, "verify", frozen_hkdf, *FLAGS], evidence / "logs/verify-hkdf.log")
-    result["positive"]["hkdf_body"] = require_verified(rc, text, 248, "VerifiedHkdf body", exact=248)
-    rc, text = run([dafny, "verify", frozen_harness, "--verify-included-files", *FLAGS], evidence / "logs/verify-harness.log")
-    result["positive"]["harness_included"] = require_verified(rc, text, 259, "HkdfTrace harness + included bodies", exact=259)
-
-    # Official Dafny parser discovery: audit every actual discovered source file.
-    closure = delivery.source_closure(frozen, frozen_harness, dafny, call=closure_call)
-    if set(closure) != set(AUDIT_EXPECTED):
-        raise GateError("Unexpected Dafny source closure: " + repr(sorted(closure)))
-    result["checker"]["source_closure"] = closure
-    for name, expected_findings in AUDIT_EXPECTED.items():
-        result["audit"].append(audit_file(dafny, frozen / name, evidence / f"logs/audit-{Path(name).stem}.log", expected_findings, name))
-
-    # BOM/comment-inline include control: the official parser must discover the
-    # hidden include, and explicit per-file audit must report its axiom.
-    inc = output / "audit-control"
-    inc.mkdir(parents=True, exist_ok=True)
-    (inc / "BadIncluded.dfy").write_text("lemma {:axiom} BadAssumption()\n")
-    (inc / "EntryBom.dfy").write_bytes(
-        b"\xef\xbb\xbf// BOM and inline comment includes must be discovered by Dafny's parser\n"
-        b'include "BadIncluded.dfy" // inline comment\n'
-        b"lemma UseBad() { BadAssumption(); }\n")
-    inc_closure = delivery.source_closure(inc, inc / "EntryBom.dfy", dafny, call=closure_call)
-    if set(inc_closure) != {"EntryBom.dfy", "BadIncluded.dfy"}:
-        raise GateError("BOM/comment-inline include escaped official closure discovery: " + repr(sorted(inc_closure)))
-    rc, text = run([dafny, "audit", inc / "EntryBom.dfy", "--allow-external-contracts"],
-                   evidence / "logs/audit-control-entry.log")
-    entry_findings = AUDIT.findall(text)
-    if rc != 0 or not entry_findings or int(entry_findings[0]) != 0:
-        raise GateError("included-assumption control: entry audit unexpectedly traversed the include")
-    result["controls"]["included-assumption-entry-audit"] = {"findings": 0,
-        "meaning": "audit of EntryBom.dfy does not traverse the included file"}
-    rc, text = run([dafny, "audit", inc / "BadIncluded.dfy", "--allow-external-contracts"],
-                   evidence / "logs/audit-control-included.log")
-    found = AUDIT.findall(text)
-    if rc != 0 or not found or int(found[0]) < 1:
-        raise GateError("included-assumption control: audit of the included file did not report the axiom")
-    result["controls"]["included-assumption-file-audit"] = {"findings": int(found[0]),
-        "meaning": "official parser discovered the BOM/comment-inline include; per-file audit caught the axiom"}
-
-    # Checker build and positive run.
-    checker = build_checker(dafny, output, frozen_checker_cs, frozen_checker_csproj)
-    checker_sha = digest(checker)
-    result["checker"]["build"] = json.loads((output / "checker-build.json").read_text())
-    rc, text = run([dafny, "resolve", frozen_hkdf, "--allow-external-contracts", "--plugin", checker],
-                   evidence / "logs/checker-hkdf.log")
-    if rc != 0 or "HKDF-SOURCE-COVERAGE OK" not in text:
-        raise GateError("positive coverage checker failed")
-    result["checker"]["positive"] = "HKDF-SOURCE-COVERAGE OK"
-    declarations = [line for line in text.splitlines() if line.startswith("HKDF-DECL ")]
-    if declarations != frozen_declarations.read_text().splitlines():
-        raise GateError("reviewed declaration inventory changed")
-    result["checker"]["declarations"] = len(declarations)
-    rc, text = run([dafny, "resolve", frozen_harness, "--allow-external-contracts", "--plugin", checker],
-                   evidence / "logs/checker-harness.log")
-    if rc != 0 or "HKDF-SOURCE-COVERAGE OK" not in text:
-        raise GateError("positive coverage checker on harness failed")
-
-    # Negative coverage controls.
-    base_text = frozen_hkdf.read_text()
-    mutants = checker_mutants(base_text, output / "mutants", frozen_harness)
-    mutants.update(binding_mutants(base_text, output / "mutants", frozen_harness))
-    for name, needle in mutants.items():
-        folder = output / "mutants" / name
-        rc, text = run([dafny, "resolve", folder / "Hkdf.dfy", "--allow-external-contracts", "--plugin", checker],
-                       evidence / f"logs/checker-{name}.log")
-        result["controls"][name] = require_checker_rejection(rc, text, needle, name)
-
-    # This exploit was previously false-green at every semantic gate. Replay
-    # the complete mutated body and paired harness, and later compare its Java,
-    # so the regression is tied to the coverage rejection rather than a broken
-    # proof or a changed executable algorithm.
-    binding_folder = output / "mutants/callee-suchthat-model-erasure"
-    binding_result = result["controls"]["callee-suchthat-model-erasure"]
-    for label, path, included, count in (
-            ("method", binding_folder / "Hkdf.dfy", [], 246),
-            ("harness", binding_folder / "HkdfTrace.dfy", ["--verify-included-files"], 257)):
-        rc, text = run([dafny, "verify", path, *included, *FLAGS],
-                       evidence / f"logs/verify-binding-erasure-{label}.log")
-        binding_result[label] = require_verified(rc, text, count,
-            "binding erasure " + label, exact=count)
-
-    # Frozen independent-review findings: the exact real golden/empty/shadow
-    # sources that the previous checker accepted must now be rejected by name.
-    for name, needle in REVIEWER_CONTROLS.items():
-        rc, text = run([dafny, "resolve", frozen_reviewer / name / "Hkdf.dfy",
-                        "--allow-external-contracts", "--plugin", checker],
-                       evidence / f"logs/checker-reviewer-{name}.log")
-        result["controls"]["reviewer-" + name] = require_checker_rejection(rc, text, needle, "reviewer-" + name)
-
-    # The reordered-callee control is a full-gate ghost-only mutation: its
-    # actual body and paired harness still verify at the baseline counts, so
-    # the named checker rejection is not a count/inventory drift artifact.
-    order_folder = frozen / "formal/source/hkdf/controls/rereview/callee-order"
-    rc, text = run([dafny, "verify", order_folder / "Hkdf.dfy", *FLAGS],
-                   evidence / "logs/verify-rereview-callee-order-method.log")
-    result["controls"]["rereview-callee-order-method"] = require_verified(
-        rc, text, 248, "rereview callee-order method", exact=248)
-    rc, text = run([dafny, "verify", order_folder / "HkdfTrace.dfy", "--verify-included-files", *FLAGS],
-                   evidence / "logs/verify-rereview-callee-order-harness.log")
-    result["controls"]["rereview-callee-order-harness"] = require_verified(
-        rc, text, 259, "rereview callee-order harness", exact=259)
-
-    # Frozen independent re-review findings on the current baseline: exact
-    # class-root/marker/callee-order/datatype-equality/overflow regressions.
-    for name, needle in REREVIEW_CONTROLS.items():
-        rc, text = run([dafny, "resolve", frozen / "formal/source/hkdf/controls/rereview" / name / "Hkdf.dfy",
-                        "--allow-external-contracts", "--plugin", checker],
-                       evidence / f"logs/checker-rereview-{name}.log")
-        result["controls"]["rereview-" + name] = require_checker_rejection(rc, text, needle, "rereview-" + name)
-
-    # Third-review duplicate actual-call controls: the body and paired harness
-    # are green at the reviewer's exact counts, but the checker rejects the
-    # rebinding of one ghost local by a second actual LabelInfo/Expand call.
-    for name, (needle, method_count, harness_count) in THIRD_CONTROLS.items():
-        folder = frozen / "formal/source/hkdf/controls/third" / name
-        rc, text = run([dafny, "verify", folder / "Hkdf.dfy", *FLAGS],
-                       evidence / f"logs/verify-third-{name}-method.log")
-        method_result = require_verified(rc, text, method_count, f"third {name} method", exact=method_count)
-        rc, text = run([dafny, "verify", folder / "HkdfTrace.dfy", "--verify-included-files", *FLAGS],
-                       evidence / f"logs/verify-third-{name}-harness.log")
-        harness_result = require_verified(rc, text, harness_count, f"third {name} harness", exact=harness_count)
-        rc, text = run([dafny, "resolve", folder / "Hkdf.dfy", "--allow-external-contracts", "--plugin", checker],
-                       evidence / f"logs/checker-third-{name}.log")
-        checker_result = require_checker_rejection(rc, text, needle, "third-" + name)
-        result["controls"]["third-" + name] = {
-            "method": method_result, "harness": harness_result, "checker": checker_result}
-
-    # Consistent fresh bijective relabel: labels are opaque method-local
-    # annotation IDs.  A 2->99 relabel must be accepted and keep proofs green.
-    accept_folder = accept_mutants(frozen_hkdf.read_text(), output / "mutants", frozen_harness)
-    rc, text = run([dafny, "verify", accept_folder / "Hkdf.dfy", *FLAGS],
-                   evidence / "logs/verify-site-relabel-accept-method.log")
-    accept_method = require_verified(rc, text, 248, "site-relabel-accept method", exact=248)
-    rc, text = run([dafny, "verify", accept_folder / "HkdfTrace.dfy", "--verify-included-files", *FLAGS],
-                   evidence / "logs/verify-site-relabel-accept-harness.log")
-    accept_harness = require_verified(rc, text, 259, "site-relabel-accept harness", exact=259)
-    rc, text = run([dafny, "resolve", accept_folder / "Hkdf.dfy", "--allow-external-contracts", "--plugin", checker],
-                   evidence / "logs/checker-site-relabel-accept.log")
-    if rc != 0 or "HKDF-SOURCE-COVERAGE OK" not in text:
-        raise GateError("consistent bijective site relabel was not accepted")
-    result["controls"]["site-relabel-accept"] = {
-        "classification": "accepted-bijective-relabel",
-        "method": accept_method, "harness": accept_harness,
-        "checker": "HKDF-SOURCE-COVERAGE OK"}
-
-    # Block-boundary control is body/harness-green; only the named pending-block
-    # coverage rule rejects it.
-    block_folder = output / "mutants" / "block-boundary-pending"
-    rc, text = run([dafny, "verify", block_folder / "Hkdf.dfy", *FLAGS],
-                   evidence / "logs/verify-block-boundary-pending-method.log")
-    result["controls"]["block-boundary-pending"]["method"] = require_verified(
-        rc, text, 248, "block-boundary-pending method", exact=248)
-    rc, text = run([dafny, "verify", block_folder / "HkdfTrace.dfy", "--verify-included-files", *FLAGS],
-                   evidence / "logs/verify-block-boundary-pending-harness.log")
-    result["controls"]["block-boundary-pending"]["harness"] = require_verified(
-        rc, text, 259, "block-boundary-pending harness", exact=259)
-
-    # Observed-secret controls: method verifies, two-run harness genuinely fails.
-    for name in observed_mutants(base_text, output / "mutants", frozen_harness):
-        folder = output / "mutants" / name
-        rc, text = run([dafny, "verify", folder / "Hkdf.dfy", *FLAGS], evidence / f"logs/verify-{name}-method.log")
-        result["controls"][name + "-method"] = require_verified(rc, text, 218, name + " method")
-        rc, text = run([dafny, "verify", folder / "HkdfTrace.dfy", "--verify-included-files", *FLAGS],
-                       evidence / f"logs/verify-{name}-harness.log")
-        result["controls"][name + "-harness"] = require_assertion_failure(rc, text, name + " harness")
-
-    # Baseline still verifies ALL implementation/helper bodies above. First
-    # check each exact metadata symbol positively, then isolate the same actual
-    # declaration in its faulty control. A deliberately broken encoder can
-    # otherwise exhaust resources in unrelated recursive trace lemmas.
-    result["metadata_targets"] = {}
-    for control, encoder in METADATA_ENCODERS.items():
-        if encoder in result["metadata_targets"]:
-            continue
-        rc, text = run(metadata_command(dafny, frozen_hkdf, control),
-                       evidence / f"logs/metadata-target-{encoder}.log")
-        if "VerifiedHkdf." + encoder not in text:
-            raise GateError("metadata filter did not select actual encoder " + encoder)
-        result["metadata_targets"][encoder] = require_verified(
-            rc, text, 1, "metadata baseline " + encoder, exact=1)
-
-    # Faulty actual encoder contracts must fail at the named obligation, never
-    # at a parser/resource error. This does not replace full baseline proofs.
-    for name, needle in metadata_mutants(base_text, output / "metadata-mutants").items():
-        folder = output / "metadata-mutants" / name
-        rc, text = run(metadata_command(dafny, folder / "Hkdf.dfy", name),
-                       evidence / f"logs/verify-{name}.log")
-        if "VerifiedHkdf." + METADATA_ENCODERS[name] not in text:
-            raise GateError("metadata control did not select its actual encoder: " + name)
-        result["controls"][name] = require_named_proof_failure(rc, text, needle, name)
-
-    # Java identity: ghost-instrumented source must generate the committed
-    # production package byte-for-byte; the aggregator is an erasure fixture.
-    traced_dir = output / "java-instrumented"
-    trace_generated, trace_agg = translate(dafny, frozen_hkdf, traced_dir, evidence / "logs/translate-instrumented.log")
-    trace_pkg = snapshot(trace_generated / PACKAGE)
-    committed_dir = frozen_java / Path("io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf")
-    committed = snapshot(committed_dir)
-    committed = {Path(k).name: v for k, v in committed.items()}
-    fresh = {Path(k).name: v for k, v in trace_pkg.items()}
-    if committed != fresh:
-        raise GateError("instrumented generated package differs from committed production generated source")
-    if digest(trace_agg) != digest(frozen_fixture):
-        raise GateError("generated top-level aggregator differs from the pinned erasure fixture")
-    result["java"]["generated_package_files"] = len(trace_pkg)
-    result["java"]["generated_package_matches_committed_production"] = True
-    result["java"]["aggregator_matches_fixture"] = True
-    result["java"]["hashes"] = trace_pkg
-
-    erased_generated, erased_agg = translate(dafny, binding_folder / "Hkdf.dfy",
-        output / "java-binding-erasure", evidence / "logs/translate-binding-erasure.log")
-    if snapshot(erased_generated / PACKAGE) != trace_pkg or digest(erased_agg) != digest(trace_agg):
-        raise GateError("ghost binding-erasure regression changed generated executable Java")
-    binding_result["java_package_files"] = len(trace_pkg)
-    binding_result["java_identical"] = True
-
-    java_home = find_jdk21()
-    javac = java_home / "bin/javac"
-    production_sources = [
-        frozen_java / "io/github/mahmoudimus/quic/Hkdf.java",
-        frozen_java / "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
-        frozen_java / "io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
-    ]
-    base_classes = output / "classes-baseline"
-    trace_classes = output / "classes-instrumented"
-    compile_java(javac, runtime, sorted(committed_dir.glob("*.java")) + production_sources,
-                 base_classes, evidence / "logs/javac-baseline.log")
-    compile_java(javac, runtime, sorted((trace_generated / PACKAGE).glob("*.java")) + production_sources,
-                 trace_classes, evidence / "logs/javac-instrumented.log")
-    base_inv = class_inventory(base_classes)
-    trace_inv = class_inventory(trace_classes)
-    if base_inv != trace_inv:
-        raise GateError("compiled class inventory/hashes differ between committed production and instrumented source")
-    result["java"]["class_inventory_identical"] = True
-    result["java"]["classes"] = len(trace_inv)
-    rc, text = run([javac, "-version"], evidence / "logs/javac-version.log")
-    result["java"]["javac"] = text.strip()
-
-    # Public ABI signatures for the four generated methods: no ghost trace parameter.
-    rc, text = run([java_home / "bin/javap", "-p", "-classpath", str(trace_classes),
-                    "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default"],
-                   evidence / "logs/javap-__default.log")
-    signatures = [line.strip() for line in text.splitlines()
-                  if re.search(r"\b(Extract|Expand|LabelInfo|ExpandLabel)\(", line)]
-    expected_sigs = [
-        "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult Extract(java.math.BigInteger, dafny.DafnySequence<? extends java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Byte>);",
-        "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult Expand(java.math.BigInteger, dafny.DafnySequence<? extends java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);",
-        "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult LabelInfo(dafny.DafnySequence<? extends java.lang.Short>, dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);",
-        "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult ExpandLabel(java.math.BigInteger, dafny.DafnySequence<? extends java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Short>, dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);",
-    ]
-    if len(signatures) != 4 or any(exp not in text.replace("\n", " ") for exp in expected_sigs):
-        raise GateError("generated public HKDF ABI changed or ghost trace leaked into Java: " + repr(signatures))
-    result["java"]["abi_signatures"] = signatures
-
-    if digest(checker) != checker_sha:
-        raise GateError("checker assembly changed during replay")
-    result["checker"]["assembly_sha256_after"] = checker_sha
-
-    # Re-check pins after all work.
-    for name, expected_hash in pins.items():
-        if digest(P / name) != expected_hash:
-            raise GateError("Input changed during replay: " + name)
-    return result
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=P / "work/replay")
-    parser.add_argument("--cache", type=Path,
-                        default=Path(os.environ.get("MICROPROXY_FORMAL_CACHE", Path.home() / ".cache/microproxy-formal")))
-    args = parser.parse_args(argv)
-    output = args.output.expanduser().resolve()
-    output.mkdir(parents=True, exist_ok=False)
-    evidence = output / "evidence"
-    (evidence / "logs").mkdir(parents=True, exist_ok=True)
-    report = evidence / "report.json"
-    report.unlink(missing_ok=True)
-    report.write_text(json.dumps({"status": "incomplete"}, indent=2) + "\n")
+    """Authenticate the externally selected portable package before any import."""
+    if sys.flags.optimize:
+        raise GateError('Python optimization is not supported for HKDF replay')
+    argv = sys.argv[1:] if argv is None else argv
+    bootstrap = argparse.ArgumentParser(add_help=False)
+    bootstrap.add_argument('--manifest', type=Path, required=True)
+    bootstrap.add_argument('--expected-manifest', required=True)
+    args, _ = bootstrap.parse_known_args(argv)
+    if not re.fullmatch('[0-9a-f]{64}', args.expected_manifest):
+        raise GateError('expected manifest must be an externally selected SHA256')
+    def raw(path):
+        path = Path(path).absolute()
+        cursor = Path(path.anchor)
+        for part in path.parts[1:]:
+            cursor /= part
+            if cursor.is_symlink():
+                raise GateError('symlink input component: ' + str(cursor))
+        return path.read_bytes()
+    manifest_raw = raw(args.manifest)
+    if hashlib.sha256(manifest_raw).hexdigest() != args.expected_manifest:
+        raise GateError('externally selected manifest hash mismatch')
+    data = json.loads(manifest_raw)
+    if data.get('schema') != 'microproxy.hkdf-source-traces-inputs/v2':
+        raise GateError('unsupported HKDF manifest schema')
+    for name, pin in data['inputs'].items():
+        rel = Path(name)
+        if rel.is_absolute() or '..' in rel.parts or '\\' in name:
+            raise GateError('noncanonical manifest input')
+        if hashlib.sha256(raw(P / rel)).hexdigest() != pin:
+            raise GateError('authenticated input mismatch: ' + name)
+    # Compile the exact captured source, bypassing .pyc even if a poisoned cache
+    # has valid mtime/size. Restore the prior module on failed execution.
+    path = HERE / 'tooling/admission.py'
+    captured = raw(path)
+    if hashlib.sha256(captured).hexdigest() != data['inputs']['formal/source/hkdf/tooling/admission.py']:
+        raise GateError('admission helper changed')
+    name = 'hkdf_portable_admission'
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(name)
+    sys.modules[name] = module
     try:
-        result = pipeline(args, output, evidence)
-    except Exception as error:
-        report.write_text(json.dumps({"status": "failed", "error": str(error)}, indent=2) + "\n")
-        print(str(error), file=sys.stderr)
-        return 1
-    report.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print("Complete:", report)
-    return 0
+        exec(compile(captured, str(path), 'exec'), module.__dict__)
+    except BaseException:
+        if previous is None: sys.modules.pop(name, None)
+        else: sys.modules[name] = previous
+        raise
+    module.authenticate(P, args.manifest, args.expected_manifest)
+    replay = module.load_module('hkdf_portable_replay', HERE / 'replay.py',
+                                 data['inputs']['formal/source/hkdf/replay.py'])
+    return replay.main(argv, P, data, module)
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main())
+    except (Exception, AssertionError) as error:
+        print(type(error).__name__ + ': ' + str(error), file=sys.stderr)
+        raise SystemExit(1)
