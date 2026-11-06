@@ -4,7 +4,7 @@ using System.Linq;
 using Microsoft.Dafny;
 using Microsoft.Dafny.Plugins;
 
-// Trusted, small source-coverage checker for the four verified HKDF methods.
+// Trusted, small source-coverage checker for the eight verified HKDF methods.
 // It runs in PostResolve over Dafny's official resolved AST.  It is NOT a
 // formal theorem and NOT a second executable semantics.
 //
@@ -29,9 +29,13 @@ public class HkdfCoverageConfiguration : PluginConfiguration {
 
 public class HkdfCoverageRewriter : Rewriter {
   readonly ErrorReporter reporter;
-  static readonly string[] rootNames = { "Extract", "Expand", "LabelInfo", "ExpandLabel" };
+  static readonly string[] rootNames = { "Extract", "Expand", "LabelInfo", "ExpandLabel", "CopyInput", "ExtractArrays", "ExpandArrays", "LabelInfoArray" };
+  readonly Dictionary<string,Method> ownedRoots = new();
+  DatatypeDecl bytesResult;
+  Function validHash;
+  Method currentRoot;
   static readonly Dictionary<string,int> markerArity = new() {
-    {"EvBranch",2},{"EvLoop",3},{"EvRead",2},{"EvCall",3},{"EvMac",6},
+    {"EvBranch",2},{"EvBranchIf",3},{"EvLoop",3},{"EvRead",2},{"EvCall",3},{"EvMac",6},
     {"EvAlloc",2},{"EvConcat",3},{"EvSlice",4},{"EvCreate",3},{"EvOps",7},
     {"EvWrite",2},{"EvLoopExit",3}
   };
@@ -41,6 +45,8 @@ public class HkdfCoverageRewriter : Rewriter {
     {2,"VerifiedHkdf._default.ValidHash"},
     {3,"VerifiedHkdf._default.LabelInfo"},
     {4,"VerifiedHkdf._default.Expand"},
+    {5,"VerifiedHkdf._default.CopyInput"},
+    {6,"VerifiedHkdf._default.Extract"},
     {10,"VerifiedHkdf.BytesResult.Success"},
     {11,"VerifiedHkdf.BytesResult.Failure"},
     {20,"VerifiedHkdf.FailureKind.InvalidHash"},
@@ -56,9 +62,9 @@ public class HkdfCoverageRewriter : Rewriter {
     public CallStmt Call;
     public List<Statement> Body;
   }
-  readonly HashSet<(string name,long pos)> ghostCallKeys = new();
-  readonly Dictionary<(string name,long pos),int> ghostCallAppendCount = new();
-  readonly Dictionary<(string name,long pos),GhostCallCtx> ghostCallCtx = new();
+  readonly HashSet<IVariable> ghostCallKeys = new(ReferenceEqualityComparer.Instance);
+  readonly Dictionary<IVariable,int> ghostCallAppendCount = new(ReferenceEqualityComparer.Instance);
+  readonly Dictionary<IVariable,GhostCallCtx> ghostCallCtx = new(ReferenceEqualityComparer.Instance);
   readonly Dictionary<SingleAssignStmt,List<Statement>> traceAssignBody = new(ReferenceEqualityComparer.Instance);
   readonly HashSet<FunctionCallExpr> validatedMarkers = new(ReferenceEqualityComparer.Instance);
   readonly HashSet<SingleAssignStmt> actualTraceAssigns = new(ReferenceEqualityComparer.Instance);
@@ -73,14 +79,17 @@ public class HkdfCoverageRewriter : Rewriter {
 
   public override void PostResolve(Program program) {
     fallbackTok = program.Modules().SelectMany(m => m.TopLevelDecls).FirstOrDefault()?.Tok;
-    var roots = new Dictionary<string,Method>();
+    var roots = ownedRoots;
     var hkdfModule = program.Modules().FirstOrDefault(m => m.Name == "VerifiedHkdf" && m.FullName == "VerifiedHkdf");
     var defaultClass = hkdfModule?.TopLevelDecls.OfType<TopLevelDeclWithMembers>()
-      .FirstOrDefault(td => td is DefaultClassDecl || td.Name == "_default");
+      .FirstOrDefault(td => td is DefaultClassDecl && td.Name == "_default");
     if (hkdfModule == null || defaultClass == null) {
       Error(fallbackTok, "missing exact module VerifiedHkdf._default");
       return;
     }
+    bytesResult = hkdfModule.TopLevelDecls.OfType<DatatypeDecl>()
+      .SingleOrDefault(d => d.Name == "BytesResult" && d.FullName == "VerifiedHkdf.BytesResult");
+    if (bytesResult == null) { Error(fallbackTok, "HKDF_SIGNATURE: missing canonical BytesResult declaration"); return; }
     // Reserved root/marker names may not be shadowed anywhere in the program,
     // including classes, nested types, ghost methods/lemmas and duplicates.
     foreach (var m in program.Modules())
@@ -93,7 +102,7 @@ public class HkdfCoverageRewriter : Rewriter {
               fn.FullName == "VerifiedHkdf._default." + fn.Name &&
               fn.IsGhost && fn.Ins.Count == markerArity[fn.Name];
             if (!exact) {
-              Error(fn.Tok, "reserved marker name outside exact VerifiedHkdf._default ghost declaration: " + fn.FullName);
+              Error(fn.Tok, (fn.Name == "EvBranchIf" ? "HKDF_MARKER: " : "") + "reserved marker name outside exact VerifiedHkdf._default ghost declaration: " + fn.FullName);
               continue;
             }
             if (markerFuncs.ContainsKey(fn.Name))
@@ -122,6 +131,9 @@ public class HkdfCoverageRewriter : Rewriter {
     foreach (var name in markerArity.Keys)
       if (!markerFuncs.ContainsKey(name))
         Error(fallbackTok, "missing exact HKDF marker function VerifiedHkdf." + name);
+    CheckConditionalMarker();
+    validHash = defaultClass.Members.OfType<Function>().SingleOrDefault(f => f.Name == "ValidHash");
+    CheckValidHash();
     foreach (var name in rootNames) {
       if (!roots.TryGetValue(name, out var method)) {
         Error(fallbackTok, "missing required HKDF source-trace root VerifiedHkdf." + name);
@@ -131,7 +143,7 @@ public class HkdfCoverageRewriter : Rewriter {
     }
     if (!reporter.HasErrors) {
       PrintInventory(program);
-      Console.WriteLine("HKDF-SOURCE-COVERAGE OK: VerifiedHkdf.Extract/Expand/LabelInfo/ExpandLabel");
+      Console.WriteLine("HKDF-SOURCE-COVERAGE OK: VerifiedHkdf." + string.Join("/", rootNames));
     }
   }
 
@@ -162,13 +174,70 @@ public class HkdfCoverageRewriter : Rewriter {
   }
 
   void Error(IOrigin tok, string message) => reporter.Error(MessageSource.Rewriter, tok, message);
+
+  // Resolve official concrete-syntax wrappers, without Boolean normalization,
+  // constant evaluation, declaration-name matching or expression printing.
+  Expression Resolved(Expression e) {
+    while (true) {
+      if (e is ParensExpression p) { e = p.E; continue; }
+      if (e is ConcreteSyntaxExpression c && c.ResolvedExpression != null && !ReferenceEquals(c.ResolvedExpression, e)) {
+        e = c.ResolvedExpression; continue;
+      }
+      return e;
+    }
+  }
+
+  void CheckConditionalMarker() {
+    if (!markerFuncs.TryGetValue("EvBranchIf", out var f) || !markerFuncs.TryGetValue("EvBranch", out var branch)) return;
+    bool signature = f.IsGhost && f.IsStatic && f.TypeArgs.Count == 0 && f.Ins.Count == 3 &&
+      f.Ins[0].Type.NormalizeExpand() is IntType && f.Ins[1].Type.NormalizeExpand() is BoolType &&
+      f.Ins[2].Type.NormalizeExpand() is BoolType && IsTrace(f.ResultType) && f.Req.Count == 0 &&
+      f.Reads.Expressions.Count == 0 && f.Attributes == null && f.ByMethodDecl == null && f.ByMethodBody == null;
+    var body = Resolved(f.Body) as ITEExpr;
+    var parts = body?.SubExpressions.ToList();
+    bool exact = false;
+    if (signature && parts?.Count == 3 && ReferenceEquals(ResolvedVariable(Resolved(parts[0])), f.Ins[1])) {
+      var call = Resolved(parts[1]) as FunctionCallExpr;
+      exact = call != null && ReferenceEquals(call.Function, branch) && call.Args.Count == 2 &&
+        ReferenceEquals(ResolvedVariable(Resolved(call.Args[0])), f.Ins[0]) &&
+        ReferenceEquals(ResolvedVariable(Resolved(call.Args[1])), f.Ins[2]) &&
+        Resolved(parts[2]) is SeqDisplayExpr empty && empty.Elements.Count == 0;
+    }
+    if (!signature || !exact)
+      Error(f.Tok, "HKDF_MARKER: EvBranchIf must be exact ghost(int,bool,bool):seq<int>, with transparent if-enabled call to the actual EvBranch(id,outcome), else[]; no reads/preconditions/attributes/delegation");
+  }
+
+  void CheckValidHash() {
+    if (validHash == null) { Error(fallbackTok, "HKDF_VALIDHASH: missing exact public hash predicate"); return; }
+    var f = validHash;
+    bool signature = f.FullName == "VerifiedHkdf._default.ValidHash" && f.IsStatic && !f.IsGhost &&
+      f.TypeArgs.Count == 0 && f.Ins.Count == 1 && !f.Ins[0].IsGhost && f.Ins[0].Type.NormalizeExpand() is IntType &&
+      f.ResultType.NormalizeExpand() is BoolType && f.Req.Count == 0 && f.Reads.Expressions.Count == 0 &&
+      f.Attributes == null && f.ByMethodDecl == null && f.ByMethodBody == null;
+    var member = Resolved(f.Body) as BinaryExpr;
+    bool exact = false;
+    if (signature && member?.ResolvedOp == BinaryExpr.ResolvedOpcode.InSet &&
+        ReferenceEquals(ResolvedVariable(Resolved(member.E0)), f.Ins[0]) &&
+        Resolved(member.E1) is SetDisplayExpr set && set.Finite && set.Elements.Count == 3) {
+      var values = new HashSet<System.Numerics.BigInteger>();
+      foreach (var element in set.Elements) {
+        if (Resolved(element) is not LiteralExpr literal || literal.Type.NormalizeExpand() is not IntType ||
+            literal.Value is not System.Numerics.BigInteger integer) { values.Clear(); break; }
+        values.Add(integer);
+      }
+      exact = values.SetEquals(new System.Numerics.BigInteger[]{32,48,64});
+    }
+    if (!signature || !exact)
+      Error(f.Tok, "HKDF_VALIDHASH: exact public static int->bool predicate requires empty reads and membership of its actual formal in literal{32,48,64}; no other body/preconditions/attributes");
+    // Explicit atomic boundary: generated DafnySet/compiler internals are not
+    // counted as covered source operations by this observer.
+  }
   static long Pos(Statement s) => s.Tok?.StartToken?.pos ?? long.MinValue;
 
   // ------------------------------------------------------------------
   // Resolved identities
   // ------------------------------------------------------------------
-  static (string name,long pos) GhostKey(IVariable v) =>
-    v == null ? (null, long.MinValue) : (v.Name, v.Tok?.StartToken?.pos ?? long.MinValue);
+  static IVariable GhostKey(IVariable v) => v;
 
   IVariable ResolvedVariable(Expression e) {
     e = Unwrap(e);
@@ -257,12 +326,12 @@ public class HkdfCoverageRewriter : Rewriter {
     CollectGhostCallsInStatements(m.Body.Body, m);
     foreach (var key in ghostCallKeys) ghostCallAppendCount[key] = 0;
     foreach (var sa in m.Body.DescendantsAndSelf.OfType<SingleAssignStmt>())
-      if (ghostCallKeys.Contains(GhostKey(ResolvedVariable(sa.Lhs))))
+      if (ResolvedVariable(sa.Lhs) != null && ghostCallKeys.Contains(GhostKey(ResolvedVariable(sa.Lhs))))
         Error(sa.Tok, "ghost callee trace output is assigned outside its defining call");
     foreach (var asg in m.Body.DescendantsAndSelf.OfType<AssignStatement>())
       if (!asg.DescendantsAndSelf.OfType<CallStmt>().Any())
         foreach (var lhs in asg.Lhss)
-          if (ghostCallKeys.Contains(GhostKey(ResolvedVariable(lhs))))
+          if (ResolvedVariable(lhs) != null && ghostCallKeys.Contains(GhostKey(ResolvedVariable(lhs))))
             Error(asg.Tok, "ghost callee trace output is assigned outside its defining call");
   }
 
@@ -389,7 +458,7 @@ public class HkdfCoverageRewriter : Rewriter {
     if (!initialized) Error(m.Tok, m.Name + ": trace was never initialized with []");
     foreach (var key in ghostCallKeys)
       if (!ghostCallAppendCount.TryGetValue(key, out var c) || c != 1)
-        Error(m.Tok, m.Name + ": callee ghost trace output " + key.name + " must be appended exactly once");
+        Error(m.Tok, m.Name + ": callee ghost trace output " + key.Name + " must be appended exactly once");
     // A marker call must only occur in a validated trace append.
     foreach (var s in m.Body.DescendantsAndSelf)
       foreach (var fc in s.DescendantsAndSelf.OfType<FunctionCallExpr>())
@@ -428,6 +497,8 @@ public class HkdfCoverageRewriter : Rewriter {
   }
 
   void CheckRoot(Method m) {
+    currentRoot = m;
+    CheckRootSignature(m);
     traceFormal = m.Outs.OfType<Formal>().FirstOrDefault(o => o.IsGhost && o.Name == "trace");
     if (traceFormal == null) { Error(m.Tok, m.Name + ": missing exact ghost out formal trace"); return; }
     if (m.Body == null) { Error(m.Tok, m.Name + ": missing executable body"); return; }
@@ -435,6 +506,50 @@ public class HkdfCoverageRewriter : Rewriter {
     CollectGhostCallVars(m);
     CollectTraceAssignments(m);
     CheckBlock(m.Body.Body, null, m);
+    if (!reporter.HasErrors) Console.WriteLine("HKDF-CHECKED-ROOT " + m.FullName);
+  }
+
+  static bool IsBv(Microsoft.Dafny.Type t, int width) => t.NormalizeExpand() is BitvectorType b && b.Width == width;
+  static bool IsSeq(Microsoft.Dafny.Type t, int width) => t.NormalizeExpand() is SeqType s && IsBv(s.Arg, width);
+  static bool IsTrace(Microsoft.Dafny.Type t) => t.NormalizeExpand() is SeqType s && s.Arg.NormalizeExpand() is IntType;
+  static bool IsByteArray(Microsoft.Dafny.Type t) => t.NormalizeExpand() is UserDefinedType u &&
+    u.IsArrayType && u.AsArrayType != null && u.AsArrayType.Dims == 1 && u.TypeArgs.Count == 1 && IsBv(u.TypeArgs[0], 8);
+  bool IsResult(Microsoft.Dafny.Type t) => t.NormalizeExpand() is UserDefinedType u && ReferenceEquals(u.ResolvedClass, bytesResult);
+  bool TypeIs(Microsoft.Dafny.Type t, string kind) => kind switch {
+    "int" => t.NormalizeExpand() is IntType,
+    "bytes" => IsSeq(t, 8), "label" => IsSeq(t, 16), "array" => IsByteArray(t), _ => false
+  };
+  void CheckRootSignature(Method m) {
+    string[] kinds = m.Name switch {
+      "Extract" => new[]{"int","bytes","bytes"},
+      "Expand" => new[]{"int","bytes","bytes","int"},
+      "LabelInfo" => new[]{"label","bytes","int"},
+      "ExpandLabel" => new[]{"int","bytes","label","bytes","int"},
+      "CopyInput" => new[]{"array"},
+      "ExtractArrays" => new[]{"int","array","array"},
+      "ExpandArrays" => new[]{"int","array","array","int"},
+      "LabelInfoArray" => new[]{"label","array","int"}, _ => Array.Empty<string>()
+    };
+    if (!m.IsStatic || m.TypeArgs.Count != 0 || m.Ins.Count != kinds.Length ||
+        m.Ins.Where((f,i) => i >= kinds.Length || f.IsGhost || !TypeIs(f.Type, kinds[i])).Any() ||
+        m.Outs.Count != 2 || m.Outs[0].IsGhost ||
+        !(m.Name == "CopyInput" ? IsSeq(m.Outs[0].Type,8) : IsResult(m.Outs[0].Type)) ||
+        !m.Outs[1].IsGhost || m.Outs[1].Name != "trace" || !IsTrace(m.Outs[1].Type))
+      Error(m.Tok, "HKDF_SIGNATURE: exact static root input/value/trace signature required: " + m.FullName);
+  }
+
+  // Only the actual built-in rank-one byte-array Length field, on CopyInput's
+  // exact input formal, is an admitted heap metadata observation. A same-name
+  // member or alias local cannot stand in for either resolved declaration.
+  bool IsCopyArray(Expression e) => currentRoot?.Name == "CopyInput" && currentRoot.Ins.Count == 1 &&
+    ReferenceEquals(ResolvedVariable(e), currentRoot.Ins[0]) && IsByteArray(e.Type);
+  bool IsArrayLength(Expression e, Expression array) {
+    e = Unwrap(e);
+    if (e is not MemberSelectExpr ms || ms.Member is not SpecialField sf ||
+        sf.SpecialId != SpecialField.ID.ArrayLength || !IsCopyArray(ms.Obj) || !ExprEq(ms.Obj, array)) return false;
+    var type = ms.Obj.Type.NormalizeExpand() as UserDefinedType;
+    return type?.AsArrayType != null && ReferenceEquals(sf.EnclosingClass, type.AsArrayType) &&
+      type.AsArrayType.Members.Any(member => ReferenceEquals(member, sf)) && ms.Type.NormalizeExpand() is IntType;
   }
 
   // Ghost code is part of the coverage boundary too. Ignoring an unfamiliar
@@ -467,7 +582,31 @@ public class HkdfCoverageRewriter : Rewriter {
 
   void CheckBindingGrammar(Method m) {
     var nodes = BindingNodes(m.Body).ToList();
+    bool arrayRoot = m.Name == "CopyInput" || m.Name == "ExtractArrays" ||
+      m.Name == "ExpandArrays" || m.Name == "LabelInfoArray";
+    var declared = new HashSet<IVariable>(ReferenceEqualityComparer.Instance);
+    if (arrayRoot) {
+      foreach (var formal in m.Ins.Concat(m.Outs)) declared.Add(formal);
+      foreach (var local in nodes.OfType<VarDeclStmt>().SelectMany(v => v.Locals)) declared.Add(local);
+    }
+    void CheckArrayLhs(Expression lhs) {
+      var variable = ResolvedVariable(lhs);
+      if (variable == null || !declared.Contains(variable))
+        Error(lhs.Tok, "HKDF_ARRAY_EFFECT: array-input roots support only exact declared local/out variable assignment bindings; heap/field/destructuring stores are unsupported");
+    }
     foreach (var s in nodes.OfType<Statement>()) {
+      if (s is ReturnStmt returned && ((returned.Rhss?.Count ?? 0) != 0 || returned.HiddenUpdate != null))
+        Error(returned.Tok, "HKDF_RETURN: only bare returns with no authored RHS and no resolved HiddenUpdate are supported");
+      // Read-only array roots add no heap-store policy. Inspect every authored
+      // and resolved assignment/call-output path, including ghost descendants;
+      // a simple RHS is not evidence that its LHS has no heap effect.
+      if (arrayRoot) {
+        if (s is VarDeclPattern)
+          Error(s.Tok, "HKDF_ARRAY_EFFECT: destructuring declaration is unsupported in array-input roots");
+        if (s is AssignStatement assignment) foreach (var lhs in assignment.Lhss) CheckArrayLhs(lhs);
+        if (s is SingleAssignStmt single) CheckArrayLhs(single.Lhs);
+        if (s is CallStmt binding) foreach (var lhs in binding.Lhs) CheckArrayLhs(lhs);
+      }
       if (!bindingStatementTypes.Contains(s.GetType()))
         Error(s.Tok, "unsupported " + (s.IsGhost ? "ghost" : "executable") +
           " statement " + s.GetType().Name + " in HKDF binding grammar");
@@ -726,27 +865,89 @@ public class HkdfCoverageRewriter : Rewriter {
     public Expression A, B, C, D;
     public int IntA = int.MinValue;
     public bool UseIntA;
+    public GuardEnable Enabled;
   }
 
+  enum EnableKind { Actual, Not, And }
+  sealed class GuardEnable {
+    public EnableKind Kind;
+    public Expression Actual;
+    public GuardEnable Left, Right;
+  }
+
+  static GuardEnable ActualEnable(Expression e) => new GuardEnable { Kind = EnableKind.Actual, Actual = e };
+  static GuardEnable NotEnable(Expression e) => new GuardEnable { Kind = EnableKind.Not, Left = ActualEnable(e) };
+  static GuardEnable AndEnable(GuardEnable a, GuardEnable b) => new GuardEnable { Kind = EnableKind.And, Left = a, Right = b };
+
   void AddGuardEvents(Expression guard, List<Ev> ev, LoopCtx loop, Method method) {
-    guard = Unwrap(guard);
+    AddEnabledGuardEvents(guard, ev, loop, method, null);
+  }
+
+  bool ContainsLogical(Expression e) {
+    e = Resolved(e);
+    if (e == null) return false;
+    if (e is BinaryExpr b && (b.ResolvedOp == BinaryExpr.ResolvedOpcode.And || b.ResolvedOp == BinaryExpr.ResolvedOpcode.Or)) return true;
+    return e.SubExpressions.Any(ContainsLogical);
+  }
+
+  void AddEnabledGuardEvents(Expression guard, List<Ev> ev, LoopCtx loop, Method method, GuardEnable enabled) {
+    guard = Resolved(guard);
+    if (guard == null) { Error(method.Tok, "HKDF_GUARD: absent/nondeterministic guard is unsupported"); return; }
     if (guard is BinaryExpr b &&
         (b.ResolvedOp == BinaryExpr.ResolvedOpcode.And || b.ResolvedOp == BinaryExpr.ResolvedOpcode.Or)) {
-      AddGuardEvents(b.E0, ev, loop, method);
-      AddGuardEvents(b.E1, ev, loop, method);
+      AddEnabledGuardEvents(b.E0, ev, loop, method, enabled);
+      var next = b.ResolvedOp == BinaryExpr.ResolvedOpcode.And ? ActualEnable(b.E0) : NotEnable(b.E0);
+      AddEnabledGuardEvents(b.E1, ev, loop, method, enabled == null ? next : AndEnable(enabled, next));
       return;
     }
-    AddExpressionEvents(guard, ev, method, true);
-    ev.Add(new Ev { Kind = "EvBranch", A = guard });
+    if (guard.SubExpressions.Any(ContainsLogical))
+      Error(guard.Tok, "HKDF_GUARD: nested logical expressions inside an atomic operand are unsupported");
+    var effects = new List<Ev>();
+    AddExpressionEvents(guard, effects, method, true);
+    if (enabled != null && effects.Count != 0)
+      Error(guard.Tok, "HKDF_GUARD_EFFECT: conditionally executed reads/calls/allocations require a separate faithful enabled-effect policy");
+    else ev.AddRange(effects);
+    ev.Add(new Ev { Kind = enabled == null ? "EvBranch" : "EvBranchIf", A = guard, Enabled = enabled });
+  }
+
+  bool CanonicalZeroConstruction(SeqConstructionExpr sc, Method method) {
+    var children = sc.SubExpressions.ToList();
+    if (!ownedRoots.TryGetValue("Extract", out var extract) || !ReferenceEquals(method, extract) ||
+        method.Ins.Count != 3 || !ReferenceEquals(ResolvedVariable(Resolved(sc.N)), method.Ins[0]) ||
+        !IsSeq(sc.Type, 8) || children.Count != 2 || !ReferenceEquals(children[0], sc.N) ||
+        Resolved(children[1]) is not LambdaExpr lambda || lambda.BoundVars.Count != 1 ||
+        lambda.BoundVars[0].Type.NormalizeExpand() is not IntType || lambda.BoundVars[0].IsGhost) return false;
+    var expressions = lambda.SubExpressions.ToList();
+    return expressions.Count == 1 && Resolved(expressions[0]) is ConversionExpr conversion && IsBv(conversion.Type, 8) &&
+      Resolved(conversion.E) is LiteralExpr zero && zero.Type.NormalizeExpand() is IntType &&
+      zero.Value is System.Numerics.BigInteger value && value == 0;
   }
 
   void AddExpressionEvents(Expression e, List<Ev> ev, Method method, bool guardSubexpressions) {
     if (e == null) return;
     e = Unwrap(e);
+    if (e is SeqConstructionExpr construction) {
+      if (!CanonicalZeroConstruction(construction, method)) {
+        Error(e.Tok, "HKDF_INITIALIZER: only Extract's exact hashLen formal and canonical int-index/literal-zero-as-bv8 initializer are supported");
+        return;
+      }
+      AddExpressionEvents(construction.N, ev, method, guardSubexpressions);
+      ev.Add(new Ev { Kind = "EvAlloc", A = construction.N });
+      return;
+    }
+    if (e is LambdaExpr) { Error(e.Tok, "HKDF_INITIALIZER: arbitrary executable lambda is unsupported"); return; }
     // Recursively inspect children first (post-order).
     foreach (var child in e.SubExpressions) AddExpressionEvents(child, ev, method, guardSubexpressions);
+    if (e is MemberSelectExpr member && member.Obj.Type.NormalizeExpand() is UserDefinedType array && array.IsArrayType) {
+      if (!IsArrayLength(member, member.Obj)) {
+        Error(member.Tok, "HKDF_ARRAY_LENGTH: only builtin rank-one bv8 Length on the exact CopyInput array formal is supported");
+        return;
+      }
+      ev.Add(new Ev { Kind = "EvRead", UseIntA = true, IntA = -1 });
+      return;
+    }
     if (e is IdentifierExpr || e is AutoGhostIdentifierExpr || e is NameSegment ||
-        e is LiteralExpr || e is StaticReceiverExpr || e is ThisExpr || e is LambdaExpr ||
+        e is LiteralExpr || e is StaticReceiverExpr || e is ThisExpr ||
         e is ApplySuffix || e is MemberSelectExpr || e is ConversionExpr || e is UnaryOpExpr)
       return;
     if (e is BinaryExpr b) {
@@ -803,15 +1004,16 @@ public class HkdfCoverageRewriter : Rewriter {
     }
     if (e is SeqSelectExpr slice && !slice.SelectOne) {
       if (slice.E0 != null || slice.E1 == null) { Error(slice.Tok, "unsupported executable slice shape"); return; }
+      if (slice.Seq.Type.NormalizeExpand() is UserDefinedType arrayType && arrayType.IsArrayType &&
+          (!IsCopyArray(slice.Seq) || !IsArrayLength(slice.E1, slice.Seq))) {
+        Error(slice.Tok, "HKDF_ARRAY_SLICE: only the exact CopyInput formal prefix through its actual Length is supported");
+        return;
+      }
       ev.Add(new Ev { Kind = "EvSlice", A = slice.Seq, B = null, C = slice.E1 });
       return;
     }
     if (e is SeqDisplayExpr sd) {
       ev.Add(new Ev { Kind = "EvAlloc", UseIntA = true, IntA = sd.Elements.Count });
-      return;
-    }
-    if (e is SeqConstructionExpr sc) {
-      ev.Add(new Ev { Kind = "EvAlloc", A = sc.N });
       return;
     }
     if (e is FunctionCallExpr fc) {
@@ -822,7 +1024,7 @@ public class HkdfCoverageRewriter : Rewriter {
         if (fc.Args.Count != 3) { Error(fc.Tok, "Mac arity changed"); return; }
         ev.Add(new Ev { Kind = "EvMac", Target = full, Arity = 3,
           A = fc.Args[0], B = fc.Args[1], C = fc.Args[2], D = null });
-      } else if (full == "VerifiedHkdf._default.ValidHash") {
+      } else if (ReferenceEquals(fc.Function, validHash)) {
         ev.Add(new Ev { Kind = "EvCall", Target = full, Arity = fc.Args.Count });
       } else {
         Error(fc.Tok, "unobserved compiled function call " + full);
@@ -856,8 +1058,9 @@ public class HkdfCoverageRewriter : Rewriter {
   void CheckMethodSignature(CallStmt cs) {
     if (cs.Method.Ins.Count != cs.Args.Count)
       Error(cs.Tok, "call argument count does not match the resolved method signature");
-    if (cs.Method.FullName == "VerifiedHkdf._default.LabelInfo" ||
-        cs.Method.FullName == "VerifiedHkdf._default.Expand") {
+    if (rootNames.Contains(cs.Method.Name)) {
+      if (!ownedRoots.TryGetValue(cs.Method.Name, out var declared) || !ReferenceEquals(declared, cs.Method))
+        Error(cs.Tok, "HKDF_CALL_IDENTITY: call must bind the exact owned resolved method declaration");
       var ghost = cs.Method.Outs.Where(o => o.IsGhost).ToList();
       if (ghost.Count != 1 || ghost[0].Name != "trace")
         Error(cs.Tok, "owned HKDF callee no longer has exactly one ghost trace out-parameter");
@@ -894,14 +1097,15 @@ public class HkdfCoverageRewriter : Rewriter {
   // Ordered matching
   // ------------------------------------------------------------------
   void Match(List<Mark> markers, List<Ev> events, Statement s, string where) {
+    var prefix = where == "if guard" ? "HKDF_GUARD: " : "";
     if (markers.Count != events.Count) {
-      Error(s.Tok, where + ": observation count " + markers.Count + " != executable event count " + events.Count);
+      Error(s.Tok, prefix + where + ": observation count " + markers.Count + " != executable event count " + events.Count);
       foreach (var m in markers) Error(m.Tok, where + ": unmatched marker " + m.Name);
       return;
     }
     for (int i = 0; i < events.Count; i++)
       if (!EventMatches(events[i], markers[i])) {
-        Error(markers[i].Tok, where + ": marker " + markers[i].Name + " does not match executable event " + events[i].Kind);
+        Error(markers[i].Tok, prefix + where + ": marker " + markers[i].Name + " does not match executable event " + events[i].Kind);
         return;
       }
   }
@@ -909,13 +1113,14 @@ public class HkdfCoverageRewriter : Rewriter {
   bool EventMatches(Ev e, Mark m) {
     if (e.Kind != m.Name) return false;
     switch (e.Kind) {
-      case "EvBranch": return m.Args.Count == 2 && ExprEq(m.Args[1], e.A);
+      case "EvBranch": return m.Args.Count == 2 && ExactGuardExpr(m.Args[1], e.A);
+      case "EvBranchIf": return m.Args.Count == 3 && MatchEnable(e.Enabled, m.Args[1]) && ExactGuardExpr(m.Args[2], e.A);
       case "EvLoop":
         if (m.Args.Count != 3) return false;
         if (e.UseIntA) { if (!IntEq(m.Args[1], e.IntA)) return false; }
         else if (!ExprEq(m.Args[1], e.A)) return false;
         return ExprEq(m.Args[2], e.B);
-      case "EvRead": return m.Args.Count == 2 && ExprEq(m.Args[1], e.A);
+      case "EvRead": return m.Args.Count == 2 && (e.UseIntA ? IntEq(m.Args[1], e.IntA) : ExprEq(m.Args[1], e.A));
       case "EvAlloc":
         if (m.Args.Count != 2) return false;
         return e.UseIntA ? IntEq(m.Args[1], e.IntA) : ExprEq(m.Args[1], e.A);
@@ -935,6 +1140,49 @@ public class HkdfCoverageRewriter : Rewriter {
     }
   }
 
+  bool MatchEnable(GuardEnable expected, Expression actual) {
+    if (expected == null) return false;
+    actual = Resolved(actual);
+    return expected.Kind switch {
+      EnableKind.Actual => ExactGuardExpr(expected.Actual, actual),
+      EnableKind.Not => actual is UnaryOpExpr negated && negated.ResolvedOp == UnaryOpExpr.ResolvedOpcode.BoolNot && MatchEnable(expected.Left, negated.E),
+      EnableKind.And => actual is BinaryExpr conjunction && conjunction.ResolvedOp == BinaryExpr.ResolvedOpcode.And && MatchEnable(expected.Left, conjunction.E0) && MatchEnable(expected.Right, conjunction.E1),
+      _ => false
+    };
+  }
+
+  bool SameResolvedType(Microsoft.Dafny.Type a, Microsoft.Dafny.Type b) {
+    if (a == null || b == null) return false;
+    a=a.NormalizeExpand(); b=b.NormalizeExpand();
+    if (a is BoolType) return b is BoolType;
+    if (a is IntType) return b is IntType;
+    if (a is BitvectorType av) return b is BitvectorType bv && av.Width == bv.Width;
+    if (a is SeqType sq) return b is SeqType tq && SameResolvedType(sq.Arg, tq.Arg);
+    if (a is UserDefinedType au && b is UserDefinedType bu)
+      return ReferenceEquals(au.ResolvedClass, bu.ResolvedClass) && au.TypeArgs.Count == bu.TypeArgs.Count &&
+        au.TypeArgs.Zip(bu.TypeArgs).All(pair => SameResolvedType(pair.First,pair.Second));
+    return false;
+  }
+
+  bool ExactGuardExpr(Expression a, Expression b) {
+    if (a == null || b == null) return a == null && b == null;
+    a=Resolved(a); b=Resolved(b);
+    if (!SameResolvedType(a.Type,b.Type)) return false;
+    var av=ResolvedVariable(a); var bv=ResolvedVariable(b);
+    if (av != null || bv != null) return av != null && ReferenceEquals(av,bv);
+    if (a is LiteralExpr al && b is LiteralExpr bl) return Equals(al.Value,bl.Value);
+    if (a is BinaryExpr ab && b is BinaryExpr bb) return ab.ResolvedOp == bb.ResolvedOp && ExactGuardExpr(ab.E0,bb.E0) && ExactGuardExpr(ab.E1,bb.E1);
+    if (a is UnaryOpExpr an && b is UnaryOpExpr bn) return an.ResolvedOp == bn.ResolvedOp && ExactGuardExpr(an.E,bn.E);
+    if (a is ConversionExpr ac && b is ConversionExpr bc) return ExactGuardExpr(ac.E,bc.E);
+    if (a is MemberSelectExpr am && b is MemberSelectExpr bm) return ReferenceEquals(am.Member,bm.Member) && ExactGuardExpr(am.Obj,bm.Obj);
+    if (a is SeqSelectExpr ass && b is SeqSelectExpr bs) return ass.SelectOne == bs.SelectOne && ExactGuardExpr(ass.Seq,bs.Seq) && ExactGuardExpr(ass.E0,bs.E0) && ExactGuardExpr(ass.E1,bs.E1);
+    if (a is FunctionCallExpr af && b is FunctionCallExpr bf)
+      return ReferenceEquals(af.Function,bf.Function) && af.Args.Count == bf.Args.Count && af.Args.Zip(bf.Args).All(pair=>ExactGuardExpr(pair.First,pair.Second));
+    // No expression spelling, Boolean oracle, arbitrary arithmetic evaluator,
+    // alpha-renaming or same-name variable/member/function fallback.
+    return false;
+  }
+
   bool TargetEq(Expression markerTarget, string expected) {
     if (!TryInt(markerTarget, out var id)) return false;
     return targetById.TryGetValue(id, out var actual) && actual == expected;
@@ -944,6 +1192,16 @@ public class HkdfCoverageRewriter : Rewriter {
 
   bool TryInt(Expression e, out int value) {
     e = Unwrap(e);
+    // Dafny retains the authored negative integer literal as a typed negation
+    // node. Do not evaluate arbitrary arithmetic marker expressions.
+    if (e is NegationExpression neg && Unwrap(neg.E) is LiteralExpr magnitude &&
+        magnitude.Value is System.Numerics.BigInteger positive && positive >= 0 &&
+        neg.ResolvedExpression is LiteralExpr resolved && resolved.Value is System.Numerics.BigInteger signed && signed == -positive) {
+      if (signed < int.MinValue || signed > int.MaxValue) {
+        Error(e.Tok, "marker integer is outside supported 32-bit range"); value = 0; return false;
+      }
+      value = (int)signed; return true;
+    }
     if (e is LiteralExpr lit && lit.Value is System.Numerics.BigInteger bi) {
       if (bi < int.MinValue || bi > int.MaxValue) {
         Error(e.Tok, "marker integer is outside supported 32-bit range");
@@ -956,7 +1214,8 @@ public class HkdfCoverageRewriter : Rewriter {
 
   bool IsLengthOf(Expression lengthExpr, Expression seq) {
     lengthExpr = Unwrap(lengthExpr);
-    return lengthExpr is UnaryOpExpr u && u.ResolvedOp == UnaryOpExpr.ResolvedOpcode.SeqLength && ExprEq(u.E, seq);
+    return (lengthExpr is UnaryOpExpr u && u.ResolvedOp == UnaryOpExpr.ResolvedOpcode.SeqLength && ExprEq(u.E, seq)) ||
+      (seq != null && IsCopyArray(seq) && IsArrayLength(lengthExpr, seq));
   }
 
   // ------------------------------------------------------------------

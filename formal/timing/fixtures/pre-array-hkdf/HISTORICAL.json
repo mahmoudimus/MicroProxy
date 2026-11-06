@@ -1,0 +1,31 @@
+{
+  "schema": "microproxy.historical-hkdf-sequence/1",
+  "current_credit": false,
+  "commit": "461a34b5f839bdf69e5d830974ae49241a20d70d",
+  "source_sha256": "ddd8d59fa08271e66d69e3826190ad3acad98fcda5a7d8c795f2d87e05b1b160",
+  "source": "HkdfBridge.java",
+  "class_sha256": "4a1d2f0aeef211e31bc8f204ea455bd0a5ee0d43a56c1ebfb5baea4d8ea847ef",
+  "root": {
+    "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+    "name": "sequence",
+    "descriptor": "([BLjava/lang/String;)Ldafny/DafnySequence;",
+    "role": "adapter-helper-root",
+    "witness": true,
+    "note": "DafnySequence.of(requireNonNull(value).clone()); trace shape only - the frozen model constant-fills allocations, so no copy/alias or private-output refinement is claimed"
+  },
+  "method_policy": {
+    "params": [
+      "array_sec",
+      "pub"
+    ],
+    "allow_raise": true
+  },
+  "call_contract": {
+    "kind": "call",
+    "result": "pub",
+    "seq_taint": "sec",
+    "shape": true,
+    "length_role": 0
+  },
+  "purpose": "Finite private-input/control degradation regressions on the historical method; never a current certificate or CopyInput bytecode claim."
+}

@@ -5,46 +5,57 @@ the RFC 8446 `HKDF-Expand-Label` surface used by QUIC. The verified kernel is
 `hkdf/Hkdf.dfy`. Pinned Dafny 4.9.1 translates it into the committed production
 package `io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf`;
 `quic.Hkdf` delegates to that package through the reviewed handwritten
-`HkdfBridge` and JCE boundary `JdkHmac`. The runner verifies the kernel, audits
-the sole external assumption, rejects negative controls, regenerates Java with
-verification enabled, requires byte equality with the committed package, compiles
-the real production facade and tests it with JCE.
+`HkdfBridge` and JCE boundary `JdkHmac`. The full replay separately verifies the
+kernel, audits the sole external assumption and rejects negative controls. Its
+Java preflight translates the same authenticated frozen source with
+`--no-verify`, requires byte equality with the committed package, compiles the
+real production facade and tests it with JCE. Translation alone earns no proof
+credit; a complete receipt requires the full proof phase and final input/tool
+checks to pass.
 
-From the repository root, with Python 3.11+ and `JAVA_HOME` set to JDK 21+:
+The current functional and trace checks use the same authenticated eight-root
+engine. `formal/dafny/run.py` is its compatibility entry point. Select Python
+3.11+, both JDKs, the pinned Dafny/runtime and SDK/offline packs explicitly; the
+[source replay guide](../source/hkdf/README.md) describes those inputs.
+
+The direct replay rejects Python's `-O` and `-OO` modes. Proof admission,
+helper integrity and process ownership checks use explicit exceptions that remain
+active under optimization.
 
 On Ubuntu 24.04, install `libicu74` for the bundled .NET runtime first. The runner
 requires the standard POSIX `ps` utility for cancellation cleanup.
 
 ```sh
 python3 -m unittest discover -s formal/dafny -p 'test_run.py' -v
-python3 formal/dafny/run.py
-# Optionally exercise the same Java 21 classes on another installed runtime:
-python3 formal/dafny/run.py --java-home /absolute/path/to/another/jdk
-# Drift gate for the committed generated source/class/JAR hook:
-python3 formal/dafny/deliver_hkdf.py
-# Deliberate renewal after reviewing the printed change list:
-python3 formal/dafny/deliver_hkdf.py --update --update-inputs
+python3 -I -B -m unittest discover -s formal/source/hkdf -p 'test*.py' -v
+python3 -I -B formal/dafny/run.py \
+  --manifest "$REPO/formal/source/hkdf/inputs-v2.json" \
+  --expected-manifest "$HKDF_INPUTS_SHA256" \
+  --profile macos-sdk10.0.400 \
+  --dafny "$DAFNY" --dotnet "$DOTNET" \
+  --targeting-packs "$OFFLINE_NET6_PACKS" --runtime "$DAFNY_RUNTIME_JAR" \
+  --jdk21 "$JDK21" --jdk25 "$JDK25" --output "$FRESH_ABSOLUTE_OUTPUT"
 # Isolated old-vs-new key-schedule measurement (writes only a private temp tree):
 python3 formal/dafny/bench_hkdf.py --output /tmp/hkdf-benchmark.json
 ```
 
-The runner caches pinned Dafny 4.9.1 outside the checkout. Linux x86-64 and macOS
-arm64 are supported; `--cache` or `MICROPROXY_FORMAL_CACHE` overrides the location.
-Archive and per-platform runtime SHA256 values are in `tools.json`. The official
-release API supplied no digest: these pins identify the official HTTPS downloads
-used here, not independently signed release attestations. Every extracted file
-is checked against the pinned archive before replay; local OS/tool execution is
-still trusted. No global toolchain is changed.
+The Linux profile is `linux-sdk10.0.400`. Current replay uses caller-supplied,
+authenticated tools; it does not restore packages through ambient NuGet settings.
+The legacy generation utility retains its pinned Dafny cache and `tools.json`.
+Its archive pins identify the official HTTPS downloads used here, not
+independently signed release attestations. Local OS/tool execution remains
+trusted; no global toolchain is changed.
 
-`target/dafny-hkdf/report.json` records current status, exact inputs, generated
-Java/class hashes, compiler/JDK/provider identities, logs and byte/class footprint.
-Each invocation first invalidates old success. A failed setup/control/test cannot
-leave a complete report. A lock prevents simultaneous writers; interrupted runs
-remain incomplete. Commands have bounded timeouts and cancellation cleanup.
+The selected fresh output contains `report.json`, actual logs, input/tool maps,
+generated/class identities and runtime results. Full success also produces
+`SOURCE-EVIDENCE-v2.json`; a preflight or incomplete run cannot export a complete
+receipt. Current output must be new and disjoint from input/tool roots. Commands
+have bounded timeouts, raw exit records and owned-process cancellation cleanup.
 Generated code is recreated in a fresh replay directory and compared byte for byte
 with the committed production package, never hand-edited. CI uploads the report
 for inspection. Source pins are drift gates, not semantic proofs or review
-signatures; review changes before deliberately renewing `inputs.json`.
+signatures. Current input authority is the externally selected `inputs-v2.json`;
+the old manifest and receipts retain their historical subjects.
 
 ## Production adoption
 
@@ -61,9 +72,12 @@ signatures; review changes before deliberately renewing `inputs.json`.
 fresh compiler output rather than a post-processed copy. It requires the committed
 package to match that output exactly and compiles the production `Hkdf`,
 `HkdfBridge`, `JdkHmac` and generated classes together. `deliver_hkdf.py` is the
-independent deterministic renewal tool: it prints added/removed/changed files with
-old and new SHA256 values, refuses drift unless `--update` is explicit, and can
-check exact class entries in an already-built JAR with `--jar`. It never updates
+current check entry point: `--check`, including optional `--jar`, forwards to the
+same full engine and requires the same explicit authority/tool arguments. Its
+12-class JAR check supplements whole-library/bundle validation. Deliberate local
+generation uses the separate `--legacy-update-only --update` utility with an
+externally selected current manifest. It prints exact source changes for review
+and renews no current proof receipt or historical input manifest. It never updates
 the SHAKE/ML-KEM namespace.
 
 Production source does not depend on `formal/` at runtime. The frozen
@@ -72,19 +86,17 @@ pre-adoption implementation; it is never compiled into the production artifact.
 This keeps the formal differential non-circular now that production delegates to
 the generated kernel.
 
-The generated package is outside the existing NativeCrypto generated namespace.
-At the end of this work, another agent's uncommitted changes in the shared
-worktree already pin the nine generated sources in
-`formal/crypto/delivery.json` and add `JdkHmac` as an ordered
-`existing_generated_dependency`; this HKDF worker did not edit those files.
-The coordinator must review/commit that integration, keep `HkdfBridge`/`Hkdf`/
-`JdkHmac` under strict handwritten lint, and renew the class/JAR acceptance
-inventories. The POM already provides `DafnyRuntime:4.9.1`; no POM or CI change
-was made here.
+The generated package is outside the NativeCrypto generated namespace.
+`formal/crypto/delivery.json` pins its nine generated sources and includes
+`JdkHmac` as an ordered `existing_generated_dependency`. `HkdfBridge`, `Hkdf`
+and `JdkHmac` remain under handwritten-source checks. Source changes require
+fresh generated-source, canonical-class and actual-JAR qualification; an earlier
+artifact receipt does not qualify a changed build. The POM provides
+`DafnyRuntime:4.9.1`.
 
 ## Functional proof and domain
 
-All four public methods have no caller preconditions. They return `Success` or a
+The four sequence operations have no caller preconditions. They return `Success` or a
 named validation failure, with exact equality to total result specifications.
 The positive-domain harness invokes every method on unconstrained mathematical
 inputs and proves these equations. Adding a reject-all precondition breaks that
@@ -103,6 +115,17 @@ LabelInfo accepts an empty suffix label (RFC 8446 requires a nonempty suffix).
 These API contracts do not assert that every accepted input is a valid protocol
 call. Sequences/integers are mathematical: finite Java heap, allocation failure,
 JVM limits and concurrent mutation of caller input arrays are outside the proof.
+
+Production input arrays enter through generated `ExtractArrays`, `ExpandArrays`
+and `LabelInfoArray`, which compose the same operations with generated
+`CopyInput`. The copy contract returns the entry-state sequence and preserves
+the input array. The array harness proves saved snapshots survive subsequent
+writes, including calls with aliased inputs; it adds no disjointness precondition.
+This moves the input-snapshot algorithm into executable Dafny. The compiler and
+runtime implementation of sequence creation remains trusted, as do the remaining
+Java value/error adapters. See the
+[source-observation replay](../source/hkdf/README.md) for the separate trace,
+coverage, adversarial-control and Java-erasure gates.
 
 Negative controls alter feedback, counter, truncation and label prefix. They must
 fail actual proof obligations; parsing failures, resource limits, timeouts and
@@ -129,7 +152,9 @@ a fresh `javax.crypto.Mac` for every block, so the kernel's feedback loop never
 depends on provider `doFinal` reset state. The bridge copies octets without
 signed-byte loss, preserves all UTF-16 bits before ASCII validation, maps kernel
 failures to the historical `quic.Hkdf` exception surface, and returns fresh arrays.
-These Java adapters are tested, not proved by Dafny.
+Input octet snapshots now execute in generated `CopyInput`; the removed
+handwritten `HkdfBridge.sequence` helper's bytecode receipts remain historical.
+The remaining Java adapters are reviewed and tested, not proved by Dafny.
 
 Production payload bytes are copied with `DafnySequence.toRawArray()` and a
 required primitive `byte[]` result. The pinned runtime's `ArrayDafnySequence`
@@ -170,13 +195,19 @@ JCE provider, all Java input lengths or concurrency semantics.
 Trust includes Dafny/Boogie/Z3, source specifications and their standards review,
 Dafny's Java compiler/runtime, `javac`, JVM and the JCE/provider implementation.
 See the [Dafny reference](https://dafny.org/v4.9.1/DafnyRef/DafnyRef).
-No PRF/entropy security reduction, constant-time trace proof, HotSpot/GC/CPU timing
-proof, secret-erasure guarantee or complete ML-KEM/SHAKE proof follows from this.
+The separate source component proves equality of its declared logical
+observations under equal public inputs. Its resolved-AST coverage checker remains
+trusted tooling. No PRF/entropy security reduction, HotSpot/GC/CPU timing proof,
+secret-erasure guarantee or whole-crypto trace proof follows from these results.
 The generated runtime allocates and copies secret-bearing values; `bench_hkdf.py`
 measures the cost on one host only, and JVM timing remains explicitly outside the
 proof. Existing fingerprints and APIs remain covered by the QUIC regression suite.
 
 ## Measured cost
+
+The measurements below precede the generated array-input route. They are retained
+historical component measurements, not qualification of that route's performance.
+Changed generated classes require a fresh component and full-handshake comparison.
 
 `bench_hkdf.py` compiles the frozen reference and the generated production facade
 into private temporary class directories and runs fresh JVMs alternating mode

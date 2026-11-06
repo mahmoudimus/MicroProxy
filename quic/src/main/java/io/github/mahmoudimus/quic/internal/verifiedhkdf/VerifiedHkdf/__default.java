@@ -124,6 +124,64 @@ public class __default {
     }
     return r;
   }
+  public static dafny.DafnySequence<? extends java.lang.Byte> CopyInput(byte[] a)
+  {
+    dafny.DafnySequence<? extends java.lang.Byte> snapshot = dafny.DafnySequence.<java.lang.Byte> empty(dafny.TypeDescriptor.BYTE);
+    if(true) {
+      snapshot = dafny.DafnySequence.fromRawArrayRange(dafny.TypeDescriptor.BYTE, (a), 0, dafny.Helpers.toInt((java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((a))))));
+    }
+    return snapshot;
+  }
+  public static BytesResult ExtractArrays(java.math.BigInteger hashLen, byte[] salt, byte[] ikm)
+  {
+    BytesResult r = BytesResult.Default();
+    if(true) {
+      dafny.DafnySequence<? extends java.lang.Byte> _0_saltCopy;
+      dafny.DafnySequence<? extends java.lang.Byte> _out0;
+      _out0 = __default.CopyInput(salt);
+      _0_saltCopy = _out0;
+      dafny.DafnySequence<? extends java.lang.Byte> _1_ikmCopy;
+      dafny.DafnySequence<? extends java.lang.Byte> _out1;
+      _out1 = __default.CopyInput(ikm);
+      _1_ikmCopy = _out1;
+      BytesResult _out2;
+      _out2 = __default.Extract(hashLen, _0_saltCopy, _1_ikmCopy);
+      r = _out2;
+    }
+    return r;
+  }
+  public static BytesResult ExpandArrays(java.math.BigInteger hashLen, byte[] prk, byte[] info, java.math.BigInteger length)
+  {
+    BytesResult r = BytesResult.Default();
+    if(true) {
+      dafny.DafnySequence<? extends java.lang.Byte> _0_prkCopy;
+      dafny.DafnySequence<? extends java.lang.Byte> _out0;
+      _out0 = __default.CopyInput(prk);
+      _0_prkCopy = _out0;
+      dafny.DafnySequence<? extends java.lang.Byte> _1_infoCopy;
+      dafny.DafnySequence<? extends java.lang.Byte> _out1;
+      _out1 = __default.CopyInput(info);
+      _1_infoCopy = _out1;
+      BytesResult _out2;
+      _out2 = __default.Expand(hashLen, _0_prkCopy, _1_infoCopy, length);
+      r = _out2;
+    }
+    return r;
+  }
+  public static BytesResult LabelInfoArray(dafny.DafnySequence<? extends java.lang.Short> labelUnits, byte[] context, java.math.BigInteger length)
+  {
+    BytesResult r = BytesResult.Default();
+    if(true) {
+      dafny.DafnySequence<? extends java.lang.Byte> _0_contextCopy;
+      dafny.DafnySequence<? extends java.lang.Byte> _out0;
+      _out0 = __default.CopyInput(context);
+      _0_contextCopy = _out0;
+      BytesResult _out1;
+      _out1 = __default.LabelInfo(labelUnits, _0_contextCopy, length);
+      r = _out1;
+    }
+    return r;
+  }
   @Override
   public java.lang.String toString() {
     return "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf._default";

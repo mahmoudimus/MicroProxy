@@ -239,27 +239,104 @@ jobs:
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
-      - uses: actions/setup-java@v6.0.1
-        with:
-          distribution: temurin
-          java-version: '21'
       - uses: actions/setup-dotnet@v6.1.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hkdf-dotnet-10.0.400
         with:
-          dotnet-version: '10.0.x'
-      - name: Install Dafny's Linux globalization dependency
-        run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Verify executable HKDF traces, coverage controls and Java identity
+          dotnet-version: '10.0.400'
+          skip-lts-prepass: true
+      - name: Prepare authenticated Dafny and offline targeting packs
+        env:
+          HKDF_INPUTS_SHA256: e4e184d2449ac3802de24392243cbccafe9e8f88618a45cdab44ef98ba9e041c
         run: |
-          python -m unittest discover -s formal/source/hkdf -p 'test_*.py' -v
-          python formal/source/hkdf/run.py --output target/dafny-hkdf-source
+          python -I -B - <<'PYBOOT'
+          import hashlib, importlib.util, json, os, sys, urllib.request
+          from pathlib import Path
+          repo = Path.cwd()
+          manifest = repo / 'formal/source/hkdf/inputs-v2.json'
+          raw = manifest.read_bytes()
+          if hashlib.sha256(raw).hexdigest() != os.environ['HKDF_INPUTS_SHA256']:
+              raise RuntimeError('unselected HKDF manifest')
+          inputs = json.loads(raw)['inputs']
+          for name, pin in inputs.items():
+              if hashlib.sha256((repo / name).read_bytes()).hexdigest() != pin:
+                  raise RuntimeError('changed HKDF input: ' + name)
+          path = repo / 'formal/dafny/toolchain.py'
+          captured = path.read_bytes()
+          if hashlib.sha256(captured).hexdigest() != inputs['formal/dafny/toolchain.py']:
+              raise RuntimeError('changed captured HKDF toolchain helper')
+          spec = importlib.util.spec_from_file_location('hkdf_ci_toolchain', path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          exec(compile(captured, str(path), 'exec'), module.__dict__)
+          dafny, *_ = module.install(Path(os.environ['RUNNER_TEMP']) / 'hkdf-dafny')
+          packs = Path(os.environ['RUNNER_TEMP']) / 'hkdf-offline-net6'
+          packs.mkdir()
+          authority = json.loads((repo / 'formal/source/keccak/encoder/net6-targeting-packs.json').read_text())
+          for row in authority['packages']:
+              payload = urllib.request.urlopen(row['url'], timeout=90).read()
+              if len(payload) != row['size'] or hashlib.sha256(payload).hexdigest() != row['sha256']:
+                  raise RuntimeError('unselected offline targeting-pack archive')
+              (packs / row['filename']).write_bytes(payload)
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              out.write('HKDF_DAFNY=' + str(dafny) + '\n')
+              out.write('HKDF_NET6_PACKS=' + str(packs) + '\n')
+          PYBOOT
+      - name: Install the qualified JDK archives and Linux dependency
+        run: |
+          sudo apt-get update && sudo apt-get install --yes libicu74
+          bash scripts/security/install_select_jdks.sh
+          JAVA_HOME="$SELECT_JDK21" mvn -B dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+      - name: Verify the current eight-root HKDF unit and all original controls
+        env:
+          HKDF_INPUTS_SHA256: e4e184d2449ac3802de24392243cbccafe9e8f88618a45cdab44ef98ba9e041c
+        run: |
+          python -I -B -m unittest discover -s formal/source/hkdf -p 'test*.py' -v
+          python -I -B -m unittest discover -s formal/dafny -p 'test*.py' -v
+          python -I -B -m unittest discover -s scripts/security -p 'test_crypto_obligations.py' -k hkdf -v
+          python -I -B formal/source/hkdf/run.py \
+            --manifest "$GITHUB_WORKSPACE/formal/source/hkdf/inputs-v2.json" \
+            --expected-manifest "$HKDF_INPUTS_SHA256" --profile linux-sdk10.0.400 \
+            --dafny "$HKDF_DAFNY" --dotnet "$RUNNER_TEMP/hkdf-dotnet-10.0.400/dotnet" \
+            --targeting-packs "$HKDF_NET6_PACKS" \
+            --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" \
+            --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" \
+            --output "$RUNNER_TEMP/hkdf-current-full" --phase full
+          python -I -B - <<'PYCURRENT'
+          import hashlib, json, os, sys, types
+          from pathlib import Path
+          repo = Path.cwd()
+          path = repo / 'scripts/security/check_crypto_obligations.py'
+          raw = path.read_bytes()
+          if hashlib.sha256(raw).hexdigest() != '078a7887a8d2efcd2ce873da6c30ad5a7fd5e2c42f93dd6059d91fbfecc41b31':
+              raise RuntimeError('unselected current HKDF ledger validator')
+          gate = types.ModuleType('hkdf_current_ci_policy')
+          gate.__file__ = str(path)
+          sys.modules[gate.__name__] = gate
+          exec(compile(raw, str(path), 'exec'), gate.__dict__)
+          committed = json.loads((repo / gate.HKDF_SOURCE_RECEIPT).read_text())
+          fresh = json.loads((Path(os.environ['RUNNER_TEMP']) / 'hkdf-current-full/SOURCE-EVIDENCE-v2.json').read_text())
+          # Compare source/policy/semantic identities. Platform-specific tool
+          # maps and raw logs remain separate, unnormalized replay evidence.
+          for field in ('inputs', 'manifest_sha256', *gate.HKDF_SOURCE_EXACT):
+              if gate.dot_get(fresh, field, 'fresh HKDF') != gate.dot_get(committed, field, 'committed HKDF'):
+                  raise RuntimeError('fresh/committed HKDF source-policy mismatch: ' + field)
+          PYCURRENT
+          python -I -B scripts/security/check_crypto_obligations.py \
+            --hkdf-current-only --root "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/hkdf-current-full/current-ledger-status.json"
+          JAVA_HOME="$SELECT_JDK21" mvn -B -pl quic -am \
+            -Dtest=HkdfTest,HkdfGeneratedAdoptionTest,HkdfArrayInputTest \
+            -Dsurefire.failIfNoSpecifiedTests=false test
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: dafny-hkdf-source-traces
+          name: hkdf-current-eight-root-jdk21-and25
           path: |
-            target/dafny-hkdf-source/
-            !target/dafny-hkdf-source/checker-build/nuget/**
-            !target/dafny-hkdf-source/checker-build/dotnet-home/**
+            ${{ runner.temp }}/hkdf-current-full/
+            !${{ runner.temp }}/hkdf-current-full/build-authority/**
+            !${{ runner.temp }}/hkdf-current-full/checker/**
+            !${{ runner.temp }}/hkdf-current-full/child/**
           if-no-files-found: ignore
 
   dafny-polynomial-source-traces:
@@ -705,6 +782,7 @@ jobs:
           if-no-files-found: ignore
 
   dafny-hkdf:
+    name: HKDF historical utilities and AWS target reference (JDK ${{ matrix.java }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -723,8 +801,9 @@ jobs:
         run: python -m unittest discover -s formal/dafny -p 'test_run.py' -v
       - name: Install Dafny's Linux globalization dependency
         run: sudo apt-get update && sudo apt-get install --yes libicu74
-      - name: Verify, audit, generate Java and test JCE integration
-        run: python formal/dafny/run.py
+      # Current proofs, all original controls and both JDK runtime suites use
+      # the one authenticated producer in dafny-hkdf-source-traces above.
+      # The old no-argument CLI has no current input/tool authority.
       - name: Replay the pinned AWS HKDF target and preserve its explicit graph boundary
         if: matrix.java == '21'
         run: |

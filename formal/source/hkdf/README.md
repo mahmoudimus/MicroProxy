@@ -1,78 +1,132 @@
-# HKDF traces over executable Dafny
+# HKDF source observations and array input composition
 
-The paired-execution harness calls the actual production `Extract`, `Expand`,
-`LabelInfo` and `ExpandLabel` methods in
-[`Hkdf.dfy`](../../dafny/hkdf/Hkdf.dfy). Their ghost trace outputs are erased when
-that same verified source generates Java. There is no second HKDF algorithm.
+The production Java bridge calls generated `ExtractArrays`, `ExpandArrays` and
+`LabelInfoArray`. These copy Java-backed octet arrays through the actual compiled
+`CopyInput` method, then compose the original `Extract`, `Expand`, `LabelInfo` and
+`ExpandLabel` operations. The eight methods share the single implementation in
+`formal/dafny/hkdf/Hkdf.dfy`; ghost outputs disappear during Java generation.
+`Hkdf.java` and `JdkHmac.java` retain their public behavior and primitive boundary.
 
-For arbitrary private byte contents, equal public shapes produce equal source
-observation traces and equal success/failure shapes. Hash choice, lengths and
-TLS label units are public. The general functional input domain is preserved,
-including invalid hash/length/key/label outcomes and accepted boundary cases.
-The included proof has 248 verified checks; the paired/domain harness has 259.
-These are universal obligations under the contracts, not sampled test inputs.
+The functional input domains and error precedence are unchanged: invalid hash
+first; Expand length before empty key; LabelInfo bounds before ASCII validation.
+Empty labels, empty IKM and every nonempty PRK size remain accepted. Array inputs
+may alias. CopyInput returns the entry-state sequence and preserves its array;
+the array harness proves saved snapshots survive later writes, including aliased
+inputs. The generated array route replaces the handwritten `HkdfBridge.sequence`
+helper. Historical bytecode evidence for that removed helper is historical, not
+current coverage of the new route.
 
-The actual event helpers prove retention of tags, widths, branch outcomes,
-sequence addresses/lengths, call targets/arity and provider-call metadata. A
-trusted C# adapter over Dafny's resolved AST separately checks coverage and
-ordered updates of the exact ghost output: every accepted call has its own
-output binding and one immediate append; roots and markers have exact resolved
-identities; unsupported statements/expressions and by-method functions reject.
-It rejects trace resets, missing/reordered observations, shadow declarations,
-private datatype equality and incomplete loop observations. The paired proof
-alone does not establish this coverage connection. The C# checker is reviewed
-and tested, not formally proved correct.
+Public observations include hash choice, lengths, label UTF-16 units, branch
+outcomes, sequence operation metadata, calls and primitive-call shapes. Byte
+contents and HMAC results remain private. The paired harnesses prove trace and
+success/failure-shape equality under equal public shapes, without equating private
+inputs or imposing array disjointness. These are source-level observations.
 
-The binding scan uses an exact positive statement-class grammar over every
-resolved descendant, including ghost/proof blocks. Unsupported forms such as
-assign-such-that (`:|`) and statement expressions reject. Ghost/lemma calls
-with output bindings also reject, and no call may replace the actual trace
-output. This restriction is on the supported instrumentation language; it
-does not narrow the cryptographic methods' input domain.
+The finite C# checker binds exact resolved module/class/declaration/formal and
+child-output identities. A callee trace is appended once immediately after its
+actual call; trace resets, stale/reused child outputs, shadow declarations,
+unsupported effects and unknown expressions fail closed. The four array roots
+allow only identifier assignment/call-output LHS forms. CopyInput admits only the
+rank-one bv8 array Length of its exact input formal, its explicit upper-bound
+read, and its full slice; arbitrary array reads/stores are unsupported.
 
-Site IDs are bounded nonnegative integer literals unique per static marker in
-each method. They are opaque method-local annotation labels, not physical
-source positions or JVM program counters. A consistent fresh relabel is valid;
-colliding/nonliteral labels reject. Semantic event arguments and order remain
-checked. `Ops` records operation counts, not instruction order or cost.
+Bare returns require both absent authored RHS and absent resolved HiddenUpdate.
+Short-circuit AND/OR operands emit `EvBranchIf(site,enabled,outcome)` with exact
+resolved path conditions. Conditional nested reads/calls/allocations are rejected.
+The only sequence constructor is Extract's canonical zero-byte initializer.
+`ValidHash` is an explicit atomic public-only boundary with an exact checked
+signature and `{32,48,64}` membership body. Coverage does not model the generated
+DafnySet implementation, allocation internals, or general JVM execution order.
+Site IDs are method-local labels; a consistent bijective relabel is valid.
 
-From the repository root:
+The approved source has 257 kernel VC rows, 11 sequence NI rows and 13 array NI
+rows. `EvBranchIf` contributes one actual well-formedness VC. Two mixed AND/OR
+fixtures each require a full 257-row proof. Five functional/model/ownership
+controls require actual correctness failure and passing well-formedness at their
+named obligations. The only allowed assumption is the deterministic external
+`Mac` contract; audits of the three own files admit exactly 1/0/0 findings.
+
+The portable replay reconstructs the exact reviewed 115 coverage fixtures from
+line-edit recipes with authenticated base and result hashes: 112 named negatives
+and three valid positives. Each must ordinarily resolve before any coverage
+classification. Real anchored plugin diagnostics are required; comments, source
+excerpts, missing roots, parser failures and resource failures earn no credit.
+Original checked-in reviewer fixtures and the v1 input manifest remain historical
+inputs. Current recipes port all 81 prior named negatives to the eight-root
+program and add the R2 fidelity cases. Existing metadata, observed-secret,
+binding-erasure, duplicate-child and BOM/include-audit controls also remain in the
+full replay. Observed-secret controls prove their actual changed Extract body and
+reject its own-file NI harness; they do not claim the new array wrappers satisfy
+secret-dependent mutant trace contracts.
+
+Run data-only regressions from the repository root:
 
 ```sh
-python3 -m unittest discover -s formal/source/hkdf -p 'test_*.py' -v
-python3 formal/source/hkdf/run.py --output /fresh/hkdf-source-traces
+python3 -I -B -m unittest discover -s formal/source/hkdf -p 'test*.py' -v
 ```
 
-The output must not exist. Every log, copied input, checker build and receipt
-stays inside it. The runner freezes its complete reviewed input inventory
-before importing tool helpers, discovers includes using the pinned official
-Dafny parser, audits every included file, and uses Dafny 4.9.1/Z3 with the
-30-second, 50-million-resource, case-split-zero policy. The existing external
-`Mac` contract is the one allowed assumption. Parser errors, tool crashes,
-resource exhaustion and timeouts do not qualify as proof-control failures.
+Run the complete bounded unit using explicitly selected absolute tool paths and
+an independently reviewed digest of `inputs-v2.json`:
 
-The 72 control records include one accepted fresh relabel and 71
-rejection/audit/proof records. Historical frozen fault sources are distinguished
-from controls generated on the current source. Metadata defects must fail real
-Dafny obligations in their exact affected encoder declarations; each filtered
-encoder is also checked positively and the full baseline remains verified.
-This avoids treating unrelated failures in intentionally broken programs as
-semantic evidence. Faithfully observed private behavior must fail the paired
-trace equality; omitted observations must fail the coverage adapter.
-The assign-such-that regression also replays its complete body and paired
-proofs (246 and 257 checks) and checks generated-Java identity: those gates
-still pass for the forged observation, so the named coverage rejection is
-essential.
+```sh
+python3 -I -B formal/source/hkdf/run.py \
+  --manifest "$REPO/formal/source/hkdf/inputs-v2.json" \
+  --expected-manifest "$HKDF_INPUTS_SHA256" \
+  --profile macos-sdk10.0.400 \
+  --dafny "$DAFNY" --dotnet "$DOTNET" \
+  --targeting-packs "$OFFLINE_NET6_PACKS" --runtime "$DAFNY_RUNTIME_JAR" \
+  --jdk21 "$JDK21" --jdk25 "$JDK25" --output "$FRESH_ABSOLUTE_OUTPUT"
+```
 
-Java checks use the actual repository generated package and three production
-adapter/provider sources. All nine generated package files, the top-level
-aggregator, twelve compiled classes and the four public method signatures must
-match. These finite artifact checks support delivery under compiler trust;
-they do not prove the compiler's semantics or Java adapter refinement.
+The Linux profile is `linux-sdk10.0.400`. Both profiles are the repository's
+reviewed Select tool profiles, authenticated byte-for-byte. They pin Dafny4.9.1,
+Z3 4.12.1, SDK10.0.400 and the JDK/runtime inputs. The offline pack directory must
+contain exactly the two archives from
+`formal/source/keccak/encoder/net6-targeting-packs.json` (577 payloads). No SDK,
+pack, tool tree or absolute private path is shipped here. The caller supplies
+those authenticated external tools; no ambient NuGet restore is used.
 
-Dafny/Boogie/Z3, the compiler and ghost erasure, .NET/build environment, the
-coverage adapter, javac/DafnyRuntime/JVM and JCE HMAC remain trust assumptions.
-This component does not establish HMAC security, physical constant-time JVM
-execution, cryptographic hardness, whole TLS/QUIC security or external expert
-review. Cross-component trace composition and the common typed codec remain
-separate obligations. Existing bytecode evidence remains supplementary.
+`--phase preflight` performs ordinary resolution, the strict checker build,
+coverage and actual Java/runtime checks, with **zero SMT proof credit**. The
+full phase additionally executes every required proof/audit/control at the
+original 30-second/50-million-resource/two-core/case-split-zero/seed-zero policy.
+Output must be new, outside Git and all input roots. Inputs and complete tool
+maps are authenticated before/after. JDK maps include every regular file, directory
+and symbolic link as typed triples; symbolic directories are never followed and
+external link targets reject. Output overlap is rejected in both directions
+against all source, manifest, runtime, targeting-pack and tool roots before any
+output directory is created. Every child gets a private HOME/temp/XDG
+configuration and a minimal environment. Python helpers compile captured pinned
+source bytes rather than loading .pyc. The reviewed owned-process supervisor
+saves stdout and fsyncs the actual exit/argv/environment record before parsing or
+classification; only confirmed process-group members can be signaled.
+
+Nine generated package Java files, the aggregator and translation metadata must
+match the reviewed R2 bytes literally. Three actual facade/bridge/provider sources
+join both same-JDK compilations; committed and freshly generated output must have
+identical inventories and all 12 actual class bytes on JDK21 and25. Reviewed
+same-profile class maps are checked separately. Raw source differences are saved
+without normalization. The real array/JCE harness executes 150 cases and346
+assertions separately on each JDK. The original GeneratedHkdfTest suite also
+executes 45 cases/2766 assertions on each JDK, with adapter discipline and its
+select/cast/decoy controls. These suite counts stay separate. These finite checks
+are not adapter refinement.
+
+Dafny/Boogie/Z3, compiler ghost erasure, the reviewed but unproved C# checker,
+.NET/SDK tooling, javac/DafnyRuntime/JVM/JIT/CPU/GC and JCE HMAC remain trusted.
+No physical constant-time, cryptographic-hardness, global trace-ID identity,
+whole-component composition, release/adoption or expert-security claim follows.
+Every report retains `qualification:false`. Current external delivery/timing
+inventories must explicitly adopt the changed source and removed helper; old
+receipts are not refreshed by this replay.
+
+A completed full run emits a new `SOURCE-EVIDENCE-v2.json` projection in its output
+directory, with hashes of every raw command record and no private absolute paths.
+It cannot export a preflight or relabel the old five-operand JDK scope as a full
+tree snapshot. Staging that receipt is a separate reviewed action; it never
+rewrites repository evidence or its own input manifest. Exactly the named output
+receipt is excluded from package input hashing to avoid a hash cycle; it must be
+independently pinned by the obligation ledger. Executable/control files in
+`work`, `obj`, `bin` or `__pycache__` remain subject to admission. Never-loaded
+Python bytecode cache files are ignored because raw-source loading bypasses them.
+The old v1 input and source/production receipts remain historical.

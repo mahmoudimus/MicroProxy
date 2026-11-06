@@ -257,12 +257,14 @@ closure claim includes them. `Decaps` is a caller skeleton only.
 
 ## 7a. Additional static helper bodies
 
-`HkdfBridge.sequence` and `labelUnits` are checked static roots under the same
-observer. Clone/sequence construction is modeled through lengths/allocations;
-its contents and copy/alias ownership remain trusted adapter semantics. A finite
-private-input pair for `sequence` establishes equal observations, with no claim
-that the modeled clone/sequence roles contain the original bytes. `labelUnits`
-is entirely public; its allocation declassification is restricted to pc 11.
+`HkdfBridge.labelUnits` remains a checked public static root; its allocation
+declassification is restricted to pc 11. The removed `HkdfBridge.sequence` method
+is explicitly retired. Its historical source is compiled separately for finite
+private-input/control regressions, without current proof credit. The generated
+array-input/CopyInput route is supported by separate source-level Dafny ownership
+and trace proofs; no bytecode certificate is transferred to it. Compiler/runtime
+copying, Java adapter refinement and copied-content/alias semantics remain trust
+boundaries under this bytecode observer.
 
 Seven private `NativeField` arithmetic bodies are checked with their owned calls
 fully expanded; `Q` and `MaxReduce` are public supporting leaves. The checked

@@ -137,7 +137,7 @@
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java": "b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java": "81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
-    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java": "4d44ac808e9f19c40de01c3201d229c265a503a63c7afa8bacf4dbbfe9230891"
   },
   "existing_generated_provenance": "Exact existing packet compiler output is pinned by formal/packet/inputs.json; nine HKDF compiler-output files are reproduced by formal/dafny/deliver_hkdf.py and pinned in formal/dafny/hkdf/GENERATED.json; one verified-nonce compiler-output file is reproduced by formal/nonce/run.py and pinned in formal/nonce/GENERATED.json plus formal/nonce/PRODUCTION-EVIDENCE.json. Only these generated files receive generated-code lint. The nonce package is not a Maven-plugin generation hook: it is CI-explicit like HKDF. The HKDF external provider remains handwritten and is compiled with strict lint before its generated callers and again with all handwritten sources. Every resulting class joins the independent full Maven class/JAR comparison.",
   "native_evidence": {
@@ -224,7 +224,9 @@
     },
     "drift_policy": "Runner schema and inventory changes require explicit contract review/version or pin update. Every current domain dependency, runner, harness, provider and reference Java hash must match; partial controls or matching partial inventories cannot qualify. Full staging replays proofs but relies on these complete pinned controls and supported-JDK replays.",
     "required_source_pins": {
-      "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a"
+      "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
+      "formal/crypto/NativeKeccak.dfy": "d1682b1b9f6014d2d8d290841801bd70d4771feaf90581bde6bb0791723d60df",
+      "formal/crypto/NativeShake.dfy": "97a25d13a672b46b2e947af1537a6eabbd1ada5d3912c83c0f5a8457e31df816"
     },
     "bytecode_control_rejections": {
       "selector-narrow-helper": "Unreviewed or payload-sensitive runtime helper",
@@ -295,7 +297,7 @@
       },
       "caller_inventory": {
         "count": 193,
-        "sha256": "7dbe4d9f78df2f27a03dde97d3d28c4240f9547983decd61fcb5edb68695562a",
+        "sha256": "3b0066f611520e01c7f7480d6e9251fa7e4c74aff0b2e6700233f4ba3ae202e1",
         "files": [
           "NativeCodec/DecodeResult_Decoded.java",
           "NativeCodec/__default.java",
