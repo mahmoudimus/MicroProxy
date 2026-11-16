@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.2](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.1...v0.8.2) (2026-11-16)
+
+
+### Features
+
+* **admin:** a read-only stats listener for Prometheus and probes ([29ac828](https://github.com/mahmoudimus/MicroProxy/commit/29ac8287f96327831a8bc67afa2218956c1b0ad4))
+* **admin:** a read-only stats listener for Prometheus and probes ([2002b69](https://github.com/mahmoudimus/MicroProxy/commit/2002b6921374af714f337748e0f33272843305f3))
+* **formal:** add isolated Keccak coverage and authenticated source views ([e642dd4](https://github.com/mahmoudimus/MicroProxy/commit/e642dd4e7b3d4175b5abc6cf4b846f3a995e7ab2))
+* **formal:** adopt complete Keccak source trace verification ([24f13d6](https://github.com/mahmoudimus/MicroProxy/commit/24f13d64df46ccb65c70fada8be281a0dfe62070))
+* **formal:** complete Keccak source traces and qualify production delivery ([461a34b](https://github.com/mahmoudimus/MicroProxy/commit/461a34b5f839bdf69e5d830974ae49241a20d70d))
+
+
+### Bug Fixes
+
+* **http3:** order received flow cleanup before replacement admission ([a4d3b57](https://github.com/mahmoudimus/MicroProxy/commit/a4d3b5715f99b8dc68e0a68a513b96b17120d37d))
+
+
+### Documentation
+
+* define full source trace composition gates ([9e2ef9d](https://github.com/mahmoudimus/MicroProxy/commit/9e2ef9d8f10a4d9a17d097c2242fbc1680a8bdc1))
+* **formal:** document Keccak observer and reference-pack boundaries ([60d053c](https://github.com/mahmoudimus/MicroProxy/commit/60d053cd829638995b9a9724e0417e1b6322e0e8))
+* **formal:** record current Keccak artifact compatibility checks ([87c1e2b](https://github.com/mahmoudimus/MicroProxy/commit/87c1e2b74cfc865eb142f483d6765ff6534786cf))
+* **formal:** record Keccak candidate gates and parent adoption boundaries ([e6ae482](https://github.com/mahmoudimus/MicroProxy/commit/e6ae48286ae732df01f490a0354c9dfc83a2b6e2))
+
 ## [0.8.1](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.0...v0.8.1) (2026-11-05)
 
 
