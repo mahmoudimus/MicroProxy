@@ -199,12 +199,7 @@ class MitmHandshakeClosedTest {
 
     /** The session's request was answered 502 for the handshake that the connection's end failed. */
     private ProxyFailure.TlsFailed assertTlsFailed(Reason reason) {
-        FlowRecord tunnel = flows.await(FlowRecord.Kind.TUNNEL);
-        // The CONNECT was answered before the server's handshake (deferred): its record says why that failed.
-        assertEquals(200, tunnel.responseCode());
-        assertTrue(tunnel.upstreamTransportFailureReason() != null
-                && tunnel.upstreamTransportFailureReason().startsWith(reason.code() + ": "),
-                "the tunnel's transport failure: " + tunnel.upstreamTransportFailureReason());
+        assertTunnelFailed(reason);
         FlowRecord request = flows.await("the session's request", r -> r.kind() != FlowRecord.Kind.TUNNEL);
         assertEquals(502, request.responseCode());
         assertEquals("proxy_failure:tls_failed", request.responseCodeDetails());
@@ -216,6 +211,74 @@ class MitmHandshakeClosedTest {
                 request.upstreamTransportFailureReason());
         assertTrue(handshakeFailures.contains(failure.cause()), "tlsHandshakeFailed got the handshake's exception");
         return failure;
+    }
+
+    /**
+     * The record of a {@code CONNECT} answered before the server's handshake (deferred), which then
+     * failed on every route: still the {@code 200} that was sent, with the session's failure, so that
+     * a failed session never has a tunnel record without one.
+     */
+    private FlowRecord assertTunnelFailed(Reason reason) {
+        FlowRecord tunnel = flows.await(FlowRecord.Kind.TUNNEL);
+        assertEquals(200, tunnel.responseCode());
+        ProxyFailure.TlsFailed failure = assertInstanceOf(ProxyFailure.TlsFailed.class,
+                tunnel.failure().orElse(null), "the tunnel record's failure");
+        assertEquals(reason, failure.reason());
+        assertEquals("proxy_failure:tls_failed", tunnel.responseCodeDetails());
+        assertTrue(tunnel.responseFlags().contains(ResponseFlag.UPSTREAM_CONNECTION_FAILURE), tunnel.responseFlags().toString());
+        assertTrue(tunnel.upstreamTransportFailureReason() != null
+                && tunnel.upstreamTransportFailureReason().startsWith(reason.code() + ": "),
+                "the tunnel's transport failure: " + tunnel.upstreamTransportFailureReason());
+        return tunnel;
+    }
+
+    @ParameterizedTest
+    @EnumSource(Stack.class)
+    void aFailedSessionWithoutARequestHasItsFailureOnTheTunnelRecord(Stack stack) throws Exception {
+        AtomicInteger accepted = new AtomicInteger();
+        TestSupport.RawServer chained = chainedProxy(Fault.RESET_AFTER_HELLO, accepted, new CountDownLatch(1));
+        HttpProxyServer proxy = start(proxy(stack).withChainProxyManager(always(http(chained.address()))));
+        try (Socket s = open(proxy.getListenAddress())) {
+            assertEquals(200, status(connect(s, "origin.test:443")));
+            SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(s, "origin.test", 443, true);
+            tls.startHandshake();
+            // No request: the session's failure is on no request record, only on the tunnel's.
+        }
+        assertTunnelFailed(Reason.CLOSED_DURING_HANDSHAKE);
+        assertEquals(1, accepted.get());
+        assertEquals(1, handshakeFailures.size());
+    }
+
+    @ParameterizedTest
+    @EnumSource(MitmServerHandshake.class)
+    void aSessionThatTheNextRouteRecoversHasACleanTunnelRecord(MitmServerHandshake handshake) throws Exception {
+        AtomicInteger accepted = new AtomicInteger();
+        TestSupport.RawServer chained = chainedProxy(Fault.RESET_AFTER_HELLO, accepted, new CountDownLatch(1));
+        com.sun.net.httpserver.HttpsServer origin = TestSupport.httpsOrigin(
+                originCa.serverContext("localhost", "127.0.0.1"), TestSupport.fixed(200, "ok"));
+        closeables.add(() -> origin.stop(0));
+        String target = "localhost:" + origin.getAddress().getPort();
+        HttpProxyServer proxy = start(proxy(Stack.JDK)
+                .withChainProxyManager(always(http(chained.address()), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION))
+                .onAllProtocols(p -> p.mitmServerHandshake(handshake)));
+        try (Socket s = open(proxy.getListenAddress())) {
+            assertEquals(200, status(connect(s, target)));
+            SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(s, "localhost",
+                    origin.getAddress().getPort(), true);
+            tls.startHandshake();
+            TestSupport.write(tls.getOutputStream(), "GET / HTTP/1.1\r\nHost: " + target + "\r\nConnection: close\r\n\r\n");
+            assertEquals(200, status(TestSupport.readUntil(tls.getInputStream(), "\r\n\r\n")));
+        }
+        FlowRecord request = flows.await("the session's request", r -> r.kind() != FlowRecord.Kind.TUNNEL);
+        assertEquals(200, request.responseCode());
+        // The first route's handshake failed, and was reported as such; the session did not.
+        assertEquals(1, accepted.get());
+        assertEquals(1, handshakeFailures.size());
+        FlowRecord tunnel = flows.await(FlowRecord.Kind.TUNNEL);
+        assertEquals(200, tunnel.responseCode());
+        assertEquals(java.util.Optional.empty(), tunnel.failure());
+        assertEquals(java.util.Set.of(), tunnel.responseFlags());
+        assertEquals(null, tunnel.upstreamTransportFailureReason(), "a recovered session's tunnel record");
     }
 
     @ParameterizedTest
