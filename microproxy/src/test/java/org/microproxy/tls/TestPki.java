@@ -59,6 +59,27 @@ public final class TestPki {
         }
     }
 
+    /**
+     * A server certificate from {@code ca} for {@code names}, valid now, whose server sends it
+     * alone: a chain without its issuer, as servers whose CA a client does not know often send.
+     */
+    public static Server leafOnly(CertificateAuthority ca, String... names) {
+        try {
+            KeyPair keyPair = CertificateAuthority.newEcKeyPair();
+            Instant now = Instant.now();
+            CertificateBuilder builder = new CertificateBuilder()
+                    .subject(names[0], "MicroProxy")
+                    .issuer(ca.getCertificate())
+                    .publicKey(keyPair.getPublic())
+                    .validity(now.minus(Duration.ofDays(1)), now.plus(Duration.ofDays(30)));
+            for (String name : names) builder.addSubjectAltName(name);
+            X509Certificate leaf = builder.sign(ca.getPrivateKey());
+            return new Server(SslContexts.withKey(keyPair.getPrivate(), new X509Certificate[] {leaf}, null), leaf);
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** A server certificate from {@code ca} for {@code names}, valid now. */
     public static Server server(CertificateAuthority ca, String... names) {
         Instant now = Instant.now();

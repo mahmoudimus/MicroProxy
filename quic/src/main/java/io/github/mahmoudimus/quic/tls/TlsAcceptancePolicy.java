@@ -308,7 +308,18 @@ final class TlsAcceptancePolicy {
                 // A matching name is insufficient; try another candidate within the same bound.
             }
         }
-        throw rejected("cannot establish the certificate issuer key from the supplied chain and accepted issuers");
+        throw untrustedIssuer("cannot establish the certificate issuer key from the supplied chain and accepted issuers");
+    }
+
+    /**
+     * The chain leads to no issuer it carries or the trust manager accepts: no certification path,
+     * as the JDK's PKIX builder reports it ({@link java.security.cert.CertPathBuilderException} as
+     * the cause), so callers classify it as an untrusted certificate. The alert is unchanged.
+     */
+    private static QuicException untrustedIssuer(String message) {
+        QuicException failure = rejected(message);
+        failure.initCause(new java.security.cert.CertPathBuilderException(message));
+        return failure;
     }
 
     private void pssCertificateParameters(AlgorithmParameters parameters) throws QuicException {
