@@ -240,7 +240,12 @@ class LoopbackTest {
 
     @Test
     void datagrams() throws Exception {
-        try (QuicConnection c = connect()) {
+        // MTU discovery raises maxDatagramSize() each time a probe is acknowledged, so a limit read
+        // in one call can be stale by the next and max + 1 may then be accepted. With discovery off
+        // the client's path MTU, and with it the limit, stays fixed, so the boundary is exact.
+        TransportConfig fixedMtu = fastTransport().toBuilder().mtuDiscoveryConfig(null).build();
+        try (QuicClient fixedMtuClient = QuicClient.create(clientConfig(fixedMtu));
+                QuicConnection c = fixedMtuClient.connect(server.localAddress(), "localhost", Duration.ofSeconds(10))) {
             assertTrue(c.maxDatagramSize() > 1000, "max " + c.maxDatagramSize());
             // Datagrams are unreliable: resend until the echo comes back
             byte[] reply = null;
