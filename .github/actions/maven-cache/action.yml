@@ -1,8 +1,12 @@
 name: Maven repository cache
 description: >-
-  Restores ~/.m2/repository from the cache of the exact pom.xml set, else from the most recent one, so that a
-  pom.xml change (every version bump) downloads only what is new instead of every plugin and dependency again.
-  setup-java's `cache: maven` has no such fallback. MicroProxy's own artifacts are not cached: a job builds them.
+  Restores ~/.m2/repository from this job's cache for the exact pom.xml set, else from this job's most recent one,
+  else from any job's, so that a pom.xml change (every version bump) downloads only what is new instead of every
+  plugin and dependency again. setup-java's `cache: maven` has no such fallback, and its one key per pom set is
+  shared by every job: the first job to finish saves only what it used, and every other job then restores that
+  exactly and never saves its own. Here each job keeps its own. MicroProxy's own artifacts are not cached: a job
+  builds them. It also makes Maven retry downloads that Central refuses (HTTP 429/503) ten times, ten seconds apart
+  at first, instead of three: a job whose cache misses still downloads, and Central rate-limits the runners.
 runs:
   using: composite
   steps:
@@ -11,6 +15,14 @@ runs:
         path: |
           ~/.m2/repository
           !~/.m2/repository/io/github/mahmoudimus
-        key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        key: maven-${{ runner.os }}-${{ github.job }}-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
+          maven-${{ runner.os }}-${{ github.job }}-
           maven-${{ runner.os }}-
+          setup-java-${{ runner.os }}-
+    - name: Retry downloads Central refuses
+      shell: bash
+      run: >-
+        echo "MAVEN_ARGS=${MAVEN_ARGS:+$MAVEN_ARGS }-Daether.connector.http.retryHandler.count=10
+        -Daether.connector.http.retryHandler.interval=10000
+        -Daether.connector.http.retryHandler.serviceUnavailable=429,503" >> "$GITHUB_ENV"
