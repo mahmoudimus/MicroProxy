@@ -196,7 +196,7 @@ jobs:
         working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
           DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
-          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          mvn -q org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
           CRYPTO_RUNTIME="$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
           CRYPTO_RUNTIME_SHA=$(python -c 'import json; print(json.load(open("formal/crypto/delivery.json"))["runtime"]["sha256"])')
           mkdir -p target/dafny-native-crypto
@@ -298,7 +298,7 @@ jobs:
         run: |
           python -m unittest scripts.security.test_crypto_poly_baseline -v
           python scripts/security/prepare_poly_baseline.py --output target/polynomial-main-baseline --git-repo "$GITHUB_WORKSPACE"
-          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          mvn -q org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
       - name: Historical - Verify executable polynomial traces, exact scope and erasure
         working-directory: ${{ env.CRYPTO_HISTORICAL_ROOT }}
         run: |
@@ -355,7 +355,7 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as out:
               out.write('SELECT_DAFNY=' + str(dafny) + '\n')
           PY
-          JAVA_HOME="$SELECT_JDK21" mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          JAVA_HOME="$SELECT_JDK21" mvn -q org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
           mkdir -p target
           mkdir target/select-source-baseline
           test "$(/usr/bin/git -C "$GITHUB_WORKSPACE" rev-parse '155bbe14cb9748cf677f4eb223af3dd2331687b0^{tree}')" = '74a3eb686d02bf4226afed08227391e742b54f12'
@@ -470,7 +470,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libicu74
       - name: Prepare Maven runtime and fresh output
         run: |
-          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          mvn -q org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
           NONCE_RUNTIME="$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
           mkdir -p target/dafny-nonce
           NONCE_OUTPUT=$(mktemp -d target/dafny-nonce/run-XXXXXX)
@@ -511,7 +511,7 @@ jobs:
       - name: Verify native array, arithmetic, cleanup and generated-code gates
         run: |
           DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
-          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          mvn -q org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
           python formal/crypto/native_codec_checks.py --dafny "$DAFNY_CRYPTO_TOOL" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --output target/dafny-native-codec --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
