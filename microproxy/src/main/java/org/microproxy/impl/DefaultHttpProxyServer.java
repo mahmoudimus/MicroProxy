@@ -246,6 +246,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile boolean drainImmediate;
     /** The admin listener, while it runs; null without one. */
     private volatile AdminServer admin;
+    /** The read-only stats listener, while it runs; null without one. */
+    private volatile AdminServer statsListener;
     /** When the proxy started ({@link System#nanoTime}), for its uptime. */
     final long startNanos = System.nanoTime();
 
@@ -302,7 +304,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.config = b;
         this.name = b.name;
         // The admin listener shows the stats: it turns them on.
-        if (b.adminAddress != null && !b.stats.enabled()) b.stats = org.microproxy.stats.StatsRegistry.create();
+        if ((b.adminAddress != null || b.statsAddress != null) && !b.stats.enabled()) {
+            b.stats = org.microproxy.stats.StatsRegistry.create();
+        }
         this.stats = new ProxyStats(b.stats, b.name);
         this.transparent = b.transparent;
         this.transparentTlsPort = b.transparentTlsPort;
@@ -470,6 +474,17 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 throw new UncheckedIOException("unable to bind the admin listener " + config.adminAddress, e);
             }
             LOG.log(Level.INFO, "{0} admin listening on {1}", name, admin.address());
+        }
+        if (config.statsAddress != null) {
+            try {
+                statsListener = AdminServer.startStats(this, config.statsAddress, config.statsPaths);
+            } catch (IOException e) {
+                stopAdmin();
+                state.set(ServerState.STOPPED);
+                if (pool != null) pool.closeAll();
+                throw new UncheckedIOException("unable to bind the stats listener " + config.statsAddress, e);
+            }
+            LOG.log(Level.INFO, "{0} stats listening on {1}", name, statsListener.address());
         }
         try {
             return bind();
@@ -885,6 +900,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         copy.withThrottling(readLimiter.rate(), writeLimiter.rate());
         // An admin listener on a fixed port is this server's alone; one on any free port is cloned.
         if (config.adminAddress != null && config.adminAddress.getPort() != 0) copy.withAdmin(null);
+        if (config.statsAddress != null && config.statsAddress.getPort() != 0) copy.withStatsListener(null);
         return copy;
     }
 
@@ -961,6 +977,38 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         AdminServer a = admin;
         admin = null;
         if (a != null) a.stop();
+        AdminServer s = statsListener;
+        statsListener = null;
+        if (s != null) s.stop();
+    }
+
+    @Override
+    public InetSocketAddress getStatsListenerAddress() {
+        AdminServer s = statsListener;
+        return s == null ? null : s.address();
+    }
+
+    /** Whether the embedder's {@linkplain HttpProxyServerBootstrap#withReadinessCheck readiness check} passes (or there is none). */
+    boolean readinessCheckPasses() {
+        java.util.function.BooleanSupplier check = config.readinessCheck;
+        if (check == null) return true;
+        try {
+            return check.getAsBoolean();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "the readiness check failed", e);
+            return false;
+        }
+    }
+
+    /**
+     * Whether the TCP listener still accepts: bound and open, with its acceptor thread running. The
+     * kernel completes connections into the backlog on its own, so a connection to the listener
+     * would not show a dead acceptor; this does, and opens no connection (none is counted in the stats).
+     */
+    boolean accepting() {
+        Thread a = acceptor;
+        ServerSocket s = serverSocket;
+        return a != null && a.isAlive() && s != null && s.isBound() && !s.isClosed();
     }
 
     @Override

@@ -1405,6 +1405,51 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Serves the stats and the health of the proxy, and nothing else, on an HTTP listener of their
+     * own at {@code address}: {@code /stats}, {@code /stats/prometheus}, {@code /ready} and
+     * {@code /live}, as the admin listener answers them ({@code GET} and {@code HEAD}); {@code /}
+     * lists them. Nothing it answers changes the proxy, it needs no token and it never reads a
+     * request's body, so it may listen on the pod's address for Prometheus and for probes while the
+     * {@linkplain #withAdmin admin listener}, which can stop the proxy, stays on loopback. It turns
+     * {@linkplain #withMetrics metrics} on. Null (the default) means no stats listener.
+     *
+     * @param address the address to listen on (port 0 for any free port), or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withStatsListener(InetSocketAddress address) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support a stats listener");
+    }
+
+    /**
+     * More paths for the {@linkplain #withStatsListener stats listener}'s answers, so that it fits
+     * the layout the platform around it expects: {@code Map.of("/metrics", "/stats/prometheus",
+     * "/health/liveness", "/live", "/health/readiness", "/ready")} answers Spring Boot Actuator's
+     * paths too. The default is none.
+     *
+     * @param paths each extra path (starting with {@code /}) and the stats listener's path it answers as
+     * @return this bootstrap
+     * @throws IllegalArgumentException if an extra path does not start with {@code /} or is one of
+     *     the listener's own, or a target is not one of {@code /stats}, {@code /stats/prometheus},
+     *     {@code /ready} and {@code /live}
+     */
+    default HttpProxyServerBootstrap withStatsListenerPaths(java.util.Map<String, String> paths) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support a stats listener");
+    }
+
+    /**
+     * A condition of the embedder's that {@code /ready} (on the admin and stats listeners) also
+     * needs: while it is false, or throws, {@code /ready} answers {@code 503 NOT_READY}. It is
+     * asked on every {@code /ready}, so it must be cheap. It does not change the proxy's state, its
+     * {@linkplain #withHealthCheckPath health-check path} or {@code /live}. Null (the default) means none.
+     *
+     * @param check whether the embedder is ready, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withReadinessCheck(java.util.function.BooleanSupplier check) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support a readiness check");
+    }
+
+    /**
      * The command line the proxy was started with, which the admin's {@code /server_info} shows
      * (secret values redacted) as Envoy shows its own; the launcher passes its arguments.
      *

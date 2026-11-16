@@ -115,6 +115,8 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `stats_prefix` | prefix of exported stat names (implies `metrics`) | `envoy` |
 | `admin_port` / `admin_address` | serve the [admin API](../observability/admin.md#admin-interface) on this port of `127.0.0.1` / on this `host:port` (implies `metrics`) | off |
 | `admin_token` | the token the admin API requires on every path but `/ready` | none |
+| `stats_port` / `stats_address` | serve the read-only [stats listener](admin-api.md#stats-listener) (`/stats`, `/stats/prometheus`, `/ready`, `/live`, no token) on this port of every address / on this `host:port` (implies `metrics`) | off |
+| `stats_paths` | more paths for the stats listener: `/metrics=/stats/prometheus, /health/liveness=/live` | none |
 | `drain_time` | seconds a drain lasts, and stopping lets exchanges finish (see [Lifecycle, draining and shutdown](../observability/admin.md#lifecycle-draining-and-shutdown)) | `10` |
 | `drain_strategy` | `gradual` or `immediate` | `gradual` |
 | `health_check_path` / `health_check_pass_through` | answer health checks on the proxy's listener / forward healthy ones to the server | off / `false` |

@@ -111,6 +111,16 @@ public interface HttpProxyServer extends AutoCloseable {
     }
 
     /**
+     * The stats listener's address ({@link HttpProxyServerBootstrap#withStatsListener}), with the
+     * port it bound.
+     *
+     * @return the address, or {@code null} without a stats listener
+     */
+    default InetSocketAddress getStatsListenerAddress() {
+        return null;
+    }
+
+    /**
      * Closes {@code resource} when the server stops, after its connections have finished (or been
      * closed): for things that outlive single requests, such as a WARC recorder. Resources close
      * in the reverse order they were added.

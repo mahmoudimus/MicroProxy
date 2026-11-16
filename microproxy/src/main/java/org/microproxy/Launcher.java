@@ -165,6 +165,12 @@ public final class Launcher {
               --admin-token <token>        require this bearer token (or basic password) on every
                                            admin path but /ready
               --admin-token-file <file>    the same, read from the file's first line
+              --stats-port <port>          serve only /stats, /stats/prometheus, /ready and /live
+                                           (read-only, no token) on this port of every address, for
+                                           Prometheus and probes (implies --metrics)
+              --stats-address <host:port>  the same on one address
+              --stats-paths <paths>        more paths for them: /metrics=/stats/prometheus,
+                                           /health/liveness=/live
               --drain-time <seconds>       how long a drain lasts, and how long stopping (SIGTERM)
                                            lets exchanges in progress finish (default 10)
               --drain-strategy <strategy>  gradual (default: more and more new requests are told to
@@ -621,6 +627,9 @@ public final class Launcher {
                 case "--admin-address" -> bootstrap.withAdmin(address(value(queue, arg), arg));
                 case "--admin-token" -> bootstrap.withAdminToken(value(queue, arg));
                 case "--admin-token-file" -> bootstrap.withAdminToken(firstLine(Path.of(value(queue, arg)), arg));
+                case "--stats-port" -> bootstrap.withStatsListener(new InetSocketAddress(intValue(queue, arg)));
+                case "--stats-address" -> bootstrap.withStatsListener(address(value(queue, arg), arg));
+                case "--stats-paths" -> bootstrap.withStatsListenerPaths(statsPaths(value(queue, arg)));
                 case "--drain-time" -> {
                     long seconds = longValue(queue, arg);
                     if (seconds < 0) throw new IllegalArgumentException(arg + " needs a non-negative number");
@@ -956,6 +965,24 @@ public final class Launcher {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(option + " needs host:port, got: " + value);
         }
+    }
+
+    /**
+     * Parses {@code --stats-paths} and the {@code stats_paths} property: {@code
+     * /metrics=/stats/prometheus,/health/liveness=/live}.
+     *
+     * @param value the paths, comma-separated {@code <path>=<stats path>} pairs
+     * @return each path to the stats listener path it answers as, in order
+     */
+    public static java.util.Map<String, String> statsPaths(String value) {
+        java.util.Map<String, String> paths = new java.util.LinkedHashMap<>();
+        for (String pair : value.split(",")) {
+            if (pair.isBlank()) continue;
+            int eq = pair.indexOf('=');
+            if (eq < 0) throw new IllegalArgumentException("--stats-paths: expected <path>=<stats path>: " + pair.strip());
+            paths.put(pair.substring(0, eq).strip(), pair.substring(eq + 1).strip());
+        }
+        return paths;
     }
 
     /** The first line of {@code file}, stripped: a secret kept off the command line. */
