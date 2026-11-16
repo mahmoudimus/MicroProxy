@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -93,6 +94,17 @@ class Http3MasqueTest {
 
         int port() {
             return socket.getLocalPort();
+        }
+
+        /** Waits until this target has received {@code n} datagrams, failing after 10 s. */
+        void awaitCount(int n) {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (count.get() < n) {
+                if (System.nanoTime() - deadline > 0) {
+                    throw new AssertionError("the target received " + count.get() + " of " + n + " datagrams");
+                }
+                LockSupport.parkNanos(20_000);
+            }
         }
 
         @Override
@@ -521,26 +533,16 @@ class Http3MasqueTest {
         H3TestClient.Tunnel flow = client.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
         byte[] payload = new byte[1000];
         // More than the client's stream window (1.25 MB): the echoes the proxy cannot send as
-        // capsules wait in the flow's queue, and those past it are dropped.
+        // capsules wait in the flow's queue, and those past it are dropped. Each goes once the
+        // target has the one before, so that none is dropped on the way there (by the flow's
+        // queue to the target or a socket buffer, as a loaded machine may): the target echoes
+        // all of them, not only as many as the window and the queue hold.
         int sent = 3000;
         for (int i = 0; i < sent; i++) {
             Arrays.fill(payload, (byte) ('a' + i % 26));
             flow.sendDatagramCapsule(payload);
+            udp.awaitCount(i + 1);
         }
-        int[] last = {-1};
-        eventually("the target to stop receiving", () -> {
-            int now = udp.count.get();
-            boolean settled = now == last[0];
-            last[0] = now;
-            if (!settled) {
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-            return settled;
-        });
         int echoed = udp.count.get();
         // Now the client reads: what waited in its window and the flow's queue arrives.
         AtomicInteger received = new AtomicInteger();

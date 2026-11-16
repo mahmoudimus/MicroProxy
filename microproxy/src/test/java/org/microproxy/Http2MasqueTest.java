@@ -688,26 +688,16 @@ class Http2MasqueTest {
         H2StreamClient client = client();
         H2StreamClient.Stream flow = flow(client, udp);
         byte[] payload = new byte[1000];
-        // Far more than the stream's window (64 KiB) and the flow's queue together.
+        // Far more than the stream's window (64 KiB) and the flow's queue together. Each goes
+        // once the target has the one before, so that none is dropped on the way there (by the
+        // flow's queue to the target or a socket buffer, as a loaded machine may): the target
+        // echoes all of them, not only as many as the window and the queue hold.
         int sent = 1000;
         for (int i = 0; i < sent; i++) {
             Arrays.fill(payload, (byte) ('a' + i % 26));
             flow.sendDatagramCapsule(payload);
+            udp.awaitCount(i + 1);
         }
-        int[] last = {-1};
-        eventually("the target to stop receiving", () -> {
-            int now = udp.count.get();
-            boolean settled = now == last[0];
-            last[0] = now;
-            if (!settled) {
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-            return settled;
-        });
         int echoed = udp.count.get();
         // Now the client reads: what waited in its window and the flow's queue arrives.
         AtomicInteger received = new AtomicInteger();
