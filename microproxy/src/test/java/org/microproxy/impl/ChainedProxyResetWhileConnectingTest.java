@@ -1,22 +1,26 @@
 package org.microproxy.impl;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
+import java.net.Socket;
 import java.net.SocketException;
 import org.junit.jupiter.api.Test;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
+import org.microproxy.ChainedProxyConnectException;
 import org.microproxy.ChainedProxyType;
 
 /**
- * Which failed connects to a chained proxy are its reset ({@link
- * ClientConnection#resetWhileConnecting}): an HTTP chained proxy that accepted the connection and
- * reset it before the {@code CONNECT} went out. When the reset lands is a race (on the connect, on
- * writing the {@code CONNECT}, on reading its answer), so the connect's case is checked here
- * directly; the others are in {@code ChainedProxyConnectFailureTest}.
+ * Which failures on the connection to an HTTP chained proxy, to send it a {@code CONNECT}, are its
+ * reset: on the connect ({@link ClientConnection#resetWhileConnecting}), and after it accepted the
+ * connection ({@link ClientConnection#afterAccept}). When the reset lands is a race (on the
+ * connect, on setting the socket's options, on writing the {@code CONNECT}, on reading its answer),
+ * so each case is checked here directly; {@code ChainedProxyConnectFailureTest} has the race.
  */
 class ChainedProxyResetWhileConnectingTest {
 
@@ -55,5 +59,39 @@ class ChainedProxyResetWhileConnectingTest {
         assertFalse(ClientConnection.resetWhileConnecting(proxy(ChainedProxyType.SOCKS5), ClientConnection.Mode.TLS, RESET));
         assertFalse(ClientConnection.resetWhileConnecting(proxy(ChainedProxyType.HTTP), ClientConnection.Mode.PLAIN, RESET),
                 "requests forwarded to it, no CONNECT");
+    }
+
+    @Test
+    void afterTheProxyAcceptedAnySocketFailureIsItsReset() throws Exception {
+        ChainedProxy http = proxy(ChainedProxyType.HTTP);
+        try (Socket open = new Socket()) {
+            // macOS fails setsockopt on a connection already reset with EINVAL.
+            SocketException invalid = new SocketException("Invalid argument");
+            ChainedProxyConnectException reset = assertInstanceOf(ChainedProxyConnectException.class,
+                    ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, open, open, invalid));
+            assertSame(ChainedProxyConnectException.Outcome.RESET, reset.outcome());
+            assertSame(invalid, reset.getCause());
+            assertInstanceOf(ChainedProxyConnectException.class,
+                    ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, open, open, new SocketException("Broken pipe")));
+        }
+    }
+
+    @Test
+    void afterTheProxyAcceptedItsOwnCloseAndTypedFailuresStayWhatTheyAre() throws Exception {
+        ChainedProxy http = proxy(ChainedProxyType.HTTP);
+        SocketException closed = new SocketException("Socket closed");
+        try (Socket open = new Socket(); Socket shut = new Socket()) {
+            shut.close();
+            assertSame(closed, ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, shut, shut, closed));
+            // A TLS chained proxy: the socket under the TLS one closed.
+            assertSame(closed, ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, shut, open, closed));
+            assertSame(closed, ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, open, shut, closed));
+            ChainedProxyConnectException typed = ChainedProxyConnectException.closed(null);
+            assertSame(typed, ClientConnection.afterAccept(http, ClientConnection.Mode.TLS, open, open, typed));
+            assertSame(closed, ClientConnection.afterAccept(proxy(ChainedProxyType.SOCKS5), ClientConnection.Mode.TLS,
+                    open, open, closed));
+            assertSame(closed, ClientConnection.afterAccept(http, ClientConnection.Mode.PLAIN, open, open, closed));
+            assertSame(closed, ClientConnection.afterAccept(null, ClientConnection.Mode.TLS, open, open, closed));
+        }
     }
 }
