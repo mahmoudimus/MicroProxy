@@ -81,6 +81,12 @@ as the browser's does, and a `MitmManager` that returns different contexts for d
 gives them different browsers. `Http2Options.upstreamProfile` sets one HTTP/2 profile for every
 connection instead.
 
+The server's handshake mirrors the client's ALPN protocols and SNI only when it waits for the
+client's ClientHello (`MitmServerHandshake.DEFERRED`). A MITM manager whose server context is a
+profile's therefore gets `DEFERRED` even under `withLittleProxyCompatibility()`, whose preset is
+`EAGER`; an `EAGER` set explicitly is kept, with a warning ([Server TLS
+failures](mitm.md#server-tls-failures)).
+
 A connection holds itself to what the profile advertises: its HTTP/2 and QUIC flow-control windows,
 HPACK and QPACK table sizes and stream limits become the browser's. A QUIC connection with a profile
 has a UDP socket of its own, as a browser's does, since an empty source connection ID tells its

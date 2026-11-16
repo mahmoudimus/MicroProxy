@@ -181,6 +181,25 @@ handshake is closed. LittleProxy runs the handshake first because its
 server's session; proxy authentication happens on the `CONNECT` in both modes. Transparent TLS
 connections, whose ClientHello the proxy has read already, are always deferred.
 
+A browser profile needs the client's ClientHello: when the MITM manager's server context is one
+(`BrowserProfile.sslContext`, any context `FingerprintSslContext.isFingerprint` recognizes), the
+mode is resolved, for each intercepted `CONNECT`, in this order:
+
+1. the request's filters (`proxyToServerMitmHandshake()`), when they choose;
+2. a value set explicitly in a protocol policy (`onHttp1(p -> p.mitmServerHandshake(EAGER))`,
+   `onAllProtocols(...)`, `policy.*.mitm_server_handshake`; `ProtocolPolicy.mitmServerHandshakeExplicit()`);
+3. `DEFERRED`, because the context is a browser profile's;
+4. the built-in preset's value: `DEFERRED` for `ProtocolPolicy.defaults()`, `EAGER` for
+   `ProtocolPolicy.littleProxy()` (`withLittleProxyCompatibility()`, or the preset applied by hand).
+
+So `withLittleProxyCompatibility()` with a browser profile defers, while it stays `EAGER` with a
+JDK context. To find out, the proxy asks the MITM manager for the target's server context
+(`serverSslContext(host, port, flow)`) once more before the `CONNECT` is answered, only when
+the preset's `EAGER` would otherwise apply. An explicit `EAGER` with a browser profile is kept,
+and logged once per proxy as a `WARNING` (the first time such a handshake runs): its ClientHello
+offers the proxy's ALPN protocols, not the client's, and no SNI for a client that `CONNECT`s to
+an IP address.
+
 A server that turns out not to speak TLS gets the client's bytes tunnelled, in both modes.
 Unreachable servers fail the `CONNECT` with `502` in both, since it is connected before it is
 answered. With `DEFERRED`, `proxyToServerConnectionSSLHandshakeStarted` comes after the

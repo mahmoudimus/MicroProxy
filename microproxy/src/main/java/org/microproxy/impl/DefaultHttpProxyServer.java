@@ -221,6 +221,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private ServerSocket serverSocket;
     private ExecutorService executor;
     private Thread acceptor;
+    /** Whether the warning for an explicit EAGER server handshake with a browser profile was logged. */
+    final AtomicBoolean warnedEagerBrowserProfile = new AtomicBoolean();
     private final AtomicBoolean stopping = new AtomicBoolean();
     private InetSocketAddress boundAddress;
 

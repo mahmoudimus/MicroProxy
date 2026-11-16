@@ -593,6 +593,8 @@ final class ClientConnection implements Runnable {
          * (TCP, and through chained proxies), and run the handshake later ({@link #startServerTls}).
          */
         boolean deferServerTls;
+        /** This exchange's server handshake runs eagerly because a policy or its filters said so explicitly. */
+        boolean explicitEagerServerTls;
         /**
          * The proxy made up this CONNECT for a connection that arrived without one (transparent TLS,
          * a {@code tcp://} reverse proxy): nothing is written to the client in HTTP.
@@ -3138,7 +3140,7 @@ final class ClientConnection implements Runnable {
         ex.offerHttp2 = server.http2Origins != null;
         // TLS with the server waits for the client's ClientHello, whose protocols and name it
         // mirrors, unless it runs before the CONNECT is answered (MitmServerHandshake.EAGER).
-        ex.deferServerTls = mitm && mitmServerHandshake(ex) == MitmServerHandshake.DEFERRED;
+        ex.deferServerTls = mitm && mitmServerHandshake(ex, target, hostAndPort) == MitmServerHandshake.DEFERRED;
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
@@ -3236,12 +3238,17 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * When the server's TLS handshake runs for {@code ex}, a {@code CONNECT} to intercept: as its
-     * filters say ({@link HttpFilters#proxyToServerMitmHandshake()}), else as its protocol's
-     * policy does. A transparent TLS connection's is always deferred: its ClientHello is read
-     * already, and it gets no answer in HTTP.
+     * When the server's TLS handshake runs for {@code ex}, a {@code CONNECT} to {@code target} to
+     * intercept: as its filters say ({@link HttpFilters#proxyToServerMitmHandshake()}); else as
+     * its protocol's policy sets explicitly ({@link
+     * org.microproxy.ProtocolPolicy#mitmServerHandshakeExplicit()}); else deferred when the MITM
+     * manager's server context for {@code target} is a browser profile's ({@link
+     * io.github.mahmoudimus.quic.tls.FingerprintSslContext#isFingerprint}), whose ClientHello can
+     * mirror the client's only after reading it; else as the policy's preset does. A transparent
+     * TLS connection's is always deferred: its ClientHello is read already, and it gets no answer
+     * in HTTP.
      */
-    private MitmServerHandshake mitmServerHandshake(Exchange ex) {
+    private MitmServerHandshake mitmServerHandshake(Exchange ex, HostAndPort target, String hostAndPort) {
         if (ex.implicit && ex.socks == 0) return MitmServerHandshake.DEFERRED;
         MitmServerHandshake own = null;
         try {
@@ -3249,7 +3256,44 @@ final class ClientConnection implements Runnable {
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, ex.log + "proxyToServerMitmHandshake threw; using the policy's", e);
         }
-        return own != null ? own : ex.policy.mitmServerHandshake();
+        if (own != null) {
+            ex.explicitEagerServerTls = own == MitmServerHandshake.EAGER;
+            return own;
+        }
+        MitmServerHandshake policy = ex.policy.mitmServerHandshake();
+        if (policy != MitmServerHandshake.EAGER) return policy;
+        if (ex.policy.policy().mitmServerHandshakeExplicit()) {
+            ex.explicitEagerServerTls = true;
+            return policy;
+        }
+        // A preset's EAGER (LittleProxy's) gives way to a browser profile, which needs the client's ClientHello.
+        return browserProfileContext(ex, target, hostAndPort) ? MitmServerHandshake.DEFERRED : policy;
+    }
+
+    /** Whether the MITM manager's server context for {@code target} is a browser profile's. */
+    private boolean browserProfileContext(Exchange ex, HostAndPort target, String hostAndPort) {
+        try {
+            return io.github.mahmoudimus.quic.tls.FingerprintSslContext.isFingerprint(
+                    serverTlsContext(connectionMitm, target, new FullFlowContext(ex.flow, hostAndPort, null, null)));
+        } catch (IOException | RuntimeException e) {
+            LOG.log(Level.DEBUG, ex.log + "no server TLS context for " + hostAndPort + " yet: " + e);
+            return false;
+        }
+    }
+
+    /**
+     * Warns, once per proxy, that {@code ex}'s server handshake runs eagerly, as set explicitly,
+     * with a browser profile's {@code context}: its ClientHello cannot mirror the client's.
+     */
+    private void warnEagerBrowserProfile(Exchange ex, SSLContext context) {
+        if (ex.explicitEagerServerTls
+                && io.github.mahmoudimus.quic.tls.FingerprintSslContext.isFingerprint(context)
+                && server.warnedEagerBrowserProfile.compareAndSet(false, true)) {
+            LOG.log(Level.WARNING, "the MITM server handshake is EAGER, set explicitly (by a protocol policy or a"
+                    + " filter's proxyToServerMitmHandshake), with a browser profile's server context: its ClientHello"
+                    + " cannot mirror the client's (ALPN, and SNI for a client that connects by IP address); DEFERRED"
+                    + " lets the profile emulate the browser. Logged once per proxy.");
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -5986,6 +6030,7 @@ final class ClientConnection implements Runnable {
         MitmManager manager = connectionMitm;
         SSLContext context = serverTlsContext(manager, target, serverContext);
         ex.serverTlsContext = context;
+        warnEagerBrowserProfile(ex, context);
         ProxyStats.ClusterStats cluster = server.stats.cluster(serverContext.getChainedProxy(), hostAndPort);
         // The filters' identity, if any, over the names derived from the request.
         TlsServerIdentity identity = tlsIdentity(ex, hostAndPort);

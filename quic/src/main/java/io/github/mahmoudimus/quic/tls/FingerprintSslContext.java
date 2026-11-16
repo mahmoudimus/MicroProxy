@@ -63,6 +63,17 @@ public final class FingerprintSslContext {
     private FingerprintSslContext() {}
 
     /**
+     * Whether {@code context} was built here ({@link Builder#build()}), so that its sockets present
+     * a browser's ClientHello: told by the context's provider, which only such contexts have.
+     *
+     * @param context the context, or null
+     * @return true for a context this class built
+     */
+    public static boolean isFingerprint(SSLContext context) {
+        return context != null && context.getProvider() == PROVIDER;
+    }
+
+    /**
      * A builder for a context with {@code profile}'s ClientHello.
      *
      * @param profile the ClientHello to present
