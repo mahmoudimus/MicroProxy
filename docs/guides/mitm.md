@@ -191,6 +191,14 @@ Unreachable servers fail the `CONNECT` with `502` in both, since it is connected
 answered. With `DEFERRED`, `proxyToServerConnectionSSLHandshakeStarted` comes after the
 `CONNECT`'s `200`, and the `CONNECT` exchange completes (`proxyToClientResponseSent`,
 `responseCompleted`) once the server handshake is over, so its timings include that handshake.
+Its record (`FlowRecord.Kind.TUNNEL`) keeps the `200` the client was sent. When every route's
+handshake failed, it also carries the failure (`failure()`, the `UF` flag,
+`proxy_failure:tls_failed`, `%UPSTREAM_TRANSPORT_FAILURE_REASON%`), as the session's first
+request's `502` does, so a failed session never has a tunnel record without a failure, even when
+the client sends no request. When a later route's handshake succeeds, the record has neither a
+failure nor a transport failure reason: those describe the connection the session got, and the
+failed attempts are reported by their `tlsHandshakeFailed` events. The same holds for an
+`EAGER` `CONNECT` that a later route answered `200`.
 
 Every server TLS failure reaches filters, the `FailureResponder` and the access log as a
 `ProxyFailure.TlsFailed` whose `cause()` is the JDK's own exception with its whole cause chain:
