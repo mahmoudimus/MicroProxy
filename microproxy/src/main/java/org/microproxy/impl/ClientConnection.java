@@ -45,6 +45,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.AuthResult;
 import org.microproxy.ChainedProxy;
+import org.microproxy.ChainedProxyConnectException;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.ClientDetails;
@@ -5748,11 +5749,24 @@ final class ClientConnection implements Runnable {
                 proxy.filterRequest(connectRequest);
                 stripRequestHeaders(connectRequest.headers());
                 traceUpstream(ex, connectRequest.headers());
-                new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
-                HttpResponse reply = HttpCodec.readResponse(reader, server.limits);
-                if (reply == null || reply.status().code() / 100 != 2) {
-                    throw new ConnectException("chained proxy refused CONNECT: "
-                            + (reply == null ? "connection closed" : reply.status()));
+                HttpResponse reply;
+                try {
+                    new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
+                    reply = HttpCodec.readResponse(reader, server.limits);
+                } catch (java.io.EOFException e) {
+                    throw ChainedProxyConnectException.closed(e);
+                } catch (java.io.InterruptedIOException | ProtocolException e) {
+                    // Timeouts and malformed answers stay what they are.
+                    throw e;
+                } catch (java.net.SocketException e) {
+                    // Reset (or failed) before the answer: typed, with the socket's own message.
+                    throw ChainedProxyConnectException.reset(e);
+                }
+                if (reply == null) {
+                    throw ChainedProxyConnectException.closed(null);
+                }
+                if (reply.status().code() / 100 != 2) {
+                    throw ChainedProxyConnectException.refused(reply.status().code(), reply.status().reasonPhrase());
                 }
                 if (server.sendProxyProtocol) {
                     writeProxyProtocolHeader(ex, rawOut, remote);
@@ -5929,7 +5943,7 @@ final class ClientConnection implements Runnable {
                 reply = stream.readResponse(server.limits);
             } while (reply.status().code() / 100 == 1);
             if (reply.status().code() / 100 != 2) {
-                throw new ConnectException("chained proxy refused CONNECT: " + reply.status());
+                throw ChainedProxyConnectException.refused(reply.status().code(), reply.status().reasonPhrase());
             }
             stream.countedAbove();
             Socket tunnel = stream.tunnelSocket();
