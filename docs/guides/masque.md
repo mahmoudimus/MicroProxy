@@ -69,7 +69,8 @@ is the same whichever transport carries the flow.
 - **Flow control.** A capsule to the client is stream data: over HTTP/2 it waits for the
   stream's and the connection's send window (over HTTP/3 for QUIC's, over HTTP/1.1 for TCP's),
   as any DATA does. While it waits, the target's later datagrams queue up to the bounds above
-  and those past them are dropped, counted in `masque.datagrams_dropped`: UDP is lossy, and stale
+  and those past them are dropped, counted in `masque.datagrams_dropped.to_client` (the client's
+  datagrams that find the queue toward the target full, in `.to_target`): UDP is lossy, and stale
   datagrams are worth less than the window they would take. A client that opens no window for the
   idle timeout (`--idle-timeout`) has its flow reset, as a stalled tunnel would. The client's own
   capsules are read as they come, crediting the windows back at once, whatever the target does.

@@ -40,6 +40,8 @@ import java.util.regex.Pattern;
  *   <li>{@code microproxy_socks_version}: {@code v4} or {@code v5} in {@code socks.<version>.}
  *   <li>{@code microproxy_socks_reply}: the reply at the end of {@code replies.<reply>}
  *   <li>{@code microproxy_reject_reason}: the reason at the end of {@code flow_rejected.<reason>}
+ *   <li>{@code microproxy_drop_direction}: {@code to_target} or {@code to_client} at the end of
+ *       {@code datagrams_dropped.<direction>}
  *   <li>{@code microproxy_tunnel_kind}: the kind in {@code tunnel.<kind>.}
  *   <li>{@code microproxy_close_code}: the code at the end of {@code close_codes.<code>}
  *   <li>{@code microproxy_budget}: the budget at the end of {@code budget_exceeded.<kind>}
@@ -111,6 +113,7 @@ public final class TagExtractor {
             rule("microproxy_socks_version", "^socks\\.((v4|v5)\\.)"),
             rule("microproxy_socks_reply", "\\.replies(\\.([a-z_]+))$"),
             rule("microproxy_reject_reason", "\\.flow_rejected(\\.([a-z_]+))$"),
+            rule("microproxy_drop_direction", "\\.datagrams_dropped(\\.(to_target|to_client))$"),
             rule("microproxy_tunnel_kind", "^tunnel\\.((h1_connect|h2_connect|h3_connect|socks|forwarded|raw)\\.)"),
             rule("microproxy_close_code", "\\.close_codes(\\.([0-9a-z_]+))$"),
             rule("microproxy_budget", "\\.budget_exceeded(\\.([a-z]+))$"),

@@ -159,7 +159,8 @@ class UdpFlowToTargetDropsTest {
             // Ended, the flow can send nothing more: what the target has is all it will have.
             assertEquals(expected, target.received());
             assertEquals(expectedDrops, flow.dropped());
-            assertEquals(expectedDrops, value(stats, "masque.datagrams_dropped"), "counted when the flow ended");
+            assertEquals(expectedDrops, value(stats, "masque.datagrams_dropped.to_target"), "counted when the flow ended");
+            assertEquals(0, value(stats, "masque.datagrams_dropped.to_client"), "none the other way");
             assertEquals(sent.size() + 2, value(stats, "masque.datagrams_rx"));
             assertEquals(2, value(stats, "masque.udp_flows_total"));
 

@@ -108,6 +108,22 @@ class StatsRegistryTest {
     }
 
     @Test
+    void masqueDropsAreTaggedWithTheirDirection() {
+        StatsRegistry r = StatsRegistry.create();
+        for (String direction : List.of("to_target", "to_client")) {
+            Metric dropped = r.counter("masque.datagrams_dropped." + direction);
+            assertEquals("masque.datagrams_dropped", dropped.tagExtractedName());
+            assertEquals(List.of(new Tag("microproxy_drop_direction", direction)), dropped.tags());
+        }
+        r.counter("masque.datagrams_dropped.to_target").add(3);
+        String exposition = StatsFormatter.prometheus(r);
+        assertTrue(exposition.contains("envoy_masque_datagrams_dropped{microproxy_drop_direction=\"to_target\"} 3\n"),
+                exposition);
+        assertTrue(exposition.contains("envoy_masque_datagrams_dropped{microproxy_drop_direction=\"to_client\"} 0\n"),
+                exposition);
+    }
+
+    @Test
     void customRulesRunAfterTheDefaults() {
         TagExtractor extractor = TagExtractor.envoyDefaults().with("script_area", "^script\\.(([a-z]+)\\.)");
         StatsRegistry r = StatsRegistry.builder().tagExtractor(extractor).build();

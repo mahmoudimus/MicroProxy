@@ -726,7 +726,9 @@ class Http2MasqueTest {
         flow.end();
         reader.join(10_000);
         awaitValue(r, "masque.udp_flows_active", 0);
-        assertTrue(value(r, "masque.datagrams_dropped") > 0, "the datagrams dropped are counted");
+        assertTrue(value(r, "masque.datagrams_dropped.to_client") > 0, "the datagrams dropped are counted");
+        // The client's datagrams all reached the target (it echoed every one).
+        assertEquals(0, value(r, "masque.datagrams_dropped.to_target"));
         assertEquals(received.get(), value(r, "masque.capsules_tx"));
         // The connection is fine.
         assertEquals(200, flow(client, udp).status());
@@ -799,7 +801,8 @@ class Http2MasqueTest {
         assertEquals(3, value(r, "masque.capsules_tx"));
         assertEquals(18, value(r, "masque.rx_bytes_total"));
         assertEquals(18, value(r, "masque.tx_bytes_total"));
-        assertEquals(0, value(r, "masque.datagrams_dropped"));
+        assertEquals(0, value(r, "masque.datagrams_dropped.to_target"));
+        assertEquals(0, value(r, "masque.datagrams_dropped.to_client"));
     }
 
     // -------------------------------------------------------------------------------------------

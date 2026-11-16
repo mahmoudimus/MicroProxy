@@ -56,6 +56,7 @@ tags are Envoy's `envoy_http_conn_manager_prefix` (the proxy's name, `withName`,
 [per-protocol stats](../reference/stats.md): `microproxy_direction` (`downstream`, `upstream`), `microproxy_quic_scope`,
 `microproxy_quic_error`, `microproxy_congestion_controller`, `microproxy_drop_reason`,
 `microproxy_socks_version`, `microproxy_socks_reply`, `microproxy_reject_reason`,
+`microproxy_drop_direction`,
 `microproxy_tunnel_kind`, `microproxy_close_code`, `microproxy_hook`, and for scripts'
 calls `microproxy_script`, `microproxy_script_hook` and `microproxy_budget`. Histograms are in
 milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
