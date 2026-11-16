@@ -115,7 +115,7 @@ public sealed interface ProxyFailure {
             /**
              * The connection was reset (or failed otherwise) before the proxy could send its
              * ClientHello: the handshake's first write failed ({@link
-             * org.microproxy.impl.ClientHelloNotSentException} in the cause chain). Through a
+             * ClientHelloNotSentException} in the cause chain). Through a
              * chained proxy, the proxy (or the server behind it) ended the tunnel right after
              * answering the {@code CONNECT}. A connection that was only closed, not reset, still
              * takes the ClientHello, and is {@link #CLOSED_DURING_HANDSHAKE}.
@@ -167,7 +167,7 @@ public sealed interface ProxyFailure {
                 boolean closed = false;
                 boolean notSent = false;
                 for (Throwable t = failure; t != null; t = t.getCause() == t ? null : t.getCause()) {
-                    if (t instanceof org.microproxy.impl.ClientHelloNotSentException) notSent = true;
+                    if (t instanceof ClientHelloNotSentException) notSent = true;
                     if (closedByPeer(t)) closed = true;
                     Reason found = certificateReason(t);
                     if (found != null && (certificate == null || certificate == CERTIFICATE_UNTRUSTED)) {
