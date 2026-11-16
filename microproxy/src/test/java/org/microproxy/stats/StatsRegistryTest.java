@@ -108,19 +108,22 @@ class StatsRegistryTest {
     }
 
     @Test
-    void masqueDropsAreTaggedWithTheirDirection() {
+    void masqueDropsByDirectionKeepTheirOwnNamesBesideTheTotal() {
         StatsRegistry r = StatsRegistry.create();
+        Metric total = r.counter("masque.datagrams_dropped");
+        assertEquals("masque.datagrams_dropped", total.tagExtractedName());
         for (String direction : List.of("to_target", "to_client")) {
+            // Not a tag: a tag would give the directions the total's name, and a sum would count twice.
             Metric dropped = r.counter("masque.datagrams_dropped." + direction);
-            assertEquals("masque.datagrams_dropped", dropped.tagExtractedName());
-            assertEquals(List.of(new Tag("microproxy_drop_direction", direction)), dropped.tags());
+            assertEquals("masque.datagrams_dropped." + direction, dropped.tagExtractedName());
+            assertTrue(dropped.tags().isEmpty());
         }
+        r.counter("masque.datagrams_dropped").add(3);
         r.counter("masque.datagrams_dropped.to_target").add(3);
         String exposition = StatsFormatter.prometheus(r);
-        assertTrue(exposition.contains("envoy_masque_datagrams_dropped{microproxy_drop_direction=\"to_target\"} 3\n"),
-                exposition);
-        assertTrue(exposition.contains("envoy_masque_datagrams_dropped{microproxy_drop_direction=\"to_client\"} 0\n"),
-                exposition);
+        assertTrue(exposition.contains("\nenvoy_masque_datagrams_dropped 3\n"), exposition);
+        assertTrue(exposition.contains("\nenvoy_masque_datagrams_dropped_to_target 3\n"), exposition);
+        assertTrue(exposition.contains("\nenvoy_masque_datagrams_dropped_to_client 0\n"), exposition);
     }
 
     @Test

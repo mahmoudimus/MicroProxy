@@ -210,6 +210,7 @@ final class ProtocolStats {
         final Counter datagramsTx;
         final Counter capsulesRx;
         final Counter capsulesTx;
+        final Counter datagramsDropped;
         final Counter datagramsDroppedToTarget;
         final Counter datagramsDroppedToClient;
         final Counter rejectedLimit;
@@ -226,9 +227,14 @@ final class ProtocolStats {
             capsulesRx = registry.counter("masque.capsules_rx", "DATAGRAM capsules from clients, counted when flows end");
             capsulesTx = registry.counter("masque.capsules_tx",
                     "DATAGRAM capsules sent to clients (for want of QUIC DATAGRAM frames), counted when flows end");
-            String dropped = "Datagrams dropped because a flow's queue was full, by direction, counted when flows end";
-            datagramsDroppedToTarget = registry.counter("masque.datagrams_dropped.to_target", dropped);
-            datagramsDroppedToClient = registry.counter("masque.datagrams_dropped.to_client", dropped);
+            datagramsDropped = registry.counter("masque.datagrams_dropped",
+                    "Datagrams dropped because a flow's queue was full, counted when flows end");
+            // The total by direction: they add up to datagrams_dropped. Flat names, not a tag, so
+            // that the total keeps its own name and a sum is not counted twice.
+            datagramsDroppedToTarget = registry.counter("masque.datagrams_dropped.to_target",
+                    "Client datagrams dropped because a flow's queue toward the target was full, counted when flows end");
+            datagramsDroppedToClient = registry.counter("masque.datagrams_dropped.to_client",
+                    "Target datagrams dropped because a flow's queue toward the client was full, counted when flows end");
             rejectedLimit = registry.counter("masque.flow_rejected.limit", "CONNECT-UDP requests refused, by reason");
             rejectedPolicy = registry.counter("masque.flow_rejected.policy", "CONNECT-UDP requests refused, by reason");
             rxBytes = registry.counter("masque.rx_bytes_total", "UDP payload bytes from clients, counted when flows end");
