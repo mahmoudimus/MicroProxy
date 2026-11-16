@@ -212,4 +212,29 @@ class TlsFailureCauseTest {
         assertEquals(Reason.CERTIFICATE_NOT_YET_VALID, Reason.of(notYet));
         assertNotNull(new ProxyFailure.TlsFailed("h:1", notYet).reason());
     }
+
+    @Test
+    void aConnectionThePeerEndedWithoutAnAlert() {
+        // The JDK's close during the handshake, its reset, a browser profile's reset, a broken pipe.
+        SSLHandshakeException terminated = new SSLHandshakeException("Remote host terminated the handshake");
+        terminated.initCause(new java.io.EOFException("SSL peer shut down incorrectly"));
+        assertEquals(Reason.CLOSED_DURING_HANDSHAKE, Reason.of(terminated));
+        assertEquals(Reason.CLOSED_DURING_HANDSHAKE, Reason.of(new java.net.SocketException("Connection reset")));
+        javax.net.ssl.SSLException reset = new javax.net.ssl.SSLException("Connection reset");
+        reset.initCause(new java.net.SocketException("Connection reset"));
+        assertEquals(Reason.CLOSED_DURING_HANDSHAKE, Reason.of(reset));
+        assertEquals(Reason.CLOSED_DURING_HANDSHAKE, Reason.of(new SSLHandshakeException("Couldn't kickstart handshaking",
+                new java.net.SocketException("Broken pipe"))));
+        assertEquals("closed_during_handshake", Reason.CLOSED_DURING_HANDSHAKE.code());
+        // An alert wins: the peer said why. So does a timeout, whose deadline closed the socket.
+        SSLHandshakeException alert = new SSLHandshakeException("Received fatal alert: handshake_failure");
+        alert.initCause(new java.io.EOFException());
+        assertEquals(Reason.ALERT_RECEIVED, Reason.of(alert));
+        SocketTimeoutException deadline = new SocketTimeoutException("TLS handshake not finished within 10 ms");
+        deadline.initCause(new java.net.SocketException("Connection reset"));
+        assertEquals(Reason.TIMEOUT, Reason.of(deadline));
+        // A socket the proxy closed itself is not the peer's doing.
+        assertEquals(Reason.OTHER, Reason.of(new java.net.SocketException("Socket closed")));
+        assertEquals(Reason.OTHER, Reason.of(new java.net.SocketException("Socket is closed")));
+    }
 }

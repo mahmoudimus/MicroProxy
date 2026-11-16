@@ -112,7 +112,24 @@ public sealed interface ProxyFailure {
             ALERT_RECEIVED,
             /** The handshake did not finish within the handshake timeout. */
             TIMEOUT,
-            /** Anything else: no common protocol version or cipher suite, the connection closed, ... */
+            /**
+             * The connection was reset (or failed otherwise) before the proxy could send its
+             * ClientHello: the handshake's first write failed ({@link
+             * org.microproxy.impl.ClientHelloNotSentException} in the cause chain). Through a
+             * chained proxy, the proxy (or the server behind it) ended the tunnel right after
+             * answering the {@code CONNECT}. A connection that was only closed, not reset, still
+             * takes the ClientHello, and is {@link #CLOSED_DURING_HANDSHAKE}.
+             */
+            CLOSED_BEFORE_CLIENT_HELLO,
+            /**
+             * The peer closed or reset the connection during the handshake, after the proxy's
+             * ClientHello, without sending an alert: the JDK's {@code "Remote host terminated the
+             * handshake"}, a {@code "Connection reset"}, an {@link java.io.EOFException}. Through a
+             * chained proxy, the chained proxy and the server behind it cannot be told apart: the
+             * proxy relays the server's end of the connection.
+             */
+            CLOSED_DURING_HANDSHAKE,
+            /** Anything else: no common protocol version or cipher suite, ... */
             OTHER;
 
             private static final java.util.regex.Pattern ALERT = java.util.regex.Pattern.compile(
@@ -133,7 +150,12 @@ public sealed interface ProxyFailure {
              * with the certificate (the innermost specific one wins); any other certificate path
              * failure means it is not trusted; a host name check that failed says so in its
              * message (the JDK's {@code "No subject alternative ... matching ..."}); and the JDK
-             * reports an alert from the peer as {@code "Received fatal alert: <description>"}.
+             * reports an alert from the peer as {@code "Received fatal alert: <description>"}. A
+             * timeout comes next; then a connection the peer ended without an alert: an {@link
+             * java.io.EOFException}, a reset or broken pipe, or the JDK's {@code "Remote host
+             * terminated the handshake"} ({@link #CLOSED_BEFORE_CLIENT_HELLO} when the ClientHello
+             * could not be sent, else {@link #CLOSED_DURING_HANDSHAKE}). A socket the proxy closed
+             * itself ({@code "Socket closed"}) is none of these.
              *
              * @param failure the handshake's exception, or null
              * @return the reason, {@link #OTHER} when none is recognized
@@ -142,7 +164,11 @@ public sealed interface ProxyFailure {
                 Reason certificate = null;
                 boolean hostname = false;
                 boolean timeout = false;
+                boolean closed = false;
+                boolean notSent = false;
                 for (Throwable t = failure; t != null; t = t.getCause() == t ? null : t.getCause()) {
+                    if (t instanceof org.microproxy.impl.ClientHelloNotSentException) notSent = true;
+                    if (closedByPeer(t)) closed = true;
                     Reason found = certificateReason(t);
                     if (found != null && (certificate == null || certificate == CERTIFICATE_UNTRUSTED)) {
                         certificate = found;
@@ -157,7 +183,21 @@ public sealed interface ProxyFailure {
                 if (certificate != null) return certificate;
                 if (hostname) return HOSTNAME_MISMATCH;
                 if (alertOf(failure) != null) return ALERT_RECEIVED;
-                return timeout ? TIMEOUT : OTHER;
+                if (timeout) return TIMEOUT;
+                if (notSent) return CLOSED_BEFORE_CLIENT_HELLO;
+                return closed ? CLOSED_DURING_HANDSHAKE : OTHER;
+            }
+
+            /** Whether {@code t} says the peer ended the connection: end of stream, a reset, a broken pipe. */
+            private static boolean closedByPeer(Throwable t) {
+                if (t instanceof java.io.EOFException) return true;
+                if (!(t instanceof java.net.SocketException) && !(t instanceof javax.net.ssl.SSLException)) return false;
+                String message = t.getMessage();
+                if (message == null) return false;
+                message = message.toLowerCase(java.util.Locale.ROOT);
+                return message.contains("connection reset") || message.contains("broken pipe")
+                        || message.contains("remote host terminated the handshake")
+                        || message.contains("connection was aborted") || message.contains("connection aborted");
             }
 
             private static Reason certificateReason(Throwable t) {

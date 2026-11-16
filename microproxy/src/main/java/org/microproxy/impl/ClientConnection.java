@@ -5996,7 +5996,9 @@ final class ClientConnection implements Runnable {
         String sent = Tls.sniName(serverName) == null ? null : serverName;
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
-            SSLSocket tls = Tls.clientHandshake(context, active, verifyHost, target.port(), serverName, true,
+            // (Over a socket that tells whether the ClientHello could be sent, for the failure's reason.)
+            SSLSocket tls = Tls.clientHandshake(context, new ClientHelloSocket(active), verifyHost, target.port(),
+                    serverName, true,
                     server.tlsProtocols,
                     s -> {
                         if (alpn != null) offerAlpn(s, alpn);
