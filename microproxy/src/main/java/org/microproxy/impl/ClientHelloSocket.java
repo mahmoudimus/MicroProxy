@@ -78,9 +78,14 @@ final class ClientHelloSocket extends Socket {
         return o;
     }
 
-    /** {@code e}, or, when nothing was written before it (and it is no timeout), the ClientHello's failure. */
+    /**
+     * {@code e}, or, when nothing was written before it, the ClientHello's failure; not for a
+     * timeout, nor on a socket the proxy closed itself (an abort, a client that left), which is no
+     * peer's doing.
+     */
     private IOException failed(IOException e) {
-        return written || e instanceof InterruptedIOException ? e : new ClientHelloNotSentException(e);
+        return written || e instanceof InterruptedIOException || socket.isClosed()
+                ? e : new ClientHelloNotSentException(e);
     }
 
     @Override

@@ -110,7 +110,7 @@ left, the `ProxyFailure.ConnectFailed`'s `cause()`, which reads it without parsi
 |---|---|---|---|
 | `CHAINED_PROXY_REFUSED` | `REFUSED` | the proxy answered with a status other than `2xx` | the status (`407`, `503`, ...) |
 | `CHAINED_PROXY_CLOSED` | `CLOSED` | the proxy closed the connection before its answer was complete | empty |
-| `CHAINED_PROXY_RESET` | `RESET` | the connection was reset (or failed otherwise) while the `CONNECT` was written or its answer read | empty |
+| `CHAINED_PROXY_RESET` | `RESET` | the proxy accepted the TCP connection and it was reset (or failed otherwise) before the answer: while the connection finished, while the proxy set its socket options, wrote the `CONNECT` or read the answer. Where the reset lands is a race; each place is the same reset. A socket the proxy closed itself (the client left, a deadline) is not one | empty |
 | `OTHER` | | anything else: the proxy refused or did not answer the TCP connection, its name did not resolve, the answer timed out or was malformed | empty |
 
 A tunnel the proxy opened and then ended during the TLS handshake with the server is a

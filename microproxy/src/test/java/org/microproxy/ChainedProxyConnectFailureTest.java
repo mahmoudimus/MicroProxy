@@ -29,9 +29,8 @@ import org.microproxy.ProxyFailure.ConnectFailed.Reason;
  * {@link ProxyFailure.ConnectFailed} that says how, as fields rather than only in its message: the
  * status it answered ({@code 407}, {@code 503}), or that it closed or reset the connection before
  * answering. The cause keeps the message it always had. The fakes answer, close or reset right
- * after reading the {@code CONNECT}. (A reset as soon as the fake accepts is not tested: it may
- * reach the proxy while its TCP connect is still finishing, a failed connection rather than a
- * failed {@code CONNECT}, so {@code OTHER}.)
+ * after reading the {@code CONNECT}, or reset as soon as they accept (in a loop: where that reset
+ * lands is a race).
  */
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 class ChainedProxyConnectFailureTest {
@@ -149,13 +148,77 @@ class ChainedProxyConnectFailureTest {
         assertEquals(failure.cause().getCause().getMessage(), failure.cause().getMessage());
     }
 
+    /**
+     * A chained proxy that resets every connection as soon as it accepts it, before reading
+     * anything: the reset reaches the proxy while its connect finishes, while it sets the socket's
+     * options, while it writes the {@code CONNECT} or while it reads the answer, as the race goes.
+     * Each is the chained proxy's reset all the same. {@code -Dmicroproxy.test.resetRuns=N} runs
+     * it N times (default 300); the split by where it failed is printed.
+     */
+    @Test
+    void aResetAsSoonAsAcceptedIsAlwaysAReset() throws Exception {
+        int runs = Integer.getInteger("microproxy.test.resetRuns", 300);
+        InetSocketAddress resetting = fake(s -> {
+            s.setSoLinger(true, 0);
+            s.close();
+        });
+        ChainedProxy proxy = new ChainedProxyAdapter() {
+            @Override
+            public InetSocketAddress getChainedProxyAddress() {
+                return resetting;
+            }
+        };
+        HttpProxyServer server = MicroProxy.bootstrap().withPort(0).withChainProxyManager(always(proxy))
+                .plusActivityTracker(flows).start();
+        closeables.add(server::abort);
+        for (int i = 0; i < runs; i++) {
+            try (Socket s = open(server.getListenAddress())) {
+                assertEquals(502, status(connect(s, "origin.test:443")));
+            }
+        }
+        TestSupport.eventually(runs + " tunnel records",
+                () -> flows.records.stream().filter(r -> r.kind() == FlowRecord.Kind.TUNNEL).count() == runs);
+        java.util.Map<String, Integer> split = new java.util.TreeMap<>();
+        for (FlowRecord r : flows.records) {
+            ProxyFailure.ConnectFailed f = (ProxyFailure.ConnectFailed) r.failure().orElseThrow();
+            Throwable root = f.cause().getCause() != null ? f.cause().getCause() : f.cause();
+            split.merge(f.reason() + " <- " + root.getClass().getSimpleName() + ": " + root.getMessage(), 1, Integer::sum);
+        }
+        System.out.println("accept-then-reset, " + runs + " runs: " + split);
+        assertEquals(java.util.Set.of(Reason.CHAINED_PROXY_RESET),
+                flows.records.stream().map(r -> ((ProxyFailure.ConnectFailed) r.failure().orElseThrow()).reason())
+                        .collect(java.util.stream.Collectors.toSet()), split.toString());
+    }
+
     @Test
     void theProxyClosingItsOwnSocketIsNoChainedProxyReset() throws Exception {
+        theProxyClosingItsOwnSocket(null);
+    }
+
+    @Test
+    void theProxyClosingItsOwnSocketToATlsChainedProxyIsNoChainedProxyReset() throws Exception {
+        org.microproxy.tls.CertificateAuthority ca = org.microproxy.tls.CertificateAuthority.generate("Chained Proxy CA");
+        theProxyClosingItsOwnSocket(ca);
+    }
+
+    /**
+     * A chained proxy (reached over TLS with {@code ca}'s certificate, when not null) reads the
+     * CONNECT and never answers, and the proxy closes the socket it is reading the answer from.
+     */
+    private void theProxyClosingItsOwnSocket(org.microproxy.tls.CertificateAuthority ca) throws Exception {
         java.util.concurrent.CountDownLatch asked = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-        // A chained proxy that reads the CONNECT and never answers, until the test is over.
+        javax.net.ssl.SSLContext tls = ca == null ? null : ca.serverContext("localhost", "127.0.0.1");
         InetSocketAddress silent = fake(s -> {
-            TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+            Socket peer = s;
+            if (tls != null) {
+                javax.net.ssl.SSLSocket server = (javax.net.ssl.SSLSocket) tls.getSocketFactory()
+                        .createSocket(s, null, s.getPort(), true);
+                server.setUseClientMode(false);
+                server.startHandshake();
+                peer = server;
+            }
+            TestSupport.readUntil(peer.getInputStream(), "\r\n\r\n");
             asked.countDown();
             done.await(30, java.util.concurrent.TimeUnit.SECONDS);
         });
@@ -164,6 +227,16 @@ class ChainedProxyConnectFailureTest {
             @Override
             public InetSocketAddress getChainedProxyAddress() {
                 return silent;
+            }
+
+            @Override
+            public boolean requiresEncryption() {
+                return ca != null;
+            }
+
+            @Override
+            public javax.net.ssl.SSLContext getSslContext() {
+                return ca == null ? null : ca.clientContext();
             }
 
             @Override
