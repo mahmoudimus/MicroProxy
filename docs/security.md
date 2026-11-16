@@ -62,6 +62,14 @@ requests are flagged (`FlowContext.isChunkedWithContentLength()`, `%MP_CHUNKED_L
 headers is always framed by its transfer coding, its `Content-Length` dropped, as RFC 9112
 section 6.3 requires of an intermediary.
 
+When an HTTP/1 connection closes after a response while the client may still be sending (a `408`
+for a head still arriving, a `400`, a refused or short-circuited request whose body was never
+read, a server's early answer), the proxy closes it lingering, as RFC 9112 section 9.6 describes:
+it sends the response and the end of its output, then reads and discards what the client still
+sends until the client closes too, for at most 2 seconds (less if the idle timeout is shorter)
+and 1 MiB. Closing outright would reset the connection, and a reset can discard the response at
+the client before it is read.
+
 ## Denial of service
 
 Every input has a bound, and a peer that exceeds it loses its stream or connection, not the proxy:

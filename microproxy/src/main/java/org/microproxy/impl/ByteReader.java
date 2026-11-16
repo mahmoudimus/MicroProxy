@@ -156,7 +156,10 @@ final class ByteReader {
         int first;
         try {
             prepareRequestHeadRead();
-            first = idleSocket != null ? IdleWaits.readFirst(idleSocket, in) : in.read();
+            // Not an idle wait under the request-head deadline: one that expires shuts the
+            // socket's input down, and the 408 that answers this one closes lingering, reading
+            // what the client still sends (Http1ClientChannel#closeAfterResponse).
+            first = idleSocket != null && !requestHeadDeadlineEnabled ? IdleWaits.readFirst(idleSocket, in) : in.read();
         } catch (SocketTimeoutException e) {
             throw requestHeadTimeoutIfExpired(e);
         }
