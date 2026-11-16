@@ -5615,6 +5615,18 @@ final class ClientConnection implements Runnable {
         return remote;
     }
 
+    /**
+     * Whether a failed connect to an HTTP chained proxy, to send it a {@code CONNECT}, was a reset:
+     * the proxy accepted the connection and reset it (the JDK's {@code "Connection reset by peer
+     * (connect failed)"}). A refused or unreachable proxy ({@link ConnectException}, {@link
+     * java.net.NoRouteToHostException}) answered nothing, and stays what it is.
+     */
+    static boolean resetWhileConnecting(ChainedProxy proxy, Mode mode, java.net.SocketException e) {
+        if (proxy == null || proxy.getChainedProxyType() != ChainedProxyType.HTTP || mode == Mode.PLAIN) return false;
+        if (e instanceof ConnectException || e instanceof java.net.NoRouteToHostException) return false;
+        return String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT).contains("connection reset");
+    }
+
     private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode)
             throws IOException {
         Http2Origins.Key proxyKey = http2ProxyKey(proxy, ex, mode);
@@ -5670,7 +5682,15 @@ final class ClientConnection implements Runnable {
             }
             ex.flow.markFirst(ClientFlowContext.CONNECT_START);
             long connectStart = cluster.enabled ? ClientFlowContext.now() : 0;
-            plain.connect(remote, connectTimeoutMillis(ex));
+            try {
+                plain.connect(remote, connectTimeoutMillis(ex));
+            } catch (java.net.SocketException e) {
+                // An HTTP chained proxy that accepted the connection and reset it before the
+                // CONNECT went out is the same failure as one resetting while it is written or
+                // its answer read: where it happened decides, not which exception carried it.
+                if (resetWhileConnecting(proxy, mode, e)) throw ChainedProxyConnectException.reset(e);
+                throw e;
+            }
             long connectNanos = cluster.enabled ? ClientFlowContext.now() - connectStart : -1;
             ex.flow.mark(ClientFlowContext.CONNECT_END);
             plain.setTcpNoDelay(true);
