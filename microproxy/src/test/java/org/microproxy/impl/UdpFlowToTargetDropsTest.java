@@ -3,6 +3,8 @@ package org.microproxy.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.microproxy.MetricsAssertions.awaitValue;
+import static org.microproxy.MetricsAssertions.value;
 import static org.microproxy.TestSupport.eventually;
 
 import java.io.IOException;
@@ -30,9 +32,6 @@ import org.microproxy.Http3Options;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
 import org.microproxy.TestSupport;
-import org.microproxy.stats.Counter;
-import org.microproxy.stats.Gauge;
-import org.microproxy.stats.Metric;
 import org.microproxy.stats.StatsRegistry;
 import org.microproxy.udp.UdpContext;
 import org.microproxy.udp.UdpInterceptor;
@@ -204,21 +203,6 @@ class UdpFlowToTargetDropsTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    /** A counter's or gauge's value; 0 for a metric not registered. */
-    private static long value(StatsRegistry r, String name) {
-        Metric m = r.get(name);
-        return switch (m) {
-            case null -> 0;
-            case Counter c -> c.value();
-            case Gauge g -> g.value();
-            default -> throw new AssertionError(m);
-        };
-    }
-
-    private static void awaitValue(StatsRegistry r, String name, long expected) {
-        awaitUntil(() -> value(r, name) == expected, () -> name + " = " + expected + " (is " + value(r, name) + ")");
     }
 
     /**
