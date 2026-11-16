@@ -1082,6 +1082,25 @@ class ConnectionTest {
     }
 
     @Test
+    void maxDatagramSizeIncludesSendBufferCap() {
+        int cap = 100; // well under what the path and the peer allow
+        Pair pair = new Pair();
+        Connection client = pair.connect(Pair.clientConfig(TransportConfig.builder().datagramSendBufferSize(cap).build()));
+        Connection server = pair.serverConnection();
+        Pair.assertConnected(client, server);
+        pair.drive();
+        assertEquals(cap, client.maxDatagramSize());
+        client.sendDatagram(ByteBuffer.allocate(cap));
+        IllegalArgumentException e =
+                assertThrows(IllegalArgumentException.class, () -> client.sendDatagram(ByteBuffer.allocate(cap + 1)));
+        assertEquals("datagram of " + (cap + 1) + " bytes exceeds " + cap, e.getMessage());
+        pair.drive();
+        Pair.drainEvents(server);
+        assertEquals(ByteBuffer.allocate(cap), server.receiveDatagram());
+        assertNull(server.receiveDatagram());
+    }
+
+    @Test
     void datagramUnsupported() {
         Pair pair = new Pair(EndpointConfig.defaults(),
                 Pair.serverConfig(TransportConfig.builder().datagramReceiveBufferSize(0).build()),

@@ -2673,7 +2673,7 @@ public final class Connection {
         if (max < 0) {
             throw new IllegalStateException("the peer does not accept datagrams");
         }
-        if (data.remaining() > Math.min(max, config.datagramSendBufferSize)) {
+        if (data.remaining() > max) {
             throw new IllegalArgumentException("datagram of " + data.remaining() + " bytes exceeds " + max);
         }
         ByteBuffer copy = ByteBuffer.allocate(data.remaining()).put(data).flip();
@@ -2690,8 +2690,9 @@ public final class Connection {
     }
 
     /**
-     * The largest datagram payload {@link #sendDatagram} takes now, which depends on the path MTU
-     * and the peer's {@code max_datagram_frame_size}.
+     * The largest datagram payload {@link #sendDatagram} takes now, which depends on the path MTU,
+     * the peer's {@code max_datagram_frame_size} and this side's datagram send buffer
+     * ({@link TransportConfig.Builder#datagramSendBufferSize}).
      *
      * @return bytes, or -1 if the peer does not accept datagrams (or has not said yet)
      */
@@ -2702,7 +2703,8 @@ public final class Connection {
         }
         int overhead = 1 + remoteCids.active().length() + 4 + PacketKey.TAG_LENGTH;
         long pathMax = recovery.mtud().currentMtu() - overhead - DatagramState.SIZE_BOUND;
-        return (int) Math.max(0, Math.min(peerMax - DatagramState.SIZE_BOUND, pathMax));
+        long max = Math.min(Math.min(peerMax - DatagramState.SIZE_BOUND, pathMax), config.datagramSendBufferSize);
+        return (int) Math.max(0, max);
     }
 
     // ---------------------------------------------------------------------------------------

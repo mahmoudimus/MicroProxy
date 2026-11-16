@@ -304,7 +304,8 @@ public final class QuicConnection implements AutoCloseable {
     }
 
     /**
-     * The largest datagram payload {@link #sendDatagram} takes now.
+     * The largest datagram payload {@link #sendDatagram} takes now: the least of what the path MTU,
+     * the peer's {@code max_datagram_frame_size} and the datagram send buffer allow.
      *
      * @return bytes, or -1 if the peer does not accept datagrams
      */
