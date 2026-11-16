@@ -50,6 +50,7 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
+      - uses: ./.github/actions/maven-cache
       - name: Verify release version
         env:
           TAG: ${{ inputs.tag }}
@@ -69,7 +70,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
           server-id: central
           server-username-env-var: MAVEN_CENTRAL_USERNAME
           server-password-env-var: MAVEN_CENTRAL_PASSWORD

@@ -15,11 +15,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Test the optional endpoint and wrapper contract
         run: |
           python3 -m unittest discover -s quic-interop -p 'test_*.py' -v

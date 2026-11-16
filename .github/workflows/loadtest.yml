@@ -55,11 +55,11 @@ jobs:
     timeout-minutes: 720
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Tune the OS for high connection counts
         # The sysctls need privileges and are skipped where they are not granted (hosted runners
         # allow them through sudo; self-hosted runners may not). The open-file limit is raised in the

@@ -22,11 +22,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'

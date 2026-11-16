@@ -1,0 +1,16 @@
+name: Maven repository cache
+description: >-
+  Restores ~/.m2/repository from the cache of the exact pom.xml set, else from the most recent one, so that a
+  pom.xml change (every version bump) downloads only what is new instead of every plugin and dependency again.
+  setup-java's `cache: maven` has no such fallback. MicroProxy's own artifacts are not cached: a job builds them.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v6.1.0
+      with:
+        path: |
+          ~/.m2/repository
+          !~/.m2/repository/io/github/mahmoudimus
+        key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          maven-${{ runner.os }}-

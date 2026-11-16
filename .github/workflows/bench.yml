@@ -43,11 +43,11 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build the benchmarks
         run: mvn --batch-mode -Pbench -DskipTests package -pl benchmarks -am
       - name: Run the benchmarks

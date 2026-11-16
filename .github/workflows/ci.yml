@@ -30,11 +30,11 @@ jobs:
         java: ['21', '25']
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-          cache: maven
       - uses: actions/setup-python@v6.0.0
         with:
           python-version: '3.13'
@@ -60,11 +60,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build the proxy and its test classes
         run: mvn --batch-mode -q -DskipTests test-compile -pl microproxy -am
       - name: Run h2spec
@@ -97,11 +97,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build the benchmarks
         run: mvn --batch-mode -Pbench -DskipTests package -pl benchmarks -am
       - name: Run every benchmark once against both proxies
@@ -127,11 +127,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build the harness
         run: mvn --batch-mode -Pbench -DskipTests package -pl loadtest -am
       - name: Run the smoke preset against both proxies
@@ -160,11 +160,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build sources and Javadoc for Maven Central
         run: mvn --batch-mode -Pcentral -Dgpg.skip=true -DskipTests verify
 
@@ -195,11 +195,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/maven-cache
       - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Build the modules
         run: mvn --batch-mode -DskipTests install
       - name: Build the aggregated Javadoc
