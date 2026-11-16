@@ -205,7 +205,7 @@ an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the
 | `HOSTNAME_MISMATCH` | the certificate is trusted but not valid for the host it was checked against |
 | `ALERT_RECEIVED` | the server ended the handshake with an alert; `alert()` names it (`handshake_failure`, `unrecognized_name`, ...) |
 | `TIMEOUT` | the handshake overran `--tls-handshake-timeout` |
-| `CLOSED_BEFORE_CLIENT_HELLO` | the connection was reset before the proxy could send its ClientHello (writing it failed; `org.microproxy.impl.ClientHelloNotSentException` is in the cause chain): through a chained proxy, typically one that resets the tunnel right after answering the `CONNECT`. A connection that was only closed, not reset, still takes the ClientHello and is `CLOSED_DURING_HANDSHAKE` |
+| `CLOSED_BEFORE_CLIENT_HELLO` | the connection was reset before the proxy could send its ClientHello (writing it failed; `org.microproxy.ClientHelloNotSentException` is in the cause chain): through a chained proxy, typically one that resets the tunnel right after answering the `CONNECT`. A connection that was only closed, not reset, still takes the ClientHello and is `CLOSED_DURING_HANDSHAKE` |
 | `CLOSED_DURING_HANDSHAKE` | the peer closed or reset the connection after the proxy's ClientHello without sending an alert (`Remote host terminated the handshake`, `Connection reset`). Through a chained proxy, the proxy and the server behind it cannot be told apart: the proxy relays the server's end of the connection |
 | `OTHER` | anything else (no common version or cipher suite, ...) |
 

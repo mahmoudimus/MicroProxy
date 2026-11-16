@@ -11,6 +11,7 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketOption;
 import java.util.Set;
+import org.microproxy.ClientHelloNotSentException;
 
 /**
  * The connection to a server that the proxy's TLS handshake with it runs on, as a socket that
