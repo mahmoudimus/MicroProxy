@@ -5759,6 +5759,9 @@ final class ClientConnection implements Runnable {
                     // Timeouts and malformed answers stay what they are.
                     throw e;
                 } catch (java.net.SocketException e) {
+                    // The proxy closed the socket itself (the client went away, a deadline): not
+                    // the chained proxy's doing, so not one of its failures.
+                    if (active.isClosed()) throw e;
                     // Reset (or failed) before the answer: typed, with the socket's own message.
                     throw ChainedProxyConnectException.reset(e);
                 }

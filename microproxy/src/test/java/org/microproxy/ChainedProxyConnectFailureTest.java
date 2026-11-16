@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -146,6 +147,41 @@ class ChainedProxyConnectFailureTest {
         assertTrue(failure.cause().getMessage().toLowerCase().contains("reset"), failure.cause().getMessage());
         assertInstanceOf(java.net.SocketException.class, failure.cause().getCause());
         assertEquals(failure.cause().getCause().getMessage(), failure.cause().getMessage());
+    }
+
+    @Test
+    void theProxyClosingItsOwnSocketIsNoChainedProxyReset() throws Exception {
+        java.util.concurrent.CountDownLatch asked = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        // A chained proxy that reads the CONNECT and never answers, until the test is over.
+        InetSocketAddress silent = fake(s -> {
+            TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+            asked.countDown();
+            done.await(30, java.util.concurrent.TimeUnit.SECONDS);
+        });
+        closeables.add(done::countDown);
+        ChainedProxy proxy = new ChainedProxyAdapter() {
+            @Override
+            public InetSocketAddress getChainedProxyAddress() {
+                return silent;
+            }
+
+            @Override
+            public void connectionFailed(Throwable cause) {
+                proxyFailures.add(cause);
+            }
+        };
+        HttpProxyServer server = MicroProxy.bootstrap().withPort(0).withChainProxyManager(always(proxy)).start();
+        Socket client = open(server.getListenAddress());
+        closeables.add(client);
+        TestSupport.write(client.getOutputStream(), "CONNECT origin.test:443 HTTP/1.1\r\nHost: origin.test:443\r\n\r\n");
+        assertTrue(asked.await(10, java.util.concurrent.TimeUnit.SECONDS), "the chained proxy got the CONNECT");
+        // The proxy closes the socket it is reading the answer from: its own doing, not the chained proxy's.
+        server.abort();
+        TestSupport.eventually("the attempt to fail", () -> !proxyFailures.isEmpty());
+        Throwable cause = proxyFailures.getLast();
+        assertFalse(cause instanceof ChainedProxyConnectException, String.valueOf(cause));
+        assertEquals(Reason.OTHER, Reason.of(cause));
     }
 
     @Test
