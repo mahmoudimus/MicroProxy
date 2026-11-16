@@ -48,6 +48,9 @@ import org.microproxy.stats.StatsRegistry;
  * every path but {@code /ready} needs it. Bound to a loopback address, it answers only requests
  * whose {@code Host} is a loopback name or address (against DNS rebinding); it refuses every
  * {@code POST} that a browser made for a page ({@code Origin}).
+ *
+ * <p>The same class serves the read-only stats listener ({@link #startStats}): only {@link
+ * #STATS_PATHS}, and extra paths that answer as them, with no token.
  */
 final class AdminServer {
 
@@ -57,6 +60,8 @@ final class AdminServer {
     private static final Set<String> GET = Set.of("GET", "HEAD");
     private static final Set<String> POST = Set.of("POST");
     private static final Set<String> GET_POST = Set.of("GET", "HEAD", "POST");
+    /** What the read-only stats listener answers (and {@code /}, the list of them). */
+    static final List<String> STATS_PATHS = List.of("/stats", "/stats/prometheus", "/ready", "/live");
 
     private final DefaultHttpProxyServer server;
     private final HttpServer http;
@@ -67,6 +72,10 @@ final class AdminServer {
     /** Whether the listener is bound to a loopback address, so that only loopback hosts are answered. */
     private final boolean loopback;
     private final List<Endpoint> endpoints;
+    /** Whether this is the stats listener: reads of the stats and the health only, no token. */
+    private final boolean statsOnly;
+    /** The stats listener's extra paths, each to the path it answers as. */
+    private final Map<String, String> aliases;
 
     /** An admin path: what it shows, the methods it takes and what answers it. */
     private record Endpoint(String path, String help, Set<String> methods, Handler handler) {}
@@ -91,7 +100,10 @@ final class AdminServer {
         }
     }
 
-    private AdminServer(DefaultHttpProxyServer server, HttpServer http, ExecutorService executor, String token) {
+    private AdminServer(DefaultHttpProxyServer server, HttpServer http, ExecutorService executor, String token,
+            boolean statsOnly, Map<String, String> aliases) {
+        this.statsOnly = statsOnly;
+        this.aliases = aliases;
         this.server = server;
         this.http = http;
         this.executor = executor;
@@ -99,7 +111,7 @@ final class AdminServer {
         this.tokenHasColon = token != null && token.indexOf(':') >= 0;
         InetAddress bound = http.getAddress().getAddress();
         this.loopback = bound != null && bound.isLoopbackAddress();
-        this.endpoints = List.of(
+        List<Endpoint> all = List.of(
                 new Endpoint("/", "this list of the admin's paths", GET, (p, m) -> Reply.text(200, help())),
                 new Endpoint("/help", "the same", GET, (p, m) -> Reply.text(200, help())),
                 new Endpoint("/stats", "the stats as name: value lines; ?filter=<regex> keeps the names it finds, "
@@ -107,7 +119,9 @@ final class AdminServer {
                 new Endpoint("/stats/prometheus", "the stats in Prometheus's text format 0.0.4; ?filter=, ?usedonly",
                         GET, (p, m) -> prometheus(p)),
                 new Endpoint("/ready", "200 LIVE when ready for traffic, else 503 and the state "
-                        + "(DRAINING, INITIALIZING, HEALTH_CHECK_FAILED); needs no token", GET, (p, m) -> ready()),
+                        + "(DRAINING, INITIALIZING, HEALTH_CHECK_FAILED, NOT_READY); needs no token", GET, (p, m) -> ready()),
+                new Endpoint("/live", "200 ALIVE unless the proxy has stopped or its listener no longer accepts "
+                        + "(503 and STOPPED or NOT_ACCEPTING), for a liveness probe", GET, (p, m) -> live()),
                 new Endpoint("/server_info", "version, state, uptime, listeners, features, JVM and command line (JSON)",
                         GET, (p, m) -> Reply.json(serverInfo())),
                 new Endpoint("/listeners", "the listeners, their addresses and protocols; ?format=json", GET,
@@ -125,6 +139,8 @@ final class AdminServer {
                         + "time first; ?inboundonly is accepted (every proxy listener is inbound)", POST,
                         (p, m) -> drainListeners(p)),
                 new Endpoint("/quitquitquit", "POST: stop the proxy gracefully", POST, (p, m) -> quit()));
+        this.endpoints = !statsOnly ? all : all.stream()
+                .filter(e -> e.path.equals("/") || STATS_PATHS.contains(e.path)).toList();
     }
 
     /**
@@ -142,13 +158,36 @@ final class AdminServer {
         // stall every virtual thread of the proxy. (Idle keep-alive connections wait in the server's
         // selector, holding no thread; JDK 24, with JEP 491, no longer pins there.) A small pool
         // bounds what the admin listener can take from the proxy.
-        ExecutorService executor = Executors.newFixedThreadPool(4,
-                Thread.ofPlatform().name(server.name + "-admin-", 0).daemon(true).factory());
-        AdminServer admin = new AdminServer(server, http, executor, token);
-        http.setExecutor(executor);
-        http.createContext("/", admin::handle);
-        http.start();
-        return admin;
+        return start(server, http, "-admin-", token, false, Map.of());
+    }
+
+    /**
+     * Starts the read-only stats listener for {@code server} at {@code address}: {@link
+     * #STATS_PATHS}, and {@code aliases} answering as them.
+     *
+     * @throws IOException if the address cannot be bound
+     */
+    static AdminServer startStats(DefaultHttpProxyServer server, InetSocketAddress address,
+            Map<String, String> aliases) throws IOException {
+        return start(server, HttpServer.create(address, 0), "-stats-", null, true, aliases);
+    }
+
+    private static AdminServer start(DefaultHttpProxyServer server, HttpServer http, String threads, String token,
+            boolean statsOnly, Map<String, String> aliases) {
+        ExecutorService executor = Executors.newFixedThreadPool(statsOnly ? 2 : 4,
+                Thread.ofPlatform().name(server.name + threads, 0).daemon(true).factory());
+        try {
+            AdminServer admin = new AdminServer(server, http, executor, token, statsOnly, aliases);
+            http.setExecutor(executor);
+            http.createContext("/", admin::handle);
+            http.start();
+            return admin;
+        } catch (RuntimeException | Error e) {
+            // The address is bound already (HttpServer.create): release it, and the threads.
+            http.stop(0);
+            executor.shutdownNow();
+            throw e;
+        }
     }
 
     /** {@return the address the listener is bound to, with its port} */
@@ -191,7 +230,7 @@ final class AdminServer {
         if (loopback && !loopbackHost(headers.getFirst("Host"))) {
             return Reply.text(403, "the admin listener is bound to a loopback address and answers loopback hosts only\n");
         }
-        String path = exchange.getRequestURI().getPath();
+        String path = aliases.getOrDefault(exchange.getRequestURI().getPath(), exchange.getRequestURI().getPath());
         if (!"/ready".equals(path) && !authorized(headers.getFirst("Authorization"))) {
             Map<String, String> challenge = new LinkedHashMap<>();
             challenge.put("WWW-Authenticate", "Bearer realm=\"MicroProxy admin\"");
@@ -306,8 +345,9 @@ final class AdminServer {
     // ---------------------------------------------------------------------------------------
 
     private String help() {
-        StringBuilder sb = new StringBuilder("admin commands are:\n");
+        StringBuilder sb = new StringBuilder(statsOnly ? "stats listener paths are:\n" : "admin commands are:\n");
         for (Endpoint e : endpoints) sb.append("  ").append(e.path).append(": ").append(e.help).append('\n');
+        aliases.forEach((alias, path) -> sb.append("  ").append(alias).append(": as ").append(path).append('\n'));
         return sb.toString();
     }
 
@@ -351,8 +391,21 @@ final class AdminServer {
 
     private Reply ready() {
         ServerState state = server.state();
-        if (state == ServerState.LIVE && !server.isHealthCheckFailed()) return Reply.text(200, "LIVE\n");
-        return Reply.text(503, (state == ServerState.LIVE ? "HEALTH_CHECK_FAILED" : state.name()) + "\n");
+        if (state != ServerState.LIVE) return Reply.text(503, state.name() + "\n");
+        if (server.isHealthCheckFailed()) return Reply.text(503, "HEALTH_CHECK_FAILED\n");
+        if (!server.readinessCheckPasses()) return Reply.text(503, "NOT_READY\n");
+        return Reply.text(200, "LIVE\n");
+    }
+
+    /**
+     * Alive unless stopped, or LIVE with a listener that no longer accepts. Starting and draining
+     * are alive: a liveness probe must not restart a proxy that is finishing its exchanges.
+     */
+    private Reply live() {
+        ServerState state = server.state();
+        if (state == ServerState.STOPPED) return Reply.text(503, "STOPPED\n");
+        if (state == ServerState.LIVE && !server.accepting()) return Reply.text(503, "NOT_ACCEPTING\n");
+        return Reply.text(200, "ALIVE\n");
     }
 
     private Reply healthCheck(boolean fail) {

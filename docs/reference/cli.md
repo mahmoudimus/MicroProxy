@@ -176,6 +176,9 @@ See [Access logs](../observability/access-logs.md), [Request/response logging](.
 | `--admin-address <host:port>` | the same on another address, such as 0.0.0.0:9901 (then set --admin-token) | `admin_address` |
 | `--admin-token <token>` | require this bearer token (or basic password) on every admin path but /ready | `admin_token` |
 | `--admin-token-file <file>` | the same, read from the file's first line |  |
+| `--stats-port <port>` | serve only /stats, /stats/prometheus, /ready and /live (read-only, no token) on this port of every address, for Prometheus and probes (implies --metrics) | `stats_port` |
+| `--stats-address <host:port>` | the same on one address | `stats_address` |
+| `--stats-paths <paths>` | more paths for them: /metrics=/stats/prometheus,/health/liveness=/live | `stats_paths` |
 | `--drain-time <seconds>` | how long a drain lasts, and how long stopping (SIGTERM) lets exchanges in progress finish (default 10) | `drain_time` |
 | `--drain-strategy <strategy>` | gradual (default: more and more new requests are told to go elsewhere) or immediate (all at once) | `drain_strategy` |
 | `--health-check-path <path>` | answer health checks on the proxy's listener: 200, or 503 when failed (admin /healthcheck/fail) or draining | `health_check_path` |

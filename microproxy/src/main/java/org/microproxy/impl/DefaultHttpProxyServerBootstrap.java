@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Consumer;
@@ -178,6 +179,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     InetSocketAddress adminAddress;
     /** What admin requests must present; null for nothing. */
     String adminToken;
+    /** Where the read-only stats listener listens; null for none. */
+    InetSocketAddress statsAddress;
+    /** The stats listener's extra paths, each to the path it answers as. */
+    Map<String, String> statsPaths = Map.of();
+    /** What {@code /ready} also needs; null for nothing. */
+    java.util.function.BooleanSupplier readinessCheck;
     /** The command line, for the admin's {@code /server_info}. */
     List<String> commandLineOptions = List.of();
 
@@ -268,6 +275,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.healthCheckPassThrough = healthCheckPassThrough;
         c.adminAddress = adminAddress;
         c.adminToken = adminToken;
+        c.statsAddress = statsAddress;
+        c.statsPaths = statsPaths;
+        c.readinessCheck = readinessCheck;
         c.commandLineOptions = commandLineOptions;
         return c;
     }
@@ -611,6 +621,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("admin_address")) withAdmin(parseAddress(p.getProperty("admin_address")));
         if (p.containsKey("admin_token")) withAdminToken(p.getProperty("admin_token").strip());
+        if (p.containsKey("stats_port")) {
+            withStatsListener(new InetSocketAddress(Integer.parseInt(p.getProperty("stats_port").strip())));
+        }
+        if (p.containsKey("stats_address")) withStatsListener(parseAddress(p.getProperty("stats_address")));
+        if (p.containsKey("stats_paths")) {
+            withStatsListenerPaths(org.microproxy.Launcher.statsPaths(p.getProperty("stats_paths")));
+        }
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
         withThrottling(read, write);
@@ -1387,6 +1404,38 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withAdminToken(String token) {
         if (token != null && token.isEmpty()) throw new IllegalArgumentException("the admin token is empty");
         this.adminToken = token;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withStatsListener(InetSocketAddress address) {
+        this.statsAddress = address;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withStatsListenerPaths(Map<String, String> paths) {
+        Map<String, String> copy = new java.util.LinkedHashMap<>();
+        paths.forEach((path, target) -> {
+            if (path == null || !path.startsWith("/")) {
+                throw new IllegalArgumentException("a stats listener path must start with /: " + path);
+            }
+            if (AdminServer.STATS_PATHS.contains(path) || path.equals("/")) {
+                throw new IllegalArgumentException(path + " is already one of the stats listener's own paths");
+            }
+            if (!AdminServer.STATS_PATHS.contains(target)) {
+                throw new IllegalArgumentException(path + " answers as " + target + ", which is not one of "
+                        + AdminServer.STATS_PATHS);
+            }
+            copy.put(path, target);
+        });
+        this.statsPaths = java.util.Collections.unmodifiableMap(copy);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withReadinessCheck(java.util.function.BooleanSupplier check) {
+        this.readinessCheck = check;
         return this;
     }
 

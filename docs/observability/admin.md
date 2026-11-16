@@ -142,7 +142,9 @@ spec:
 ```
 
 The kubelet probes the pod's address, so this binds the admin listener to every interface, with a
-token. To keep it on loopback instead, probe with `exec` (`curl -sf localhost:9901/ready`), or
+token. To keep it on loopback instead, add the read-only
+[stats listener](../reference/admin-api.md#stats-listener) (`--stats-port 9902`) and point the
+probes (`/ready`, `/live`) and Prometheus (`/stats/prometheus`) at it; or probe with `exec` (`curl -sf localhost:9901/ready`), or
 give the proxy `--health-check-path /healthz` and probe `httpGet: {path: /healthz, port: 8080}`,
 which also fails while draining. Without a `preStop` hook (an image without `curl` or `sh`),
 SIGTERM alone stops accepting at once and lets the exchanges in progress finish for up to
