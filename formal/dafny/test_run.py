@@ -1,3 +1,4 @@
+"""Legacy utility/data regressions; current replay admission is tested in formal/source/hkdf."""
 import json
 import os
 from pathlib import Path
@@ -37,7 +38,7 @@ class TrustGates(unittest.TestCase):
             report.write_text('{"status":"complete"}')
             with patch.object(run, 'atomic_report', side_effect=OSError('disk full')):
                 with self.assertRaises(OSError):
-                    run.main(['--output', folder])
+                    run.historical_main(['--output', folder])
             self.assertFalse(report.exists(), 'old success survived failed marker creation')
 
     def test_success_requires_positive_verified_count(self):
@@ -224,7 +225,7 @@ class TrustGates(unittest.TestCase):
             report = output / 'report.json'
             report.write_text('{"status":"complete"}')
             with patch.object(run, 'pipeline', side_effect=RuntimeError('bad pin')):
-                self.assertEqual(1, run.main(['--output', str(output)]))
+                self.assertEqual(1, run.historical_main(['--output', str(output)]))
             result = json.loads(report.read_text())
             self.assertEqual('failed', result['status'])
             self.assertIn('bad pin', result['error'])
@@ -235,7 +236,7 @@ class TrustGates(unittest.TestCase):
             output = Path(name)
             with patch.object(run, 'pipeline', side_effect=KeyboardInterrupt):
                 with self.assertRaises(KeyboardInterrupt):
-                    run.main(['--output', str(output)])
+                    run.historical_main(['--output', str(output)])
             self.assertEqual('incomplete', json.loads((output / 'report.json').read_text())['status'])
 
     def test_public_domain_harness_has_no_caller_preconditions(self):
@@ -302,7 +303,7 @@ class TrustGates(unittest.TestCase):
                     f'open({str(pidfile)!r},"w").write(str(os.getpid())); time.sleep(120)')
             script = (f'import sys; sys.path.insert(0,{str(run.HERE)!r}); import run; from pathlib import Path; '
                       f'run.pipeline=lambda args,output: run.execute([sys.executable,"-c",{code!r}],output/"log"); '
-                      f'run.main(["--output",{str(root)!r}])')
+                      f'run.historical_main(["--output",{str(root)!r}])')
             process = subprocess.Popen([sys.executable, '-c', script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
                 for _ in range(100):

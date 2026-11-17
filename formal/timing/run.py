@@ -1007,15 +1007,18 @@ def pipeline(args, output):
             'The five original caller certificates keep their 19 opaque owned contracts '
             '(unchanged by this replay). The composed Feed certificate is a separate '
             'artifact that discharges only NativeCodec.Extract, PublicMod and Wipe by '
-            'inlining their certified bodies. In addition, this replay checks two '
-            'adapter-helper roots (HkdfBridge.sequence, HkdfBridge.labelUnits) and nine '
+            'inlining their certified bodies. In addition, this replay checks one '
+            'adapter-helper root (HkdfBridge.labelUnits) and nine '
             'NativeField owned-callee roots (seven private-arithmetic bodies with Q/'
             'ReduceOnce/Reduce inlined, plus the Q and MaxReduce public leaves) as '
             'separate certificates; those check new bodies only and do NOT discharge any '
-            'contract of the five original callers. Two of the previously fifteen open '
-            'roots are now checked, so thirteen open roots remain listed in open_roots, '
+            'contract of the five original callers. The historical HkdfBridge.sequence '
+            'helper no longer exists and is retired, not recertified as generated CopyInput. '
+            'Of the historical fifteen slots, one is retired and labelUnits is checked; '
+            'thirteen current open roots remain listed in open_roots, '
             'and every unchecked aggregate label (31, including '
             '"NativeMlKem.Field/NTT/codec/sampling helpers") remains explicit.'),
+        'retired_helper_roots': policy.get('retired_helper_roots', []),
         'caller_skeleton': [r for r in policy.get('open_roots', []) if r.get('status') == 'caller-skeleton-unsupported'],
         'commands': commands, 'workspace': str(workspace),
         'trusted': ['Dafny/Boogie/Z3', 'javap parser and operand mapping',

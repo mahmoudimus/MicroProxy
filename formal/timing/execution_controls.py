@@ -24,8 +24,9 @@ Limits (kept explicit so no reader upgrades the claim):
 
   * the frozen model fills every allocation with a constant, so a copy/alias
     relation between an input role and a produced role is **not expressible**;
-    for `HkdfBridge.sequence` only the input private pair is exercised and no
-    private-output/copy liveness is claimed;
+    the historical `HkdfBridge.sequence` fixture exercises only its input
+    private pair, with no private-output/copy liveness claim. That method is
+    retired from current roots; the fixture is a regression only;
   * provider results are abstract (`ProviderResult` returns the first public
     argument value or the target id), so the shift in `NativeField` carries the
     public shift count as its *value*; value-level arithmetic refinement and

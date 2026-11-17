@@ -39,6 +39,12 @@ module VerifiedHkdf {
     ensures {:msg "MetadataEvBranchBoolean"} EvBranch(id,taken)[2] == (if taken then 1 else 0)
     ensures 0 <= EvBranch(id,taken)[2] <= 1
   { [10,id,if taken then 1 else 0] }
+  // Conditional operand observation. The runtime guard remains unchanged.
+  ghost function EvBranchIf(id: int, enabled: bool, outcome: bool): seq<int>
+    ensures EvBranchIf(id,enabled,outcome) == (if enabled then EvBranch(id,outcome) else [])
+    ensures enabled ==> |EvBranchIf(id,enabled,outcome)| == 3
+    ensures !enabled ==> EvBranchIf(id,enabled,outcome) == []
+  { if enabled then EvBranch(id,outcome) else [] }
   ghost function EvLoop(id: int, index: int, bound: int): seq<int>
     ensures |EvLoop(id,index,bound)| == 4
     ensures EvLoop(id,index,bound)[0] == 11
@@ -325,7 +331,7 @@ module VerifiedHkdf {
     (if !ValidHash(hashLen) then
        EvCreate(3, 20, 0) + EvCreate(4, 11, 0)
      else
-       EvBranch(5, length < 0) + EvBranch(6, length > 255 * hashLen) +
+       EvBranch(5, length < 0) + EvBranchIf(6, !(length < 0), length > 255 * hashLen) +
        (if length < 0 || length > 255 * hashLen then
           EvCreate(7, 21, 0) + EvCreate(8, 11, 0)
         else
@@ -425,7 +431,8 @@ module VerifiedHkdf {
     var c2 := length > 65535;
     var c3 := |labelUnits| > 249;
     var c4 := contextLen > 255;
-    EvBranch(1, c1) + EvBranch(2, c2) + EvBranch(3, c3) + EvBranch(4, c4) +
+    EvBranch(1, c1) + EvBranchIf(2, !c1, c2) +
+    EvBranchIf(3, !(c1 || c2), c3) + EvBranchIf(4, !((c1 || c2) || c3), c4) +
     (if c1 || c2 || c3 || c4 then
        EvCreate(5, 21, 0) + EvCreate(6, 11, 0)
      else
@@ -612,7 +619,7 @@ module VerifiedHkdf {
       trace := trace + EvCreate(3, 20, 0) + EvCreate(4, 11, 0);
       r := Failure(InvalidHash); return;
     }
-    trace := trace + EvBranch(5, length < 0) + EvBranch(6, length > 255 * hashLen);
+    trace := trace + EvBranch(5, length < 0) + EvBranchIf(6, !(length < 0), length > 255 * hashLen);
     if length < 0 || length > 255 * hashLen {
       trace := trace + EvCreate(7, 21, 0) + EvCreate(8, 11, 0);
       r := Failure(InvalidLength); return;
@@ -671,8 +678,10 @@ module VerifiedHkdf {
     ensures trace == LabelInfoTrace(labelUnits, |context|, length)
   {
     trace := [];
-    trace := trace + EvBranch(1, length < 0) + EvBranch(2, length > 65535) +
-      EvBranch(3, |labelUnits| > 249) + EvBranch(4, |context| > 255);
+    trace := trace + EvBranch(1, length < 0) +
+      EvBranchIf(2, !(length < 0), length > 65535) +
+      EvBranchIf(3, !(length < 0 || length > 65535), |labelUnits| > 249) +
+      EvBranchIf(4, !((length < 0 || length > 65535) || |labelUnits| > 249), |context| > 255);
     if length < 0 || length > 65535 || |labelUnits| > 249 || |context| > 255 {
       trace := trace + EvCreate(5, 21, 0) + EvCreate(6, 11, 0);
       r := Failure(InvalidLength); return;
@@ -760,4 +769,99 @@ module VerifiedHkdf {
         assert expTrace == ExpandTrace(hashLen, |secret|, |info|, length);
     }
   }
+
+  // Executable input ownership boundary. These methods copy Java-backed
+  // arrays before composing the original total HKDF operations. Their ghost
+  // observations describe source operations, not physical JVM accesses.
+  ghost function CopyInputTrace(n: int): seq<int> {
+    EvRead(0,-1) + EvSlice(1,n,0,n)
+  }
+
+  ghost function ExtractArraysTrace(hashLen: int, saltLen: int, ikmLen: int): seq<int> {
+    EvCall(0,5,1) + CopyInputTrace(saltLen) +
+    EvCall(1,5,1) + CopyInputTrace(ikmLen) +
+    EvCall(2,6,3) + ExtractTrace(hashLen,saltLen,ikmLen)
+  }
+
+  ghost function ExpandArraysTrace(hashLen: int, prkLen: int, infoLen: int, length: int): seq<int> {
+    EvCall(0,5,1) + CopyInputTrace(prkLen) +
+    EvCall(1,5,1) + CopyInputTrace(infoLen) +
+    EvCall(2,4,4) + ExpandTrace(hashLen,prkLen,infoLen,length)
+  }
+
+  ghost function LabelInfoArrayTrace(labelUnits: seq<bv16>, contextLen: int, length: int): seq<int> {
+    EvCall(0,5,1) + CopyInputTrace(contextLen) +
+    EvCall(1,3,3) + LabelInfoTrace(labelUnits,contextLen,length)
+  }
+
+  method CopyInput(a: array<bv8>) returns(snapshot: seq<bv8>, ghost trace: seq<int>)
+    ensures snapshot == old(a[..])
+    ensures unchanged(a)
+    ensures trace == CopyInputTrace(a.Length)
+  {
+    trace := [];
+    trace := trace + EvRead(0,-1) + EvSlice(1,a.Length,0,a.Length);
+    snapshot := a[..a.Length];
+  }
+
+  method ExtractArrays(hashLen: int, salt: array<bv8>, ikm: array<bv8>)
+      returns(r: BytesResult, ghost trace: seq<int>)
+    ensures r == ExtractSpec(hashLen,salt[..],ikm[..])
+    ensures r.Success? <==> ValidHash(hashLen)
+    ensures r.Success? ==> |r.bytes| == hashLen
+    ensures unchanged(salt) && unchanged(ikm)
+    ensures trace == ExtractArraysTrace(hashLen,salt.Length,ikm.Length)
+  {
+    trace := [];
+    trace := trace + EvCall(0,5,1);
+    var saltCopy, {:ghost} saltTrace := CopyInput(salt);
+    trace := trace + saltTrace;
+    trace := trace + EvCall(1,5,1);
+    var ikmCopy, {:ghost} ikmTrace := CopyInput(ikm);
+    trace := trace + ikmTrace;
+    trace := trace + EvCall(2,6,3);
+    ghost var coreTrace: seq<int>;
+    r, coreTrace := Extract(hashLen,saltCopy,ikmCopy);
+    trace := trace + coreTrace;
+  }
+
+  method ExpandArrays(hashLen: int, prk: array<bv8>, info: array<bv8>, length: int)
+      returns(r: BytesResult, ghost trace: seq<int>)
+    ensures r == ExpandSpec(hashLen,prk[..],info[..],length)
+    ensures r.Success? <==> ValidHash(hashLen) && 0 <= length <= 255*hashLen && prk.Length > 0
+    ensures r.Success? ==> |r.bytes| == length
+    ensures unchanged(prk) && unchanged(info)
+    ensures trace == ExpandArraysTrace(hashLen,prk.Length,info.Length,length)
+  {
+    trace := [];
+    trace := trace + EvCall(0,5,1);
+    var prkCopy, {:ghost} prkTrace := CopyInput(prk);
+    trace := trace + prkTrace;
+    trace := trace + EvCall(1,5,1);
+    var infoCopy, {:ghost} infoTrace := CopyInput(info);
+    trace := trace + infoTrace;
+    trace := trace + EvCall(2,4,4);
+    ghost var coreTrace: seq<int>;
+    r, coreTrace := Expand(hashLen,prkCopy,infoCopy,length);
+    trace := trace + coreTrace;
+  }
+
+  method LabelInfoArray(labelUnits: seq<bv16>, context: array<bv8>, length: int)
+      returns(r: BytesResult, ghost trace: seq<int>)
+    ensures r == LabelInfoSpec(labelUnits,context[..],length)
+    ensures r.Success? <==> LabelLengthsValid(labelUnits,context[..],length) && Ascii(labelUnits)
+    ensures r.Success? ==> |r.bytes| == 10 + |labelUnits| + context.Length
+    ensures unchanged(context)
+    ensures trace == LabelInfoArrayTrace(labelUnits,context.Length,length)
+  {
+    trace := [];
+    trace := trace + EvCall(0,5,1);
+    var contextCopy, {:ghost} copyTrace := CopyInput(context);
+    trace := trace + copyTrace;
+    trace := trace + EvCall(1,3,3);
+    ghost var coreTrace: seq<int>;
+    r, coreTrace := LabelInfo(labelUnits,contextCopy,length);
+    trace := trace + coreTrace;
+  }
+
 }

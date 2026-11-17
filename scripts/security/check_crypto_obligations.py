@@ -959,8 +959,8 @@ REQUIRED_CONTROL_FAILURE_FIELDS = {
 
 HKDF_COMPONENT_EVIDENCE = {
     'V1': (
-        ('formal/dafny/PRODUCTION-EVIDENCE.json', 'component-receipt'),
-        ('formal/dafny/inputs.json', 'input-manifest'),
+        ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'component-receipt'),
+        ('formal/source/hkdf/inputs-v2.json', 'input-manifest'),
         ('formal/dafny/hkdf/GENERATED.json', 'delivery-receipt'),
         ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'),
         ('formal/dafny/deliver_hkdf.py', 'tool-manifest'),
@@ -977,8 +977,8 @@ HKDF_COMPONENT_EVIDENCE = {
         ('formal/dafny/NOTICE', 'documentation'),
     ),
     'V2': (
-        ('formal/dafny/PRODUCTION-EVIDENCE.json', 'component-receipt'),
-        ('formal/dafny/inputs.json', 'input-manifest'),
+        ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'component-receipt'),
+        ('formal/source/hkdf/inputs-v2.json', 'input-manifest'),
         ('formal/dafny/hkdf/GENERATED.json', 'delivery-receipt'),
         ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'),
         ('formal/dafny/deliver_hkdf.py', 'tool-manifest'),
@@ -1000,22 +1000,22 @@ HKDF_COMPONENT_EVIDENCE = {
 HKDF_COMPONENT_CHECKS = {
     'V1': {
         'control_groups': (),
-        'receipt_checks': (('formal/dafny/PRODUCTION-EVIDENCE.json', ('status', 'verified', 'public_domain_verified', 'controls', 'assumptions', 'dafny_version', 'tool_asset', 'translation_metadata_sha256', 'top_level_aggregator_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'outer_module', 'output_name', 'module', 'aggregator_sha256', 'translation_metadata_sha256')), ('formal/reference/aws-hkdf/TARGET-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'manifest_sha256', 'dafny_sha256', 'tool_identity.version')), ('formal/reference/aws-hkdf/CLOSURE-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'exit_code', 'manifest_sha256', 'execution_manifest', 'dafny_sha256')), ('formal/reference/aws-hkdf/EXECUTION-INPUTS.json', ('schema', 'repository', 'commit', 'entry', 'submodules', 'dafny_version')), ('formal/reference/aws-hkdf/inputs.json', ('schema', 'commit', 'entry', 'dafny_version', 'dafny_build', 'closure_verified_minimum', 'tool_inputs'))),
-        'hash_maps': (('formal/dafny/inputs.json', 'inputs', (), (), ''), ('formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), (), ''), ('formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), (), '')),
+        'receipt_checks': (('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('status', 'verified', 'public_domain_verified', 'controls', 'assumptions', 'dafny_version', 'tool_asset', 'translation_metadata_sha256', 'top_level_aggregator_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'outer_module', 'output_name', 'module', 'aggregator_sha256', 'translation_metadata_sha256')), ('formal/reference/aws-hkdf/TARGET-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'manifest_sha256', 'dafny_sha256', 'tool_identity.version')), ('formal/reference/aws-hkdf/CLOSURE-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'exit_code', 'manifest_sha256', 'execution_manifest', 'dafny_sha256')), ('formal/reference/aws-hkdf/EXECUTION-INPUTS.json', ('schema', 'repository', 'commit', 'entry', 'submodules', 'dafny_version')), ('formal/reference/aws-hkdf/inputs.json', ('schema', 'commit', 'entry', 'dafny_version', 'dafny_build', 'closure_verified_minimum', 'tool_inputs'))),
+        'hash_maps': (('formal/source/hkdf/inputs-v2.json', 'inputs', (), (), ''), ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), (), ''), ('formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), (), '')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': ({'id': 'hkdf-generated-source-inventory', 'root': 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf', 'receipt': 'formal/dafny/hkdf/GENERATED.json', 'field': 'source'},),
-        'nonvacuity': ('formal/dafny/PRODUCTION-EVIDENCE.json', ('public_domain_verified', 'proof-obligation-rejected')),
+        'nonvacuity': ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('public_domain_verified', 'proof-obligation-rejected')),
         'text_checks': (),
     },
     'V2': {
         'control_groups': (),
-        'receipt_checks': (('formal/dafny/PRODUCTION-EVIDENCE.json', ('status', 'verified', 'public_domain_verified', 'production_test_note', 'not_proved', 'controls', 'assumptions', 'delivered_generated_java', 'top_level_aggregator_sha256', 'translation_metadata_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'source', 'classes')), ('formal/crypto/delivery.json', ('existing_generated_dependencies',))),
-        'hash_maps': (('formal/dafny/inputs.json', 'inputs', (), (), ''), ('formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), (), ''), ('formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), (), 'quic/src/main/java'), ('formal/crypto/delivery.json', 'existing_generated_dependencies', (), (), 'quic/src/main/java')),
+        'receipt_checks': (('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('status', 'verified', 'public_domain_verified', 'production_test_note', 'not_proved', 'controls', 'assumptions', 'delivered_generated_java', 'top_level_aggregator_sha256', 'translation_metadata_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'source', 'classes')), ('formal/crypto/delivery.json', ('existing_generated_dependencies',))),
+        'hash_maps': (('formal/source/hkdf/inputs-v2.json', 'inputs', (), (), ''), ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), (), ''), ('formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), (), 'quic/src/main/java'), ('formal/crypto/delivery.json', 'existing_generated_dependencies', (), (), 'quic/src/main/java')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': ({'id': 'hkdf-generated-source-inventory', 'root': 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf', 'receipt': 'formal/dafny/hkdf/GENERATED.json', 'field': 'source'},),
-        'nonvacuity': ('formal/dafny/PRODUCTION-EVIDENCE.json', ('public_domain_verified', 'proof-obligation-rejected')),
+        'nonvacuity': ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('public_domain_verified', 'proof-obligation-rejected')),
         'text_checks': (('quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', ('io.github.mahmoudimus.verifiedcrypto.JdkHmac', 'compute')), ('quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', ('class HkdfBridge',)), ('quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', ('HkdfBridge',)), ('quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', ('javax.crypto.Mac', 'HmacSHA256'))),
     },
 }
@@ -1041,8 +1041,8 @@ REQUIRED_COMPONENT_EVIDENCE.update({
         ('scripts/security/test_crypto_obligations.py', 'test-source'),
     ),
     'V1': (
-        ('formal/dafny/PRODUCTION-EVIDENCE.json', 'component-receipt'),
-        ('formal/dafny/inputs.json', 'input-manifest'),
+        ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'component-receipt'),
+        ('formal/source/hkdf/inputs-v2.json', 'input-manifest'),
         ('formal/dafny/hkdf/GENERATED.json', 'delivery-receipt'),
         ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'),
         ('formal/dafny/deliver_hkdf.py', 'tool-manifest'),
@@ -1061,8 +1061,8 @@ REQUIRED_COMPONENT_EVIDENCE.update({
         ('formal/dafny/NOTICE', 'documentation'),
     ),
     'V2': (
-        ('formal/dafny/PRODUCTION-EVIDENCE.json', 'component-receipt'),
-        ('formal/dafny/inputs.json', 'input-manifest'),
+        ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'component-receipt'),
+        ('formal/source/hkdf/inputs-v2.json', 'input-manifest'),
         ('formal/dafny/hkdf/GENERATED.json', 'delivery-receipt'),
         ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'),
         ('formal/dafny/deliver_hkdf.py', 'tool-manifest'),
@@ -1132,22 +1132,22 @@ REQUIRED_COMPONENT_CHECKS.update({
     },
     'V1': {
         'control_groups': (),
-        'receipt_checks': (('formal/dafny/PRODUCTION-EVIDENCE.json', ('status', 'verified', 'public_domain_verified', 'controls', 'java_runs', 'adapter_discipline', 'assumptions', 'dafny_version', 'tool_asset', 'translation_metadata_sha256', 'top_level_aggregator_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'outer_module', 'output_name', 'module', 'aggregator_sha256', 'translation_metadata_sha256')), ('formal/reference/aws-hkdf/TARGET-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'manifest_sha256', 'dafny_sha256', 'tool_identity.version')), ('formal/reference/aws-hkdf/CLOSURE-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'exit_code', 'manifest_sha256', 'execution_manifest', 'dafny_sha256')), ('formal/reference/aws-hkdf/EXECUTION-INPUTS.json', ('schema', 'repository', 'commit', 'entry', 'submodules', 'dafny_version')), ('formal/reference/aws-hkdf/inputs.json', ('schema', 'commit', 'entry', 'dafny_version', 'dafny_build', 'closure_verified_minimum', 'tool_inputs'))),
-        'hash_maps': (('formal/dafny/inputs.json', 'inputs', (), (), ''), ('formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), (), ''), ('formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), (), '')),
+        'receipt_checks': (('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('status', 'verified', 'public_domain_verified', 'controls', 'java_runs', 'adapter_discipline', 'assumptions', 'dafny_version', 'tool_asset', 'translation_metadata_sha256', 'top_level_aggregator_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'outer_module', 'output_name', 'module', 'aggregator_sha256', 'translation_metadata_sha256')), ('formal/reference/aws-hkdf/TARGET-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'manifest_sha256', 'dafny_sha256', 'tool_identity.version')), ('formal/reference/aws-hkdf/CLOSURE-RECEIPT.json', ('status', 'scope', 'full_dependency_graph_verified', 'exit_code', 'manifest_sha256', 'execution_manifest', 'dafny_sha256')), ('formal/reference/aws-hkdf/EXECUTION-INPUTS.json', ('schema', 'repository', 'commit', 'entry', 'submodules', 'dafny_version')), ('formal/reference/aws-hkdf/inputs.json', ('schema', 'commit', 'entry', 'dafny_version', 'dafny_build', 'closure_verified_minimum', 'tool_inputs'))),
+        'hash_maps': (('formal/source/hkdf/inputs-v2.json', 'inputs', (), (), ''), ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), (), ''), ('formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), (), '')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': ({'id': 'hkdf-generated-source-inventory', 'root': 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf', 'receipt': 'formal/dafny/hkdf/GENERATED.json', 'field': 'source'},),
-        'nonvacuity': ('formal/dafny/PRODUCTION-EVIDENCE.json', ('public_domain_verified', 'proof-obligation-rejected')),
+        'nonvacuity': ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('public_domain_verified', 'proof-obligation-rejected')),
         'text_checks': (),
     },
     'V2': {
         'control_groups': (),
-        'receipt_checks': (('formal/dafny/PRODUCTION-EVIDENCE.json', ('status', 'verified', 'public_domain_verified', 'production_test_note', 'not_proved', 'controls', 'java_runs', 'adapter_discipline', 'assumptions', 'delivered_generated_java', 'top_level_aggregator_sha256', 'translation_metadata_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'source', 'classes')), ('formal/crypto/delivery.json', ('existing_generated_dependencies',))),
-        'hash_maps': (('formal/dafny/inputs.json', 'inputs', (), (), ''), ('formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), (), ''), ('formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), (), 'quic/src/main/java'), ('formal/crypto/delivery.json', 'existing_generated_dependencies', (), (), 'quic/src/main/java')),
+        'receipt_checks': (('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('status', 'verified', 'public_domain_verified', 'production_test_note', 'not_proved', 'controls', 'java_runs', 'adapter_discipline', 'assumptions', 'delivered_generated_java', 'top_level_aggregator_sha256', 'translation_metadata_sha256')), ('formal/dafny/hkdf/GENERATED.json', ('schema', 'verified', 'source', 'classes')), ('formal/crypto/delivery.json', ('existing_generated_dependencies',))),
+        'hash_maps': (('formal/source/hkdf/inputs-v2.json', 'inputs', (), (), ''), ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), (), ''), ('formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), (), 'quic/src/main/java'), ('formal/crypto/delivery.json', 'existing_generated_dependencies', (), (), 'quic/src/main/java')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': ({'id': 'hkdf-generated-source-inventory', 'root': 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf', 'receipt': 'formal/dafny/hkdf/GENERATED.json', 'field': 'source'},),
-        'nonvacuity': ('formal/dafny/PRODUCTION-EVIDENCE.json', ('public_domain_verified', 'proof-obligation-rejected')),
+        'nonvacuity': ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', ('public_domain_verified', 'proof-obligation-rejected')),
         'text_checks': (('quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', ('io.github.mahmoudimus.verifiedcrypto.JdkHmac', 'compute')), ('quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', ('class HkdfBridge',)), ('quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', ('HkdfBridge',)), ('quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', ('javax.crypto.Mac', 'HmacSHA256'))),
     },
     'V3': {
@@ -1165,13 +1165,13 @@ REQUIRED_HASH_MAP_KEYS = {
     ('V0', 'formal/assurance.json', 'java_sources', (), ''): ('microproxy/src/main/java/org/microproxy/dns/BoundedExpiringCache.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecHostResolver.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecValidator.java', 'microproxy/src/test/java/org/microproxy/dns/FormalResourceModelTest.java', 'quic/src/main/java/io/github/mahmoudimus/quic/CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/Tls12CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsRecordLayer.java', 'quic/src/test/java/io/github/mahmoudimus/quic/FormalCryptoModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/FormalRecordModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/TlsKeyUsageTest.java'),
     ('V0', 'formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), ''): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
     ('V0', 'formal/primitives/inputs.json', 'inputs', ('formal/primitives/', 'formal/crypto/reference/'), ''): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/primitives/java/io/github/mahmoudimus/quic/tls/GeneratedPrimitivesTest.java', 'formal/primitives/run.py', 'formal/primitives/test_run.py'),
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V1', 'formal/dafny/inputs.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V1', 'formal/source/hkdf/inputs-v2.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
     ('V1', 'formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), ''): ('formal/dafny/toolchain.py', 'formal/dafny/tools.json'),
     ('V2', 'formal/crypto/delivery.json', 'existing_generated_dependencies', (), 'quic/src/main/java'): ('io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',),
     ('V2', 'formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), 'quic/src/main/java'): ('io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java'),
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V2', 'formal/dafny/inputs.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V2', 'formal/source/hkdf/inputs-v2.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
     ('V3', 'formal/saw/inputs.json', 'inputs', ('formal/',), ''): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/provenance.json'),
     ('V3', 'formal/saw/inputs.json', 'inputs', ('quic/src/',), 'formal/saw/historical'): ('quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java',),
     ('V4', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/source/SourceTrace.dfy', 'formal/source/vocabulary/ObservationVocabulary.dfy'),
@@ -1192,27 +1192,27 @@ REQUIRED_INVENTORY_KEYS = {
     ('V6', 'native-production-delivery-inventory'): ('io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java', 'io/github/mahmoudimus/verifiedcrypto/kem_hash.java', 'io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java'),
 }
 REQUIRED_RECEIPT_EXACT = {
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'controls'): {'counter': 'proof-obligation-rejected', 'feedback': 'proof-obligation-rejected', 'truncation': 'proof-obligation-rejected', 'prefix': 'proof-obligation-rejected', 'public-domain': 'proof-obligation-rejected', 'extra-assumption': 'audit-rejected', 'skipped-proof': 'audit-rejected', 'adapter-select-loop': 'bytecode-rejected', 'adapter-bare-cast': 'bytecode-rejected', 'adapter-dead-decoy': 'bytecode-rejected'},
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'java_runs'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770'}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249'}],
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'assumptions'): ['VerifiedHkdf.Mac: deterministic external HMAC with fixed output length'],
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'adapter_discipline'): 'JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected',
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'verified'): 248,
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'public_domain_verified'): 249,
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'generated_java'): {'HkdfCrypto.java': 'c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'delivered_generated_java'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'controls'): {'counter': 'proof-obligation-rejected', 'feedback': 'proof-obligation-rejected', 'truncation': 'proof-obligation-rejected', 'prefix': 'proof-obligation-rejected', 'public-domain': 'proof-obligation-rejected', 'extra-assumption': 'audit-rejected', 'skipped-proof': 'audit-rejected', 'adapter-select-loop': 'bytecode-rejected', 'adapter-bare-cast': 'bytecode-rejected', 'adapter-dead-decoy': 'bytecode-rejected'},
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'java_runs'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770'}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249'}],
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'assumptions'): ['VerifiedHkdf.Mac: deterministic external HMAC with fixed output length'],
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'adapter_discipline'): 'JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected',
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'verified'): 248,
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'public_domain_verified'): 249,
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'generated_java'): {'HkdfCrypto.java': 'c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
+    ('V1', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'delivered_generated_java'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
     ('V1', 'formal/dafny/hkdf/GENERATED.json', 'source'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
     ('V1', 'formal/dafny/hkdf/GENERATED.json', 'classes'): {'io/github/mahmoudimus/quic/Hkdf.class': 'b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class': '4a1d2f0aeef211e31bc8f204ea455bd0a5ee0d43a56c1ebfb5baea4d8ea847ef', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class': '0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class': '8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class': 'b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class': 'b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class': '9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class': '8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class': 'f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class': '147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class': 'c1df4e947257748b79568313e8381d02e83db8f58c1e42342c1bbbb98f76b0d5', 'io/github/mahmoudimus/verifiedcrypto/JdkHmac.class': '08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b'},
     ('V1', 'formal/dafny/hkdf/GENERATED.json', 'verified'): 62,
     ('V1', 'formal/dafny/hkdf/GENERATED.json', 'aggregator_sha256'): 'c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba',
     ('V1', 'formal/dafny/hkdf/GENERATED.json', 'translation_metadata_sha256'): 'b374f6b9506da02fb5c0c579a6c588807575eac7548a296ef823bc9c89ba4052',
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'controls'): {'counter': 'proof-obligation-rejected', 'feedback': 'proof-obligation-rejected', 'truncation': 'proof-obligation-rejected', 'prefix': 'proof-obligation-rejected', 'public-domain': 'proof-obligation-rejected', 'extra-assumption': 'audit-rejected', 'skipped-proof': 'audit-rejected', 'adapter-select-loop': 'bytecode-rejected', 'adapter-bare-cast': 'bytecode-rejected', 'adapter-dead-decoy': 'bytecode-rejected'},
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'java_runs'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770'}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249'}],
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'assumptions'): ['VerifiedHkdf.Mac: deterministic external HMAC with fixed output length'],
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'adapter_discipline'): 'JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected',
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'verified'): 248,
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'public_domain_verified'): 249,
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'generated_java'): {'HkdfCrypto.java': 'c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'delivered_generated_java'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'controls'): {'counter': 'proof-obligation-rejected', 'feedback': 'proof-obligation-rejected', 'truncation': 'proof-obligation-rejected', 'prefix': 'proof-obligation-rejected', 'public-domain': 'proof-obligation-rejected', 'extra-assumption': 'audit-rejected', 'skipped-proof': 'audit-rejected', 'adapter-select-loop': 'bytecode-rejected', 'adapter-bare-cast': 'bytecode-rejected', 'adapter-dead-decoy': 'bytecode-rejected'},
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'java_runs'): [{'version': 'openjdk version "21.0.12.1" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770'}, {'version': 'openjdk version "25.0.5" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)', 'tests': 'PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE', 'executable_sha256': 'd6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249'}],
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'assumptions'): ['VerifiedHkdf.Mac: deterministic external HMAC with fixed output length'],
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'adapter_discipline'): 'JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected',
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'verified'): 248,
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'public_domain_verified'): 249,
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'generated_java'): {'HkdfCrypto.java': 'c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
+    ('V2', 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'delivered_generated_java'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
     ('V2', 'formal/dafny/hkdf/GENERATED.json', 'source'): {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6', 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f', 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45', 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280', 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6', 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194', 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760', 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b', '__default.java': 'e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a'},
     ('V2', 'formal/dafny/hkdf/GENERATED.json', 'classes'): {'io/github/mahmoudimus/quic/Hkdf.class': 'b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class': '4a1d2f0aeef211e31bc8f204ea455bd0a5ee0d43a56c1ebfb5baea4d8ea847ef', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class': '0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class': '8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class': 'b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class': 'b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class': '9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class': '8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class': 'f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class': '147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class': 'c1df4e947257748b79568313e8381d02e83db8f58c1e42342c1bbbb98f76b0d5', 'io/github/mahmoudimus/verifiedcrypto/JdkHmac.class': '08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b'},
     ('V2', 'formal/dafny/hkdf/GENERATED.json', 'verified'): 62,
@@ -2049,294 +2049,382 @@ HASH_RE = re.compile(r"[0-9a-f]{64}")
 # HKDF same-body source traces remain a scoped V7 contribution. These facts
 # are pinned in checker code as well as ledger JSON: receipt/manifest trimming
 # cannot silently remove the observer, controls or its trusted AST adapter.
-HKDF_SOURCE_RECEIPT = "formal/source/hkdf/SOURCE-EVIDENCE.json"
+# Current eight-root HKDF authority. V1 receipts stay historical and never
+# satisfy these current policies. The output receipt is independently pinned;
+# its input manifest excludes only that exact output, avoiding a hash cycle.
+HKDF_SOURCE_RECEIPT = 'formal/source/hkdf/SOURCE-EVIDENCE-v2.json'
+HKDF_SOURCE_MANIFEST = 'formal/source/hkdf/inputs-v2.json'
+HKDF_CURRENT_MANIFEST_SHA256 = 'e4e184d2449ac3802de24392243cbccafe9e8f88618a45cdab44ef98ba9e041c'
+HKDF_CURRENT_STATUS_SCHEMA = 'microproxy.hkdf-current-obligation-status/v1'
+HKDF_CURRENT_CLAIMS = ('hkdf-isolated-functional', 'hkdf-production-functional')
 HKDF_SOURCE_EVIDENCE = (('formal/source/hkdf/README.md', 'documentation'),
  ('formal/source/hkdf/HkdfTrace.dfy', 'proof-receipt'),
- ('formal/source/hkdf/inputs.json', 'input-manifest'),
- ('formal/source/hkdf/SOURCE-EVIDENCE.json', 'component-receipt'),
- ('formal/source/hkdf/run.py', 'tool-manifest'),
- ('formal/source/hkdf/test_run.py', 'test-source'),
+ ('formal/source/hkdf/ArrayInputTrace.dfy', 'proof-receipt'),
+ ('formal/source/hkdf/inputs-v2.json', 'input-manifest'),
+ ('formal/source/hkdf/SOURCE-EVIDENCE-v2.json', 'component-receipt'),
  ('formal/source/hkdf/declarations.txt', 'source-inventory'),
+ ('formal/source/hkdf/controls/v2.json', 'test-source'),
+ ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'),
+ ('formal/source/hkdf/run.py', 'tool-manifest'),
+ ('formal/source/hkdf/replay.py', 'tool-manifest'),
  ('formal/source/hkdf/checker/HkdfCoverage.cs', 'tool-manifest'),
  ('formal/source/hkdf/checker/HkdfCoverage.csproj', 'tool-manifest'),
- ('formal/dafny/hkdf/Hkdf.dfy', 'spec-source'))
+ ('formal/source/hkdf/tooling/admission.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/owned_call.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/passive_drain.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/proof_rules.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/outcome_rules.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/evaluation_validator.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/build_support.py', 'tool-manifest'),
+ ('formal/source/hkdf/tooling/source_evidence.py', 'tool-manifest'),
+ ('formal/dafny/run.py', 'tool-manifest'),
+ ('formal/dafny/check_adapter_discipline.py', 'tool-manifest'))
 HKDF_SOURCE_EXACT = {'status': 'complete',
- 'schema': 'microproxy.hkdf-source-traces/v1',
- 'positive': {'harness_included': {'errors': 0, 'verified': 259},
-              'hkdf_body': {'errors': 0, 'verified': 248}},
+ 'schema': 'microproxy.hkdf-source-traces/v2',
+ 'qualification': False,
+ 'positive.hkdf_body': {'verified': 257, 'errors': 0},
+ 'positive.sequence_harness': {'verified': 11, 'errors': 0},
+ 'positive.array_harness': {'verified': 13, 'errors': 0},
+ 'positive.mixed_AND_OR': {'verified': 257, 'errors': 0},
+ 'positive.mixed_OR_AND': {'verified': 257, 'errors': 0},
+ 'positive.public_domain.errors': 0,
  'audit': [{'file': 'formal/dafny/hkdf/Hkdf.dfy', 'findings': 1},
-           {'file': 'formal/source/hkdf/HkdfTrace.dfy', 'findings': 0}],
- 'controls': {'actual-call-trace-binding': {'classification': 'resolved-ast-coverage-rejection',
-                                            'needle': 'actual trace output cannot be rebound by a '
-                                                      'call'},
-              'array-shadow': {'classification': 'resolved-ast-coverage-rejection',
-                               'needle': "sequence read source is not the method's formal "
-                                         'labelUnits'},
-              'block-boundary-pending': {'classification': 'resolved-ast-coverage-rejection',
-                                         'harness': {'errors': 0, 'verified': 259},
-                                         'method': {'errors': 0, 'verified': 248},
-                                         'needle': 'pending observations at standalone block '
-                                                   'boundary'},
-              'by-method-helper': {'classification': 'resolved-ast-coverage-rejection',
-                                   'needle': 'unsupported by-method function'},
-              'callee-order-encTrace': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'callee ghost trace append is not the first '
-                                                  'trace update'},
-              'callee-order-expTrace': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'callee ghost trace append is not the first '
-                                                  'trace update'},
-              'callee-suchthat-model-erasure': {'classification': 'resolved-ast-coverage-rejection',
-                                                'harness': {'errors': 0, 'verified': 257},
-                                                'java_identical': True,
-                                                'java_package_files': 9,
-                                                'method': {'errors': 0, 'verified': 246},
-                                                'needle': 'unsupported ghost statement '
-                                                          'AssignSuchThatStmt in HKDF binding '
-                                                          'grammar'},
-              'callee-suchthat-same-model': {'classification': 'resolved-ast-coverage-rejection',
-                                             'needle': 'unsupported ghost statement '
-                                                       'AssignSuchThatStmt in HKDF binding '
-                                                       'grammar'},
-              'expect-secret-branch': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'unsupported executable statement ExpectStmt'},
-              'ghost-call-callee-binding': {'classification': 'resolved-ast-coverage-rejection',
-                                            'needle': 'ghost call output binding is unsupported in '
-                                                      'HKDF binding grammar'},
-              'ghost-call-trace-binding': {'classification': 'resolved-ast-coverage-rejection',
-                                           'needle': 'ghost call output binding is unsupported in '
-                                                     'HKDF binding grammar'},
-              'ghost-if-marker': {'classification': 'resolved-ast-coverage-rejection',
-                                  'needle': 'trace assignment inside ghost control flow'},
-              'included-assumption-entry-audit': {'findings': 0,
-                                                  'meaning': 'audit of EntryBom.dfy does not '
-                                                             'traverse the included file'},
-              'included-assumption-file-audit': {'findings': 1,
-                                                 'meaning': 'official parser discovered the '
-                                                            'BOM/comment-inline include; per-file '
-                                                            'audit caught the axiom'},
-              'interposed-assignment': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'observation count'},
-              'local-shadow-trace': {'classification': 'resolved-ast-coverage-rejection',
-                                     'needle': 'local/shadow trace variable'},
-              'loop-exit-missing': {'classification': 'resolved-ast-coverage-rejection',
-                                    'needle': 'missing post-loop false-guard observation'},
-              'loop-exit-wrong-index': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'EvLoopExit index does not match'},
-              'loop-increment-mismatch': {'classification': 'resolved-ast-coverage-rejection',
-                                          'needle': 'loop increment must be loopVar'},
-              'loop-init-conditional': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'loop initializer is not an unconditional '
-                                                  'same-block definition'},
-              'loop-start-mismatch': {'classification': 'resolved-ast-coverage-rejection',
-                                      'needle': 'does not match executable event'},
-              'match-source-secret': {'classification': 'resolved-ast-coverage-rejection',
-                                      'needle': "sequence read source is not the method's formal "
-                                                'labelUnits'},
-              'metadata-branch-erases-boolean': {'classification': 'dafny-metadata-proof-failure',
-                                                 'errors': 1,
-                                                 'needle': 'MetadataEvBranchBoolean',
-                                                 'verified': 0},
-              'metadata-branch-erases-one-id': {'classification': 'dafny-metadata-proof-failure',
-                                                'errors': 1,
-                                                'needle': 'MetadataEvBranchBoolean',
-                                                'verified': 0},
-              'metadata-call-erases-arity': {'classification': 'dafny-metadata-proof-failure',
-                                             'errors': 1,
-                                             'needle': 'MetadataEvCallArity',
-                                             'verified': 0},
-              'metadata-mac-erases-lengths': {'classification': 'dafny-metadata-proof-failure',
-                                              'errors': 2,
-                                              'needle': 'MetadataEvMacKeyLen',
-                                              'verified': 0},
-              'metadata-mac-erases-target': {'classification': 'dafny-metadata-proof-failure',
-                                             'errors': 1,
-                                             'needle': 'MetadataEvMacTarget',
-                                             'verified': 0},
-              'metadata-ops-erases-shift': {'classification': 'dafny-metadata-proof-failure',
-                                            'errors': 1,
-                                            'needle': 'MetadataEvOpsShift',
-                                            'verified': 0},
-              'metadata-read-erases-address': {'classification': 'dafny-metadata-proof-failure',
-                                               'errors': 1,
-                                               'needle': 'MetadataEvReadAddress',
-                                               'verified': 0},
-              'nested-callee-suchthat': {'classification': 'resolved-ast-coverage-rejection',
-                                         'needle': 'unsupported ghost statement AssignSuchThatStmt '
-                                                   'in HKDF binding grammar'},
-              'observed-secret-branch-harness': {'classification': 'dafny-assertion-failure',
-                                                 'errors': 3,
-                                                 'named': 'assert t1 == t2',
-                                                 'verified': 257},
-              'observed-secret-branch-method': {'errors': 0, 'verified': 249},
-              'observed-secret-index-harness': {'classification': 'dafny-assertion-failure',
-                                                'errors': 3,
-                                                'named': 'assert t1 == t2',
-                                                'verified': 257},
-              'observed-secret-index-method': {'errors': 0, 'verified': 249},
-              'observed-secret-metadata-harness': {'classification': 'dafny-assertion-failure',
-                                                   'errors': 3,
-                                                   'named': 'assert t1 == t2',
-                                                   'verified': 257},
-              'observed-secret-metadata-method': {'errors': 0, 'verified': 249},
-              'omitted-mac-observer': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'observation count'},
-              'pattern-call': {'classification': 'resolved-ast-coverage-rejection',
-                               'needle': 'unobserved compiled function call'},
-              'print-secret-index': {'classification': 'resolved-ast-coverage-rejection',
-                                     'needle': 'unsupported executable statement PrintStmt'},
-              'rereview-callee-order': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'callee ghost trace append is not the first '
-                                                  'trace update'},
-              'rereview-callee-order-harness': {'errors': 0, 'verified': 259},
-              'rereview-callee-order-method': {'errors': 0, 'verified': 248},
-              'rereview-datatype-eq2': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'unsupported executable equality/order on '
-                                                  'non-scalar operand type'},
-              'rereview-shadow-class-compilefalse': {'classification': 'resolved-ast-coverage-rejection',
-                                                     'needle': 'reserved root name outside exact '
-                                                               'VerifiedHkdf._default method'},
-              'rereview-shadow-marker-map': {'classification': 'resolved-ast-coverage-rejection',
-                                             'needle': 'reserved marker name outside exact '
-                                                       'VerifiedHkdf._default ghost declaration'},
-              'rereview-target-overflow': {'classification': 'resolved-ast-coverage-rejection',
-                                           'needle': 'marker integer is outside supported 32-bit '
-                                                     'range'},
-              'reset-empty-trace': {'classification': 'resolved-ast-coverage-rejection',
-                                    'needle': 'later trace update must append to the same actual '
-                                              'trace prefix'},
-              'reviewer-expect-ite-guarded': {'classification': 'resolved-ast-coverage-rejection',
-                                              'needle': 'unsupported executable statement '
-                                                        'ExpectStmt'},
-              'reviewer-golden-before': {'classification': 'resolved-ast-coverage-rejection',
-                                         'needle': 'later trace update must append to the same '
-                                                   'actual trace prefix'},
-              'reviewer-golden-empty': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'later trace update must append to the same '
-                                                  'actual trace prefix'},
-              'reviewer-golden-empty-before2': {'classification': 'resolved-ast-coverage-rejection',
-                                                'needle': 'later trace update must append to the '
-                                                          'same actual trace prefix'},
-              'reviewer-golden-overwrite': {'classification': 'resolved-ast-coverage-rejection',
-                                            'needle': 'later trace update must append to the same '
-                                                      'actual trace prefix'},
-              'reviewer-pattern-call': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'unobserved compiled function call'},
-              'reviewer-print-secret-index': {'classification': 'resolved-ast-coverage-rejection',
-                                              'needle': 'unsupported executable statement '
-                                                        'PrintStmt'},
-              'reviewer-shadow-fake': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'local/shadow trace variable'},
-              'reviewer-shadow-marker-call': {'classification': 'resolved-ast-coverage-rejection',
-                                              'needle': 'unobserved compiled function call'},
-              'seqeq-private': {'classification': 'resolved-ast-coverage-rejection',
-                                'needle': 'unsupported executable sequence/collection comparison '
-                                          'operator'},
-              'shadow-callee': {'classification': 'resolved-ast-coverage-rejection',
-                                'needle': 'unobserved compiled function call'},
-              'shadow-marker-call': {'classification': 'resolved-ast-coverage-rejection',
-                                     'needle': 'unobserved compiled function call'},
-              'site-label-collision': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'duplicate site label'},
-              'site-label-nonliteral': {'classification': 'resolved-ast-coverage-rejection',
-                                        'needle': 'site label must be an integer literal'},
-              'site-relabel-accept': {'checker': 'HKDF-SOURCE-COVERAGE OK',
-                                      'classification': 'accepted-bijective-relabel',
-                                      'harness': {'errors': 0, 'verified': 259},
-                                      'method': {'errors': 0, 'verified': 248}},
-              'stale-marker': {'classification': 'resolved-ast-coverage-rejection',
-                               'needle': 'unmatched marker'},
-              'statement-expression': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'unsupported statement expression in HKDF binding '
-                                                 'grammar'},
-              'synthetic-golden-trace': {'classification': 'resolved-ast-coverage-rejection',
-                                         'needle': 'later trace update must append to the same '
-                                                   'actual trace prefix'},
-              'third-callee-dup': {'checker': {'classification': 'resolved-ast-coverage-rejection',
-                                               'needle': 'duplicate callee ghost output binding'},
-                                   'harness': {'errors': 0, 'verified': 260},
-                                   'method': {'errors': 0, 'verified': 249}},
-              'third-expdup': {'checker': {'classification': 'resolved-ast-coverage-rejection',
-                                           'needle': 'duplicate callee ghost output binding'},
-                               'harness': {'errors': 0, 'verified': 259},
-                               'method': {'errors': 0, 'verified': 248}},
-              'trace-suchthat-reset': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': 'unsupported ghost statement AssignSuchThatStmt '
-                                                 'in HKDF binding grammar'},
-              'unmarked-alloc': {'classification': 'resolved-ast-coverage-rejection',
-                                 'needle': 'observation count'},
-              'unmarked-call': {'classification': 'resolved-ast-coverage-rejection',
-                                'needle': 'observation count'},
-              'unmarked-secret-branch': {'classification': 'resolved-ast-coverage-rejection',
-                                         'needle': 'if guard: observation count'},
-              'unmarked-secret-read': {'classification': 'resolved-ast-coverage-rejection',
-                                       'needle': "sequence read source is not the method's formal "
-                                                 'labelUnits'}},
- 'flags': ['--allow-external-contracts',
-           '--verification-time-limit',
-           '30',
-           '--resource-limit',
-           '50000000',
-           '--cores',
-           '2',
-           '--solver-option',
-           'O:smt.case_split=0'],
- 'checker.positive': 'HKDF-SOURCE-COVERAGE OK',
- 'checker.declarations': 66,
- 'checker.source_closure': {'formal/dafny/hkdf/Hkdf.dfy': 'caea4393f1e85e77f717dbf47f635bc1851b4182b7b4f9d011eb66fddfaf3ddb',
-                            'formal/source/hkdf/HkdfTrace.dfy': 'bef2d15cdc8f696b55e769777a6963fc3679affde9c1d50bedfe2368fe99f383'},
- 'checker.build.assembly_sha256': '892df4bda85b2e4b5b884cdd321cb354bbbb7b1debc5c59ac28b257b4bb11a3e',
- 'checker.build.sdk': '10.0.400',
- 'checker.build.source_pins': {'HkdfCoverage.cs': '5dddfb8137f75509618d07265a77ecd5cf90b77751549044ad7e16237b120923',
-                               'HkdfCoverage.csproj': 'a5cc8f6943c20e8476787b7b2858fa1a0c57982821e261bfb580eddfde7412a5'},
- 'checker.build.directory_build_imports_disabled': True,
- 'checker.assembly_sha256_after': '892df4bda85b2e4b5b884cdd321cb354bbbb7b1debc5c59ac28b257b4bb11a3e',
+           {'file': 'formal/source/hkdf/HkdfTrace.dfy', 'findings': 0},
+           {'file': 'formal/source/hkdf/ArrayInputTrace.dfy', 'findings': 0}],
+ 'controls': {'old-unmarked-secret-branch': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'old-unmarked-secret-read': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-seqeq-private': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'old-stale-marker': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'old-shadow-callee': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'old-array-shadow': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'old-interposed-assignment': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-ghost-if-marker': {'kind': 'negative',
+                                      'classification': 'ordinary-valid named coverage rejection'},
+              'old-unmarked-call': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'old-unmarked-alloc': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'old-omitted-mac-observer': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-by-method-helper': {'kind': 'negative',
+                                       'classification': 'ordinary-valid named coverage rejection'},
+              'old-loop-init-conditional': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-callee-order-encTrace': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-callee-order-expTrace': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-site-label-collision': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-site-label-nonliteral': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-block-boundary-pending': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'old-synthetic-golden-trace': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'old-reset-empty-trace': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'old-local-shadow-trace': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'old-shadow-marker-call': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'old-pattern-call': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'old-expect-secret-branch': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-print-secret-index': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'old-match-source-secret': {'kind': 'negative',
+                                          'classification': 'ordinary-valid named coverage rejection'},
+              'old-loop-start-mismatch': {'kind': 'negative',
+                                          'classification': 'ordinary-valid named coverage rejection'},
+              'old-loop-increment-mismatch': {'kind': 'negative',
+                                              'classification': 'ordinary-valid named coverage rejection'},
+              'old-loop-exit-missing': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'old-loop-exit-wrong-index': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-callee-suchthat-model-erasure': {'kind': 'negative',
+                                                    'classification': 'ordinary-valid named coverage rejection'},
+              'old-callee-suchthat-same-model': {'kind': 'negative',
+                                                 'classification': 'ordinary-valid named coverage rejection'},
+              'old-trace-suchthat-reset': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-nested-callee-suchthat': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'old-ghost-call-callee-binding': {'kind': 'negative',
+                                                'classification': 'ordinary-valid named coverage rejection'},
+              'old-ghost-call-trace-binding': {'kind': 'negative',
+                                               'classification': 'ordinary-valid named coverage rejection'},
+              'old-actual-call-trace-binding': {'kind': 'negative',
+                                                'classification': 'ordinary-valid named coverage rejection'},
+              'old-statement-expression': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-golden-before': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-golden-empty': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-golden-overwrite': {'kind': 'negative',
+                                                'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-golden-empty-before2': {'kind': 'negative',
+                                                    'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-shadow-fake': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-shadow-marker-call': {'kind': 'negative',
+                                                  'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-pattern-call': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-expect-ite-guarded': {'kind': 'negative',
+                                                  'classification': 'ordinary-valid named coverage rejection'},
+              'old-reviewer-print-secret-index': {'kind': 'negative',
+                                                  'classification': 'ordinary-valid named coverage rejection'},
+              'old-rereview-callee-order': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-rereview-shadow-class-compilefalse': {'kind': 'negative',
+                                                         'classification': 'ordinary-valid named coverage '
+                                                                           'rejection'},
+              'old-rereview-shadow-marker-map': {'kind': 'negative',
+                                                 'classification': 'ordinary-valid named coverage rejection'},
+              'old-rereview-datatype-eq2': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'old-rereview-target-overflow': {'kind': 'negative',
+                                               'classification': 'ordinary-valid named coverage rejection'},
+              'old-third-callee-dup': {'kind': 'negative',
+                                       'classification': 'ordinary-valid named coverage rejection'},
+              'old-third-expdup': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'new-length-missing': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'new-slice-missing': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'new-length-wrong-address': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'new-length-slice-reordered': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'new-slice-wrong-length': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'new-slice-wrong-start': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'new-slice-wrong-end': {'kind': 'negative',
+                                      'classification': 'ordinary-valid named coverage rejection'},
+              'new-implicit-upper-bound': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'new-length-alias-receiver': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'new-unknown-data-read': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'new-secret-branch': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-reset': {'kind': 'negative', 'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-drop': {'kind': 'negative', 'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-duplicate': {'kind': 'negative',
+                                      'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-recomputed': {'kind': 'negative',
+                                       'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-suchthat': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'new-child-stale': {'kind': 'negative', 'classification': 'ordinary-valid named coverage rejection'},
+              'new-cross-child-reuse': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'new-wrong-call-metadata': {'kind': 'negative',
+                                          'classification': 'ordinary-valid named coverage rejection'},
+              'new-unknown-call': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'supplement-wrong-array-elements-legal': {'kind': 'negative',
+                                                        'classification': 'ordinary-valid named coverage '
+                                                                          'rejection'},
+              'supplement-wrong-length-root': {'kind': 'negative',
+                                               'classification': 'ordinary-valid named coverage rejection'},
+              'supplement-old-bijective-site-relabel': {'kind': 'positive',
+                                                        'classification': 'accepted valid control'},
+              'effect-array-store': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'effect-ghost-field-store': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'corrected-body-negative-nonliteral': {'kind': 'negative',
+                                                     'classification': 'ordinary-valid named coverage rejection'},
+              'corrected-body-negative-nested': {'kind': 'negative',
+                                                 'classification': 'ordinary-valid named coverage rejection'},
+              'corrected-body-negative-out-of-range': {'kind': 'negative',
+                                                       'classification': 'ordinary-valid named coverage '
+                                                                         'rejection'},
+              'return-exact-reviewed': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'return-pure-rhss': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'return-slice-hidden-update': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'guard-eager-Expand': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'guard-missing-enabled': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'guard-enable-true': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'guard-enable-reversed': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'guard-wrong-outcome': {'kind': 'negative',
+                                      'classification': 'ordinary-valid named coverage rejection'},
+              'guard-label-missing-middle': {'kind': 'negative',
+                                             'classification': 'ordinary-valid named coverage rejection'},
+              'guard-label-wrong-prefix': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'guard-label-reversed-prefix': {'kind': 'negative',
+                                              'classification': 'ordinary-valid named coverage rejection'},
+              'guard-label-unconditional': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'guard-conditional-read': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'guard-conditional-call': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'guard-conditional-allocation': {'kind': 'negative',
+                                               'classification': 'ordinary-valid named coverage rejection'},
+              'nested-mixed-AND-OR': {'kind': 'positive', 'classification': 'accepted valid control'},
+              'nested-mixed-wrong-enable': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'nested-mixed-OR-AND': {'kind': 'positive', 'classification': 'accepted valid control'},
+              'initializer-one': {'kind': 'negative', 'classification': 'ordinary-valid named coverage rejection'},
+              'initializer-index': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'initializer-arithmetic-zero': {'kind': 'negative',
+                                              'classification': 'ordinary-valid named coverage rejection'},
+              'initializer-private-read': {'kind': 'negative',
+                                           'classification': 'ordinary-valid named coverage rejection'},
+              'helper-wrong-set': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'helper-hidden-read': {'kind': 'negative',
+                                     'classification': 'ordinary-valid named coverage rejection'},
+              'helper-hidden-conditional': {'kind': 'negative',
+                                            'classification': 'ordinary-valid named coverage rejection'},
+              'helper-wrong-operand': {'kind': 'negative',
+                                       'classification': 'ordinary-valid named coverage rejection'},
+              'helper-extra-formal': {'kind': 'negative',
+                                      'classification': 'ordinary-valid named coverage rejection'},
+              'marker-wrong-body': {'kind': 'negative',
+                                    'classification': 'ordinary-valid named coverage rejection'},
+              'marker-wrong-signature': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'},
+              'marker-shadow': {'kind': 'negative', 'classification': 'ordinary-valid named coverage rejection'},
+              'wrong-array-root': {'kind': 'negative',
+                                   'classification': 'ordinary-valid named coverage rejection'},
+              'guard-label-reordered': {'kind': 'negative',
+                                        'classification': 'ordinary-valid named coverage rejection'},
+              'initializer-size-alias': {'kind': 'negative',
+                                         'classification': 'ordinary-valid named coverage rejection'}},
+ 'body_controls': {'copy-empty': {'failed_correctness': 1, 'passed_WF': 1},
+                   'copy-model-forged-address': {'failed_correctness': 1, 'passed_WF': 1},
+                   'extract-arguments-reversed': {'failed_correctness': 1, 'passed_WF': 1},
+                   'pair-private-values-equal': {'failed_correctness': 1, 'passed_WF': 1},
+                   'snapshot-live-alias-forgery': {'failed_correctness': 1, 'passed_WF': 1}},
+ 'functional_controls': {'counter': 'normal original functional/domain proof failure',
+                         'feedback': 'normal original functional/domain proof failure',
+                         'truncation': 'normal original functional/domain proof failure',
+                         'prefix': 'normal original functional/domain proof failure',
+                         'public-domain': 'normal original functional/domain proof failure'},
+ 'functional_audit_controls': {'extra-assumption': 'unexpected trust/skip rejected',
+                               'skipped-proof': 'unexpected trust/skip rejected'},
+ 'checker': {'positive': 'all8exactroots',
+             'assembly_sha256': '96a275e60ab2a9a90187310fee01cdb8797a1276e3fe3e869f518c2dad0e8d89',
+             'sdk': '10.0.400'},
+ 'producer_pins': {'formal/source/hkdf/run.py': 'd30ac2ea01f970e9b479d605264e14099536d26811cb6a962bab91d07ecb5688',
+                   'formal/source/hkdf/replay.py': 'ce6e42faadf873a1a518b67b1a81b959f405e6bcf59c622488a1cee7efda1bd1',
+                   'formal/source/hkdf/checker/HkdfCoverage.cs': 'd3a13769ea428337cf59162638064e60e23d233488b25a62f082e029bdfef70b',
+                   'formal/source/hkdf/checker/HkdfCoverage.csproj': 'a5cc8f6943c20e8476787b7b2858fa1a0c57982821e261bfb580eddfde7412a5',
+                   'formal/source/hkdf/tooling/admission.py': 'd6b66b6269cf0a942a39aeb747ac9a93a0f15820c2f7371ff7ad20e7a3edc15b',
+                   'formal/source/hkdf/tooling/owned_call.py': '9d9357e973b4d7192dfb66efc9163fc2f6502f90cb9b66eab8306e3548897bb0',
+                   'formal/source/hkdf/tooling/passive_drain.py': '07b75c69acd6d1fd999b2eab733db745f84a882e1e6d2eb753e8541550a19dcd',
+                   'formal/source/hkdf/tooling/proof_rules.py': '99493b5210e609ad57a8998f22dd6a2066f9672cf06ed35d59dd66d7d30650cf',
+                   'formal/source/hkdf/tooling/outcome_rules.py': '4bd2b8518abf2051cf62be93940fb5e516b09e2ba96d9918a9ff35c39fa95022',
+                   'formal/source/hkdf/tooling/evaluation_validator.py': 'a5ab0fbdfc14413a41f818b09fb9854a32827a687d76c213f3707eaa0332f5f7',
+                   'formal/source/hkdf/tooling/build_support.py': 'ad16c0465fd0243c6a4deee265e66cddc5f32576fa12d289264cbd89e36212d3',
+                   'formal/source/hkdf/tooling/source_evidence.py': '77046e8a29aca7ffa55b6ad8470f8ce71456065012d00da3bcba580c7c4887db',
+                   'formal/dafny/run.py': 'd4c7bc040803aac60d444931e834ead3f35741e4bd25a2bb32185c9c904b2c8e',
+                   'formal/dafny/check_adapter_discipline.py': '74da9dd8527f6e68dfb6936c8064f04cb4e8549922d679c1fd0d38a4855a0891'},
+ 'flags': {'seconds': 30, 'resources': 50000000, 'cores': 2, 'case_split': 0, 'seed': 0},
  'java.generated_package_files': 9,
- 'java.generated_package_matches_committed_production': True,
- 'java.aggregator_matches_fixture': True,
- 'java.class_inventory_identical': True,
  'java.classes': 12,
- 'java.abi_signatures': ['public static '
-                         'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult '
-                         'Extract(java.math.BigInteger, dafny.DafnySequence<? extends '
-                         'java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Byte>);',
-                         'public static '
-                         'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult '
-                         'Expand(java.math.BigInteger, dafny.DafnySequence<? extends '
-                         'java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Byte>, '
-                         'java.math.BigInteger);',
-                         'public static '
-                         'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult '
-                         'LabelInfo(dafny.DafnySequence<? extends java.lang.Short>, '
-                         'dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);',
-                         'public static '
-                         'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult '
-                         'ExpandLabel(java.math.BigInteger, dafny.DafnySequence<? extends '
-                         'java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Short>, '
-                         'dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);'],
- 'java.javac': 'javac 21.0.2',
- 'metadata_targets': {'EvBranch': {'errors': 0, 'verified': 1},
-                      'EvCall': {'errors': 0, 'verified': 1},
-                      'EvMac': {'errors': 0, 'verified': 1},
-                      'EvOps': {'errors': 0, 'verified': 1},
-                      'EvRead': {'errors': 0, 'verified': 1}}}
-REQUIRED_COMPONENT_EVIDENCE['V7'] += HKDF_SOURCE_EVIDENCE
-REQUIRED_COMPONENT_CHECKS['V7']['receipt_checks'] += (
-    (HKDF_SOURCE_RECEIPT, tuple(HKDF_SOURCE_EXACT)),
-)
-REQUIRED_COMPONENT_CHECKS['V7']['hash_maps'] += (
-    ('formal/source/hkdf/inputs.json', 'inputs', (), (), ''),
-    (HKDF_SOURCE_RECEIPT, 'inputs', (), (), ''),
-    (HKDF_SOURCE_RECEIPT, 'java.hashes', (), (), 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf'),
-)
-for _path, _expected in HKDF_SOURCE_EXACT.items():
-    REQUIRED_RECEIPT_EXACT[('V7', HKDF_SOURCE_RECEIPT, _path)] = _expected
+ 'java.raw_changed_files': [],
+ 'java.same_JDK_production_generated_identity': True,
+ 'java.adapter_discipline_and_selftests_each_JDK': True,
+ 'java.runtime': {'21': {'array': {'cases': 150, 'assertions': 346},
+                         'original': {'cases': 45, 'assertions': 2766}},
+                  '25': {'array': {'cases': 150, 'assertions': 346},
+                         'original': {'cases': 45, 'assertions': 2766}}},
+ 'java.hashes': {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6',
+                 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f',
+                 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45',
+                 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280',
+                 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6',
+                 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194',
+                 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760',
+                 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b',
+                 '__default.java': '4d44ac808e9f19c40de01c3201d229c265a503a63c7afa8bacf4dbbfe9230891'},
+ 'java.class_maps': {'21': {'io/github/mahmoudimus/quic/Hkdf.class': 'b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class': '121530fa959adc3cc0e5198bc6c397e10b53745d41d8c217a0f4d0f30b5e04cc',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class': '0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class': '8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class': 'b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class': 'b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class': '9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class': '8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class': 'f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class': '147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class': '9eb9326e60aa9333ff7b95e630074ddb72e2bfde3a07fd21249baea6e98ceb8b',
+                            'io/github/mahmoudimus/verifiedcrypto/JdkHmac.class': '08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b'},
+                     '25': {'io/github/mahmoudimus/quic/Hkdf.class': 'b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class': '121530fa959adc3cc0e5198bc6c397e10b53745d41d8c217a0f4d0f30b5e04cc',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class': '0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class': '8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class': 'b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class': 'b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class': '9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class': '8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class': 'f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class': '147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b',
+                            'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class': '9eb9326e60aa9333ff7b95e630074ddb72e2bfde3a07fd21249baea6e98ceb8b',
+                            'io/github/mahmoudimus/verifiedcrypto/JdkHmac.class': '08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b'}},
+ 'retained_controls': {'legacy_body_NI': {'old-block-boundary-pending': {'body': 257, 'NI': 11},
+                                          'old-callee-suchthat-model-erasure': {'body': 255, 'NI': 11},
+                                          'old-third-callee-dup': {'body': 258, 'NI': 11},
+                                          'old-third-expdup': {'body': 257, 'NI': 11},
+                                          'supplement-old-bijective-site-relabel': {'body': 257, 'NI': 11}},
+                       'metadata_positive': ['EvBranch', 'EvCall', 'EvMac', 'EvOps', 'EvRead'],
+                       'metadata_negative': ['branch-erases-boolean',
+                                             'branch-erases-one-id',
+                                             'read-erases-address',
+                                             'mac-erases-target',
+                                             'mac-erases-lengths',
+                                             'call-erases-arity',
+                                             'ops-erases-shift'],
+                       'observed_secret': {'branch': 'actual Extract passes; NI fails',
+                                           'index': 'actual Extract passes; NI fails',
+                                           'metadata': 'actual Extract passes; NI fails'},
+                       'included_assumption': 'official parser and explicit per-file audit reject hidden axiom'}}
 _HKDF_SOURCE_INPUT_KEYS = ('formal/crypto/delivery.py',
+ 'formal/dafny/bench/HkdfBenchmark.java',
+ 'formal/dafny/bench_hkdf.py',
+ 'formal/dafny/check_adapter_discipline.py',
+ 'formal/dafny/deliver_hkdf.py',
  'formal/dafny/hkdf/GENERATED.json',
  'formal/dafny/hkdf/Hkdf.dfy',
+ 'formal/dafny/java/dafny/BulkOnlySequence.java',
+ 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java',
+ 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java',
+ 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java',
+ 'formal/dafny/run.py',
+ 'formal/dafny/test_run.py',
  'formal/dafny/toolchain.py',
  'formal/dafny/tools.json',
+ 'formal/source/hkdf/ArrayInputTrace.dfy',
  'formal/source/hkdf/HkdfTrace.dfy',
  'formal/source/hkdf/README.md',
+ 'formal/source/hkdf/SOURCE-EVIDENCE.json',
  'formal/source/hkdf/checker/HkdfCoverage.cs',
  'formal/source/hkdf/checker/HkdfCoverage.csproj',
  'formal/source/hkdf/controls/rereview/callee-order/Hkdf.dfy',
@@ -2358,10 +2446,30 @@ _HKDF_SOURCE_INPUT_KEYS = ('formal/crypto/delivery.py',
  'formal/source/hkdf/controls/third/callee-dup/HkdfTrace.dfy',
  'formal/source/hkdf/controls/third/expdup/Hkdf.dfy',
  'formal/source/hkdf/controls/third/expdup/HkdfTrace.dfy',
+ 'formal/source/hkdf/controls/v2.json',
  'formal/source/hkdf/declarations.txt',
  'formal/source/hkdf/fixtures/HkdfCrypto.java',
+ 'formal/source/hkdf/fixtures/approved-r2.json',
+ 'formal/source/hkdf/fixtures/pre-array-Hkdf.dfy',
+ 'formal/source/hkdf/inputs.json',
+ 'formal/source/hkdf/replay.py',
  'formal/source/hkdf/run.py',
+ 'formal/source/hkdf/runtime/ArrayInputIntegrationTest.java',
+ 'formal/source/hkdf/test_portable.py',
  'formal/source/hkdf/test_run.py',
+ 'formal/source/hkdf/tooling/admission.py',
+ 'formal/source/hkdf/tooling/build_support.py',
+ 'formal/source/hkdf/tooling/evaluation_validator.py',
+ 'formal/source/hkdf/tooling/outcome_rules.py',
+ 'formal/source/hkdf/tooling/owned_call.py',
+ 'formal/source/hkdf/tooling/passive_drain.py',
+ 'formal/source/hkdf/tooling/proof_rules.py',
+ 'formal/source/hkdf/tooling/source_evidence.py',
+ 'formal/source/keccak/coverage_replay.py',
+ 'formal/source/keccak/encoder/build_authority.py',
+ 'formal/source/keccak/encoder/net6-targeting-packs.json',
+ 'formal/source/select/profiles/linux-sdk10.0.400.json',
+ 'formal/source/select/profiles/macos-sdk10.0.400.json',
  'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java',
  'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java',
  'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java',
@@ -2373,10 +2481,33 @@ _HKDF_SOURCE_INPUT_KEYS = ('formal/crypto/delivery.py',
  'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java',
  'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java',
  'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java')
-for _receipt in ('formal/source/hkdf/inputs.json', HKDF_SOURCE_RECEIPT):
-    REQUIRED_HASH_MAP_KEYS[('V7', _receipt, 'inputs', (), '')] = _HKDF_SOURCE_INPUT_KEYS
-REQUIRED_HASH_MAP_KEYS[('V7', HKDF_SOURCE_RECEIPT, 'java.hashes', (), 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf')] = ('BytesResult.java',
+ 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',
+ 'quic/src/test/java/io/github/mahmoudimus/quic/HkdfArrayInputTest.java',
+ 'scripts/security/install_select_jdks.sh')
+
+# Replace only HKDF policy entries. AWS, nonce, packet, native-crypto, bytecode
+# and other source domains/limits are unchanged.
+for _oid in ('V1', 'V2', 'V7'):
+    _checks = REQUIRED_COMPONENT_CHECKS[_oid]
+    if _oid == 'V7':
+        REQUIRED_COMPONENT_EVIDENCE[_oid] += HKDF_SOURCE_EVIDENCE
+        _checks['receipt_checks'] += ((HKDF_SOURCE_RECEIPT, tuple(HKDF_SOURCE_EXACT) + ('positive.public_domain.verified',)),)
+        _checks['hash_maps'] += ((HKDF_SOURCE_MANIFEST, 'inputs', (), (), ''),
+                                 (HKDF_SOURCE_RECEIPT, 'inputs', (), (), ''),
+                                 (HKDF_SOURCE_RECEIPT, 'java.hashes', (), (), 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf'))
+    else:
+        _checks['receipt_checks'] = tuple((path, tuple(HKDF_SOURCE_EXACT) + ('positive.public_domain.verified',))
+            if path == HKDF_SOURCE_RECEIPT else (path, fields) for path, fields in _checks['receipt_checks'])
+        _checks['nonvacuity'] = (HKDF_SOURCE_RECEIPT, ('"public_domain"',
+            'normal original functional/domain proof failure', 'unexpected trust/skip rejected'))
+        for _key in list(REQUIRED_RECEIPT_EXACT):
+            if _key[:2] == (_oid, HKDF_SOURCE_RECEIPT):
+                del REQUIRED_RECEIPT_EXACT[_key]
+    for _field, _value in HKDF_SOURCE_EXACT.items():
+        REQUIRED_RECEIPT_EXACT[(_oid, HKDF_SOURCE_RECEIPT, _field)] = _value
+    for _receipt in (HKDF_SOURCE_MANIFEST, HKDF_SOURCE_RECEIPT):
+        REQUIRED_HASH_MAP_KEYS[(_oid, _receipt, 'inputs', (), '')] = _HKDF_SOURCE_INPUT_KEYS
+    REQUIRED_HASH_MAP_KEYS[(_oid, HKDF_SOURCE_RECEIPT, 'java.hashes', (), 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf')] = ('BytesResult.java',
  'BytesResult_Failure.java',
  'BytesResult_Success.java',
  'FailureKind.java',
@@ -2385,6 +2516,30 @@ REQUIRED_HASH_MAP_KEYS[('V7', HKDF_SOURCE_RECEIPT, 'java.hashes', (), 'quic/src/
  'FailureKind_InvalidLabel.java',
  'FailureKind_InvalidLength.java',
  '__default.java')
+for _oid in ('V1', 'V2'):
+    REQUIRED_RECEIPT_EXACT[(_oid, 'formal/dafny/hkdf/GENERATED.json', 'verified')] = 257
+    REQUIRED_RECEIPT_EXACT[(_oid, 'formal/dafny/hkdf/GENERATED.json', 'source')] = {'BytesResult.java': 'b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6',
+ 'BytesResult_Failure.java': '17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f',
+ 'BytesResult_Success.java': '52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45',
+ 'FailureKind.java': '6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280',
+ 'FailureKind_InvalidHash.java': 'f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6',
+ 'FailureKind_InvalidKey.java': 'b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194',
+ 'FailureKind_InvalidLabel.java': '81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760',
+ 'FailureKind_InvalidLength.java': 'f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b',
+ '__default.java': '4d44ac808e9f19c40de01c3201d229c265a503a63c7afa8bacf4dbbfe9230891'}
+    REQUIRED_RECEIPT_EXACT[(_oid, 'formal/dafny/hkdf/GENERATED.json', 'classes')] = {'io/github/mahmoudimus/quic/Hkdf.class': 'b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class': '121530fa959adc3cc0e5198bc6c397e10b53745d41d8c217a0f4d0f30b5e04cc',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class': '0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class': '8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class': 'b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class': 'b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class': '9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class': '8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class': 'f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class': '147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b',
+ 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class': '9eb9326e60aa9333ff7b95e630074ddb72e2bfde3a07fd21249baea6e98ceb8b',
+ 'io/github/mahmoudimus/verifiedcrypto/JdkHmac.class': '08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b'}
+
 def _poly_require(condition: bool, label: str, message: str) -> None:
     if not condition:
         raise LedgerError(f"{label}: {message}")
@@ -5493,11 +5648,140 @@ def _validate_packet_nonce_functional(root: Path) -> int:
     return checked
 
 
+def _validate_current_hkdf_binding(root: Path, obligation: dict[str, Any] | None = None) -> None:
+    if obligation is not None and 'trusted-source-observation-coverage' not in obligation['assumptions']:
+        raise LedgerError('required HKDF source-coverage trust assumption removed')
+    manifest_path = checked_path(root, HKDF_SOURCE_MANIFEST, 'current HKDF manifest')
+    if digest(manifest_path) != HKDF_CURRENT_MANIFEST_SHA256:
+        raise LedgerError('current HKDF externally selected manifest changed')
+    manifest = load_json(manifest_path)
+    receipt = load_json(checked_path(root, HKDF_SOURCE_RECEIPT, 'current HKDF receipt'))
+    if set(receipt.get('inputs', {})) != set(_HKDF_SOURCE_INPUT_KEYS):
+        raise LedgerError('pinned map key inventory changed for current HKDF')
+    for field, expected in HKDF_SOURCE_EXACT.items():
+        if dot_get(receipt, field, 'current HKDF receipt') != expected:
+            raise LedgerError('required receipt value changed for current HKDF: ' + field)
+    if receipt.get('manifest_sha256') != HKDF_CURRENT_MANIFEST_SHA256 or receipt.get('inputs') != manifest['inputs']:
+        raise LedgerError('current HKDF receipt/input authority binding differs')
+    for name, expected in manifest['inputs'].items():
+        if digest(checked_path(root, name, 'current HKDF input')) != expected:
+            raise LedgerError('current HKDF selected input bytes differ: ' + name)
+    # Reuse the selected producer's exact closed-package admission policy.
+    # Compile the same captured authenticated bytes, bypassing .pyc and imports.
+    admission_name = 'formal/source/hkdf/tooling/admission.py'
+    admission_path = checked_path(root, admission_name, 'current HKDF admission')
+    admission_raw = admission_path.read_bytes()
+    if hashlib.sha256(admission_raw).hexdigest() != manifest['inputs'][admission_name]:
+        raise LedgerError('current HKDF admission bytes changed before loading')
+    namespace = {'__file__': str(admission_path), '__name__': 'current_hkdf_ledger_admission'}
+    exec(compile(admission_raw, str(admission_path), 'exec'), namespace)
+    try:
+        namespace['authenticate'](root, manifest_path, HKDF_CURRENT_MANIFEST_SHA256)
+    except ValueError as error:
+        raise LedgerError('current HKDF package admission failed: ' + str(error)) from error
+    for name, expected in receipt['producer_pins'].items():
+        if manifest['inputs'].get(name) != expected or digest(checked_path(root, name, 'HKDF producer')) != expected:
+            raise LedgerError('current HKDF producer source binding differs: ' + name)
+    domain = dot_get(receipt, 'positive.public_domain.verified', 'current HKDF domain')
+    if type(domain) is not int or domain <= 0:
+        raise LedgerError('current HKDF all-eight public domain proof is empty')
+    tool_scope = receipt.get('tool_scope', {})
+    if not isinstance(tool_scope, dict):
+        raise LedgerError('current HKDF complete typed JDK tool provenance is missing or changed')
+    trees = tool_scope.get('full_typed_JDK_trees', {})
+    if (not isinstance(trees, dict) or set(trees) != {'21', '25'} or any(
+            not isinstance(tree, dict) or set(tree) != {'file', 'directory', 'symlink'}
+            or any(type(count) is not int or count < 0 for count in tree.values())
+            or tree['file'] <= 5 or tree['directory'] <= 1 for tree in trees.values())
+            or not isinstance(tool_scope.get('before_sha256'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', tool_scope['before_sha256'])
+            or tool_scope.get('before_sha256') != tool_scope.get('after_sha256')):
+        raise LedgerError('current HKDF complete typed JDK tool provenance is missing or changed')
+
+
+def validate_current_hkdf(root: Path, ledger_path: Path | None = None) -> dict[str, Any]:
+    """Validate only the current HKDF components, never a global/artifact pass.
+
+    The root and conventional ledger are explicit current subjects. Historical
+    dispatch/environment state cannot select them. Full legacy validation stays
+    in validate_ledger; this function neither calls nor replaces that gate.
+    """
+    if not root.is_absolute():
+        raise LedgerError('current HKDF requires an explicit absolute project root')
+    root = root.resolve()
+    canonical_ledger = root / 'formal/crypto-obligations.json'
+    if ledger_path is not None and ledger_path.resolve() != canonical_ledger:
+        raise LedgerError('current HKDF requires the canonical ledger in its explicit project root')
+    ledger_path = checked_path(root, 'formal/crypto-obligations.json', 'current HKDF ledger')
+    ledger = load_json(ledger_path)
+    if ledger.get('schema') != LEDGER_SCHEMA or not isinstance(ledger.get('scope'), str) or not ledger['scope'].strip():
+        raise LedgerError('current HKDF requires a well-formed obligation ledger')
+    assumptions = _validate_assumptions(ledger)
+    items = ledger.get('obligations')
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items) or \
+            [item.get('id') for item in items] != list(REQUIRED_OBLIGATIONS):
+        raise LedgerError('current HKDF requires the ordered V0-V8 ledger inventory')
+    by_id = {item['id']: item for item in items}
+    _validate_dependency_graph(by_id)
+    if by_id['V7'].get('status') in PROOF_STATUSES:
+        raise LedgerError('HKDF-only validation cannot promote global V7')
+    claims = ledger.get('claims')
+    if not isinstance(claims, list) or any(not isinstance(item, dict) for item in claims):
+        raise LedgerError('current HKDF claim inventory is missing')
+    names = [item.get('id') for item in claims]
+    if any(not isinstance(name, str) or name not in ALLOWED_CLAIMS for name in names) or len(names) != len(set(names)):
+        raise LedgerError('current HKDF refuses unknown or duplicate claim identities')
+    by_claim = {item['id']: item for item in claims}
+    _validate_current_hkdf_binding(root)
+    evidence, checked, controls = {}, 0, 0
+    for oid in ('V1', 'V2'):
+        item = by_id[oid]
+        if item.get('status') not in ALLOWED_STATUSES or not isinstance(item.get('title'), str) or not item['title'].strip():
+            raise LedgerError('current HKDF obligation metadata is invalid: ' + oid)
+        if not isinstance(item.get('statement'), str) or not item['statement'].strip():
+            raise LedgerError('current HKDF obligation statement is missing: ' + oid)
+        used, limits = item.get('assumptions'), item.get('limitations')
+        if not isinstance(used, list) or not used or len(used) != len(set(used)) or not set(used) <= assumptions:
+            raise LedgerError('current HKDF obligation assumptions are invalid: ' + oid)
+        if not isinstance(limits, list) or not limits or any(not isinstance(value, str) or not value.strip() for value in limits):
+            raise LedgerError('current HKDF obligation limitations are missing: ' + oid)
+        evidence[oid], count = _validate_evidence(root, item, oid)
+        checked += count
+        if item['status'] in PROOF_STATUSES and not any(ref['kind'] in PROOF_EVIDENCE_KINDS for ref in evidence[oid].values()):
+            raise LedgerError('current HKDF proof status lacks proof evidence: ' + oid)
+        checked += _validate_nonvacuity(root, item, oid)
+        controls += _validate_controls(root, item, oid)
+        for validate in (_validate_receipt_checks, _validate_hash_maps, _validate_entry_hashes, _validate_text_checks):
+            checked += validate(root, item, oid)
+        for check in item.get('inventory_checks', []):
+            checked += _validate_inventory(root, check, oid)
+        for check in item.get('file_set_checks', []):
+            checked += _validate_file_set(root, check, oid)
+    for name in HKDF_CURRENT_CLAIMS:
+        claim = by_claim.get(name)
+        if claim is None or claim.get('status') != 'supported':
+            raise LedgerError('current HKDF requires its exact supported component claim: ' + name)
+        if not isinstance(claim.get('limitations'), list) or not claim['limitations'] or \
+                any(not isinstance(value, str) or not value.strip() for value in claim['limitations']):
+            raise LedgerError('current HKDF claim limitations are missing: ' + name)
+        checked += _validate_supported_claim(root, claim, CLAIM_POLICIES[name], by_id, evidence, {})
+    return {'schema': HKDF_CURRENT_STATUS_SCHEMA, 'ok': True,
+        'full_ledger': False, 'globalV7': False, 'artifactqualification': False,
+        'scope': 'Current HKDF V1/V2 component policies and eight-root source receipt only; no other claim qualified',
+        'project_root': str(root), 'ledger_sha256': digest(ledger_path),
+        'manifest_sha256': HKDF_CURRENT_MANIFEST_SHA256,
+        'source_receipt_sha256': digest(checked_path(root, HKDF_SOURCE_RECEIPT, 'current HKDF receipt')),
+        'claims': {name: 'supported' for name in HKDF_CURRENT_CLAIMS},
+        'component_checks': checked, 'controls_checked': controls, 'failures': []}
+
+
 def _validate_supported_claim(root: Path, claim: dict[str, Any], policy: dict[str, Any],
                               obligations: dict[str, dict[str, Any]],
                               evidence_by_obligation: dict[str, dict[str, dict[str, Any]]],
                               claim_statuses: dict[str, str]) -> int:
     claim_id = claim["id"]
+    if any(oid in ('V1', 'V2', 'V7') for oid in policy.get('component_checks', ())):
+        _validate_current_hkdf_binding(root, obligations.get('V7') if 'V7' in policy.get('component_checks', ()) else None)
     if tuple(claim["obligations"]) != policy["obligations"]:
         raise LedgerError(
             f"{claim_id}: supported claim dependency set is not the reviewed policy "
@@ -5775,12 +6059,17 @@ def _failure(message: str) -> dict[str, Any]:
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--root", type=Path)
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument('--hkdf-current-only', action='store_true',
+                        help='check current HKDF V1/V2 only; requires explicit absolute --root; no global/artifact qualification')
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.hkdf_current_only and args.root is None:
+        parser.error('--hkdf-current-only requires explicit --root for the current project')
     try:
-        status = validate_ledger(args.root, args.ledger)
+        status = (validate_current_hkdf(args.root, args.ledger) if args.hkdf_current_only
+                  else validate_ledger(args.root or ROOT, args.ledger))
         code = 0
     except LedgerError as exc:
         status = _failure(str(exc))
@@ -5788,6 +6077,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     except Exception as exc:  # fail closed without hiding unexpected validator failure as success
         status = _failure(f"internal validator failure: {type(exc).__name__}: {exc}")
         code = 2
+    if args.hkdf_current_only and not status.get('ok'):
+        status.update(schema=HKDF_CURRENT_STATUS_SCHEMA, full_ledger=False,
+                      globalV7=False, artifactqualification=False)
     text = json.dumps(status, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -186,18 +186,24 @@ CI job and currently requires the documented local tool setup.
 ### Verified Dafny implementation and Java generation
 
 The [Dafny HKDF component](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/dafny/README.md) implements Extract, Expand,
-TLS label serialization and their composition. All four methods return explicit
-validation results and have full output equations, with no caller preconditions.
-The kernel verifies 21 checks; a separate harness verifies that all methods remain
-callable over their complete mathematical input domain. Mutated feedback, counter,
+TLS label serialization and their composition. The four sequence operations
+return explicit validation results and have full output equations, with no caller
+preconditions. The generated array-input entries compose those operations with
+`CopyInput`, whose contract returns the entry-state sequence and preserves its
+array. Saved snapshots survive subsequent writes, including aliased inputs.
+Separate domain harnesses check that the operations remain callable over their
+complete supported domain. Mutated feedback, counter,
 truncation and prefix, a narrowed domain, an extra axiom and skipped verification
 must be rejected. The sole permitted Dafny assumption is deterministic abstract
 HMAC with its fixed output-length contract.
 
-The production byte adapters copy primitive arrays in bulk. An earlier integration
+Generated `CopyInput` now takes input octet snapshots; output conversion and the
+JCE boundary retain primitive-array bulk copies. An earlier integration
 loop used `DafnySequence.select` on each secret byte; the pinned runtime boxed that
 byte through Java's byte cache. The replacement uses the reviewed primitive-array
-copy route. Actual-class checks and old-loop mutants guard both converters.
+copy route. Actual-class checks and old-loop mutants guard the remaining Java
+converters. The removed handwritten `HkdfBridge.sequence` helper's supplementary
+bytecode receipt does not cover the new generated input route.
 The pinned runtime's copying behavior remains an inspected and tested assumption;
 this change does not prove HotSpot constant time.
 
@@ -424,24 +430,46 @@ paths remain open. Compiler/runtime behavior, physical JVM timing and independen
 external expert review remain separate assurance boundaries.
 
 The [HKDF source-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/hkdf)
-uses the actual production Extract, Expand, LabelInfo and ExpandLabel bodies with
-ghost trace outputs. It proves equal source observations for arbitrary private
-byte contents when public lengths/hash choice/TLS labels agree, including
-invalid-input and boundary outcomes. The body has 248 verified checks; the
-paired/domain harness has 259. A separately trusted C# adapter over Dafny's
-resolved AST checks that observations cover the accepted executable operations
-and remain in order. Its adversarial controls reject omitted/reordered events,
-trace resets, shadow declarations and lost callee outputs. The checker is
-reviewed code, not a formally verified execution semantics. Its binding scan
-uses an exact supported statement grammar over resolved statements and
-expressions, including ghost/proof code; unknown forms, ghost-call output
-bindings and direct trace replacement by calls reject.
+uses the actual production Extract, Expand, LabelInfo and ExpandLabel bodies,
+plus CopyInput and the three array-input entries, with ghost trace outputs.
+Paired harnesses compare independently varying private byte contents when public
+lengths, hash choice and TLS labels agree, including invalid-input and boundary
+outcomes. Array aliasing is allowed. The current replay requires 257 kernel,
+11 sequence-harness and 13 array-harness verification-condition rows, with
+separate well-formedness and correctness checks.
+
+A separately trusted C# adapter over Dafny's resolved AST checks that observations
+cover the accepted executable operations and remain in order. It binds actual
+declarations, formals, short-circuit evaluation paths and child outputs; bare
+returns must have neither an authored RHS nor a resolved hidden update. Its
+115 coverage fixtures include 112 named rejections and three valid positives.
+Separate body controls require genuine correctness failures and passing
+well-formedness; parser errors, missing checks, resource failures and timeouts
+receive no credit. The checker is reviewed code, not a formally verified
+execution semantics. Unknown statement/expression forms and unsupported effects
+fail closed. `ValidHash` is an explicitly checked atomic public-only boundary;
+the generated set implementation is outside these source observations.
 The assign-such-that regression demonstrates why this matters: its complete
 Dafny proofs and generated Java still pass after callee observations are erased,
 so the coverage adapter must independently reject that binding. Site IDs are
 opaque method-local labels, not JVM program counters. Java erasure/delivery checks and
 JDK HMAC/compiler/runtime assumptions remain explicit; this does not establish
 physical constant-time execution or whole-crypto trace independence.
+
+The current HKDF component receipt also binds the original functional controls,
+audit controls and both JDK runtime suites. The original 45-case suite has 2766
+assertions; the array-input suite has 150 cases and 346 assertions. These are
+separate suites, rather than additional proof obligations. The
+`--hkdf-current-only` ledger command reports its component scope explicitly:
+`full_ledger`, `globalV7` and `artifactqualification` are false.
+
+Changing the generated input boundary creates a new delivery subject. The
+[HKDF array delivery epoch](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/crypto/epochs/hkdf-array-001)
+keeps retained native evidence, current HKDF evidence and fresh artifact
+validation separate. It requires complete input and class maps, exact selected
+deltas and the unchanged whole-artifact validator on the new library and bundle.
+A completed component replay alone does not qualify those artifacts or renew a
+historical release receipt. Published 0.8.1 artifacts remain immutable.
 
 The [polynomial source-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/polynomial)
 extends this approach to 13 native polynomial methods, their seven field-method

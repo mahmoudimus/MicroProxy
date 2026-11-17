@@ -13,6 +13,17 @@ spec.loader.exec_module(runner)
 
 
 class ReplayTrust(unittest.TestCase):
+    def test_shared_replay_helper_pin_matches_checkout_and_rejects_change(self):
+        name = 'formal/dafny/run.py'
+        pins = json.loads((runner.HERE / 'inputs.json').read_text())['inputs']
+        self.assertEqual(runner.shared.digest(runner.ROOT / name), pins[name])
+        with tempfile.TemporaryDirectory() as folder:
+            copy = Path(folder) / name
+            copy.parent.mkdir(parents=True)
+            copy.write_bytes((runner.ROOT / name).read_bytes() + b'\n')
+            with self.assertRaisesRegex(RuntimeError, 'Input changed'):
+                runner.shared.check_inputs(Path(folder), {name: pins[name]})
+
     def test_marker_write_failure_removes_old_success(self):
         with tempfile.TemporaryDirectory() as folder:
             report = Path(folder) / 'report.json'

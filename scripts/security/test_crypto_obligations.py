@@ -1,9 +1,9 @@
 """Independent fail-closed fixtures for the crypto obligation and release gates.
 
-These tests do not consume the repository's current HKDF pins or receipts; they
-construct a synthetic ledger so in-progress HKDF work cannot make the gate tests
-stale. The repository ledger itself is exercised separately by the documented
-commands.
+These tests construct synthetic proof/control receipts, never consume a current
+success receipt. HKDF source-binding cases copy the externally selected input
+authority so changed producers cannot be blessed by rewriting fixture hashes.
+The repository ledger is exercised separately by the documented commands.
 """
 from __future__ import annotations
 
@@ -70,7 +70,8 @@ class Fixture:
     REAL_ROOT = Path(__file__).resolve().parents[2]
 
     def __init__(self, directory: Path):
-        self.root = directory
+        self.root = directory.resolve()
+        self.installed_components = set()
         self.assumptions = sorted(obligations.ALLOWED_ASSUMPTIONS)
         self.ledger = self._build()
         self.path = self.root / "formal/crypto-obligations.json"
@@ -324,6 +325,7 @@ class Fixture:
             self._write_json(required["receipt"], receipt)
 
     def install_required_component(self, oid: str) -> None:
+        self.installed_components.add(oid)
         if oid == "V7":
             assumption = "trusted-source-observation-coverage"
             if assumption not in self.obligation(oid)["assumptions"]:
@@ -480,8 +482,13 @@ class Fixture:
             path, markers = checks["nonvacuity"]
             if path.endswith(".json"):
                 data = self._load_json(path)
-                data["_fixture_nonvacuity"] = " ".join(markers)
-                self._write_json(path, data)
+                if path == obligations.HKDF_SOURCE_RECEIPT:
+                    # Current HKDF's actual domain/control fields supply these
+                    # markers; do not invent compatibility text for old schemas.
+                    assert all(marker in json.dumps(data) for marker in markers)
+                else:
+                    data["_fixture_nonvacuity"] = " ".join(markers)
+                    self._write_json(path, data)
             else:
                 self.write(path, "\n".join(markers) + "\n")
             obligation["nonvacuity"] = {
@@ -537,6 +544,50 @@ class Fixture:
             "evidence": list(dict.fromkeys(evidence_paths)),
             "limitations": ["fixture supported scope; no wider timing/security claim"],
         })
+        self._pin_current_hkdf_authority()
+
+    def _pin_current_hkdf_authority(self):
+        """Use selected source bytes, never a repository success receipt.
+
+        The proof/control receipt stays synthetic. Source/manifest binding tests
+        use the real immutable authority so a test cannot bless changed code by
+        merely updating a ledger hash. Unrelated component fixtures stay synthetic.
+        """
+        path = self.root / obligations.HKDF_SOURCE_RECEIPT
+        if not path.is_file():
+            return
+        real_manifest = self.REAL_ROOT / obligations.HKDF_SOURCE_MANIFEST
+        authority = json.loads(real_manifest.read_text())
+        for name in obligations._HKDF_SOURCE_INPUT_KEYS:
+            target = self.root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.REAL_ROOT / name, target)
+        target = self.root / obligations.HKDF_SOURCE_MANIFEST
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(real_manifest, target)
+        receipt = self._load_json(obligations.HKDF_SOURCE_RECEIPT)
+        receipt['inputs'] = authority['inputs']
+        receipt['manifest_sha256'] = obligations.HKDF_CURRENT_MANIFEST_SHA256
+        # Deliberately synthetic tool/proof data, never a copied success receipt
+        # or evidence that these unit tests executed a toolchain.
+        receipt['tool_scope'] = {'full_typed_JDK_trees': {
+            major: {'file': 6, 'directory': 2, 'symlink': 0} for major in ('21', '25')},
+            'before_sha256': 'a' * 64, 'after_sha256': 'a' * 64}
+        self._write_json(obligations.HKDF_SOURCE_RECEIPT, receipt)
+        # Real source bytes can be shared with other synthetic component maps.
+        # Refresh those maps, but never regenerate the selected HKDF authority.
+        for oid in self.installed_components:
+            for signature in obligations.REQUIRED_COMPONENT_CHECKS[oid]['hash_maps']:
+                if signature[0] in (obligations.HKDF_SOURCE_MANIFEST, obligations.HKDF_SOURCE_RECEIPT):
+                    continue
+                self._write_expected_hash_map(oid, *signature[:4], signature[4] if len(signature) > 4 else '')
+        for item in self.ledger['obligations']:
+            for ref in item['evidence']:
+                file = self.root / ref['path']
+                if file.is_file(): ref['sha256'] = sha(file.read_bytes())
+            if item['id'] in self.installed_components:
+                self._refresh_receipt_checks(item['id'])
+
 
     def make_production_supported(self) -> None:
         self.make_supported("shake-mlkem-functional-production")
@@ -576,7 +627,7 @@ class Fixture:
 class ObligationLedgerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.fixture = Fixture(self.root)
 
     def tearDown(self) -> None:
@@ -584,6 +635,13 @@ class ObligationLedgerTests(unittest.TestCase):
 
     def validate(self):
         return obligations.validate_ledger(self.root, self.fixture.write_ledger())
+
+    def assert_hkdf_invalid(self, pattern: str) -> None:
+        """Current HKDF component only; no historical V7 qualification claim."""
+        v7 = self.fixture.obligation('V7')
+        source_used = any(x['path'] == obligations.HKDF_SOURCE_RECEIPT for x in v7['evidence'])
+        with self.assertRaisesRegex(obligations.LedgerError, pattern):
+            obligations._validate_current_hkdf_binding(self.root, v7 if source_used else None)
 
     def assert_invalid(self, pattern: str):
         with self.assertRaisesRegex(obligations.LedgerError, pattern):
@@ -1022,7 +1080,7 @@ class ObligationLedgerTests(unittest.TestCase):
 
     def test_trimmed_hkdf_input_map_cannot_be_blessed_by_repin(self):
         self.fixture.make_supported("hkdf-production-functional")
-        receipt_path = "formal/dafny/PRODUCTION-EVIDENCE.json"
+        receipt_path = obligations.HKDF_SOURCE_RECEIPT
         receipt = self.fixture._load_json(receipt_path)
         first = next(iter(receipt["inputs"]))
         receipt["inputs"] = {first: receipt["inputs"][first]}
@@ -1042,7 +1100,7 @@ class ObligationLedgerTests(unittest.TestCase):
         (self.root / generated_root / removed).unlink()
         delivery_key = "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/" + removed
         new_generated_hash = sha((self.root / generated_path).read_bytes())
-        for inputs_path in ("formal/dafny/inputs.json", "formal/dafny/PRODUCTION-EVIDENCE.json"):
+        for inputs_path in (obligations.HKDF_SOURCE_MANIFEST, obligations.HKDF_SOURCE_RECEIPT):
             inputs = self.fixture._load_json(inputs_path)
             inputs["inputs"][generated_path] = new_generated_hash
             inputs["inputs"].pop(generated_root + "/" + removed, None)
@@ -1157,11 +1215,11 @@ class ObligationLedgerTests(unittest.TestCase):
         self.fixture.make_supported("packet-receive-trace-scoped")
         path = obligations.HKDF_SOURCE_RECEIPT
         receipt = self.fixture._load_json(path)
-        del receipt["controls"]["third-callee-dup"]
+        del receipt["controls"]["old-third-callee-dup"]
         self.fixture._write_json(path, receipt)
         self.fixture._set_evidence("V7", path, "component-receipt")
         self._set_receipt_expected("V7", path, {"controls": receipt["controls"]})
-        self.assert_invalid("required receipt value changed|controls")
+        self.assert_hkdf_invalid("required receipt value changed|controls")
 
     def test_hkdf_source_input_map_cannot_be_trimmed_after_repinning(self):
         self.fixture.make_supported("packet-receive-trace-scoped")
@@ -1170,14 +1228,14 @@ class ObligationLedgerTests(unittest.TestCase):
         receipt["inputs"].pop("formal/source/hkdf/checker/HkdfCoverage.cs")
         self.fixture._write_json(path, receipt)
         self.fixture._set_evidence("V7", path, "component-receipt")
-        self.assert_invalid("pinned map key inventory changed")
+        self.assert_hkdf_invalid("pinned map key inventory changed")
 
     def test_hkdf_source_positives_assembly_and_sdk_cannot_be_self_blessed(self):
         for field, value in (("positive.hkdf_body.verified", 1),
-                             ("checker.build.assembly_sha256", "0" * 64),
-                             ("checker.build.sdk", "unreviewed"),
-                             ("checker.declarations", 1),
-                             ("metadata_targets", {})):
+                             ("checker.assembly_sha256", "0" * 64),
+                             ("checker.sdk", "unreviewed"),
+                             ("java.classes", 1),
+                             ("body_controls", {})):
             with self.subTest(field=field), tempfile.TemporaryDirectory() as folder:
                 fixture = Fixture(Path(folder))
                 fixture.make_supported("packet-receive-trace-scoped")
@@ -1191,7 +1249,7 @@ class ObligationLedgerTests(unittest.TestCase):
                         for checked in list(check["values"]):
                             check["values"][checked] = fixture._nested_get(receipt, checked)
                 with self.assertRaisesRegex(obligations.LedgerError, "required receipt value changed"):
-                    obligations.validate_ledger(fixture.root, fixture.write_ledger())
+                    obligations._validate_current_hkdf_binding(fixture.root, fixture.obligation("V7"))
 
     def test_hkdf_source_trust_assumption_cannot_move_out_of_its_obligation(self):
         self.fixture.make_supported("packet-receive-trace-scoped")
@@ -1199,11 +1257,11 @@ class ObligationLedgerTests(unittest.TestCase):
         self.fixture.obligation("V7")["assumptions"].remove(assumption)
         if assumption not in self.fixture.obligation("V8")["assumptions"]:
             self.fixture.obligation("V8")["assumptions"].append(assumption)
-        self.assert_invalid("required HKDF source-coverage trust assumption removed")
+        self.assert_hkdf_invalid("required HKDF source-coverage trust assumption removed")
 
     def test_trimmed_hkdf_control_inventory_fails(self):
         self.fixture.make_supported("hkdf-production-functional")
-        receipt_path = "formal/dafny/PRODUCTION-EVIDENCE.json"
+        receipt_path = obligations.HKDF_SOURCE_RECEIPT
         receipt = self.fixture._load_json(receipt_path)
         removed = next(iter(receipt["controls"]))
         del receipt["controls"][removed]
@@ -1214,13 +1272,13 @@ class ObligationLedgerTests(unittest.TestCase):
 
     def test_removed_hkdf_java_runs_fails(self):
         self.fixture.make_supported("hkdf-production-functional")
-        receipt_path = "formal/dafny/PRODUCTION-EVIDENCE.json"
+        receipt_path = obligations.HKDF_SOURCE_RECEIPT
         receipt = self.fixture._load_json(receipt_path)
-        receipt.pop("java_runs", None)
+        receipt["java"]["runtime"].pop("25")
         self.fixture._write_json(receipt_path, receipt)
         for oid in ("V1", "V2"):
             self.fixture._set_evidence(oid, receipt_path, "component-receipt")
-        self.assert_invalid("required receipt value changed|java_runs")
+        self.assert_hkdf_invalid("required receipt value changed|runtime")
 
     def test_v3_proof_label_requires_its_contract(self):
         self.fixture.install_required_component("V3")
@@ -1399,13 +1457,85 @@ class ObligationLedgerTests(unittest.TestCase):
         self.fixture._set_evidence("V3", inputs_path, "input-manifest")
         self.assert_invalid("stale source/evidence hash")
 
-    def test_hkdf_local_functional_and_production_policies_pass(self):
-        for claim_id in ("hkdf-isolated-functional", "hkdf-production-functional"):
-            with self.subTest(claim=claim_id), tempfile.TemporaryDirectory() as directory:
-                fixture = Fixture(Path(directory))
-                fixture.make_supported(claim_id)
-                status = obligations.validate_ledger(fixture.root, fixture.write_ledger())
-                self.assertEqual(status["claims"][claim_id], "supported")
+    def test_hkdf_local_functional_and_production_component_policies_pass(self):
+        for claim_id in obligations.HKDF_CURRENT_CLAIMS:
+            self.fixture.make_supported(claim_id)
+        self.assertNotIn('_fixture_nonvacuity', self.fixture._load_json(obligations.HKDF_SOURCE_RECEIPT))
+        self.fixture.write_ledger()
+        status = obligations.validate_current_hkdf(self.root)
+        self.assertEqual(status['claims'], {name: 'supported' for name in obligations.HKDF_CURRENT_CLAIMS})
+        self.assertGreater(status['component_checks'], 0)
+
+    def test_current_hkdf_components_do_not_renew_historical_timing_receipt(self):
+        for claim_id in obligations.HKDF_CURRENT_CLAIMS:
+            self.fixture.make_supported(claim_id)
+        self.fixture.write_ledger()
+        self.assertTrue(obligations.validate_current_hkdf(self.root)['ok'])
+        report = self.fixture._load_json('formal/timing/PRODUCTION-EVIDENCE.json')
+        current = self.fixture._load_json('formal/timing/inputs.json')
+        self.assertNotEqual(report['inputs'], current['inputs'])
+        with self.assertRaisesRegex(obligations.LedgerError, 'trace report inputs differ from the pinned manifest'):
+            obligations.validate_ledger(self.root, self.fixture.write_ledger())
+
+    def test_current_hkdf_changed_producer_cannot_select_its_own_manifest(self):
+        self.fixture.make_supported("hkdf-production-functional")
+        producer = 'formal/source/hkdf/replay.py'
+        self.fixture.write(producer, (self.root / producer).read_text() + '\n# substituted producer\n')
+        manifest = self.fixture._load_json(obligations.HKDF_SOURCE_MANIFEST)
+        manifest['inputs'][producer] = sha((self.root / producer).read_bytes())
+        self.fixture._write_json(obligations.HKDF_SOURCE_MANIFEST, manifest)
+        receipt = self.fixture._load_json(obligations.HKDF_SOURCE_RECEIPT)
+        receipt['inputs'] = manifest['inputs']
+        receipt['producer_pins'][producer] = manifest['inputs'][producer]
+        receipt['manifest_sha256'] = sha((self.root / obligations.HKDF_SOURCE_MANIFEST).read_bytes())
+        self.fixture._write_json(obligations.HKDF_SOURCE_RECEIPT, receipt)
+        for oid in ('V1', 'V2'):
+            self.fixture._refresh_receipt_checks(oid)
+        with self.assertRaisesRegex(obligations.LedgerError, 'externally selected manifest changed'):
+            obligations._validate_current_hkdf_binding(self.root)
+
+    def test_current_hkdf_selected_nonproducer_source_bytes_are_checked(self):
+        self.fixture.make_supported("hkdf-production-functional")
+        source = 'formal/dafny/hkdf/Hkdf.dfy'
+        self.fixture.write(source, (self.root / source).read_text() + '\n// changed input\n')
+        for oid in ('V1', 'V2'):
+            self.fixture._set_evidence(oid, source, 'spec-source')
+        with self.assertRaisesRegex(obligations.LedgerError, 'selected input bytes differ'):
+            obligations._validate_current_hkdf_binding(self.root)
+
+    def test_current_hkdf_array_domain_and_original_controls_cannot_be_trimmed(self):
+        for field, value in (('positive.array_harness.verified', 0),
+                             ('positive.public_domain.verified', 0),
+                             ('functional_controls', {}), ('functional_audit_controls', {})):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as folder:
+                fixture = Fixture(Path(folder))
+                fixture.make_supported('hkdf-production-functional')
+                receipt = fixture._load_json(obligations.HKDF_SOURCE_RECEIPT)
+                fixture._nested_set(receipt, field, value)
+                fixture._write_json(obligations.HKDF_SOURCE_RECEIPT, receipt)
+                for oid in ('V1', 'V2'):
+                    fixture._refresh_receipt_checks(oid)
+                with self.assertRaisesRegex(obligations.LedgerError, 'required receipt value changed|public domain proof is empty'):
+                    obligations._validate_current_hkdf_binding(fixture.root)
+
+    def test_current_hkdf_five_operand_or_drifting_tool_scope_gets_no_credit(self):
+        self.fixture.make_supported('hkdf-production-functional')
+        baseline = self.fixture._load_json(obligations.HKDF_SOURCE_RECEIPT)
+        variants = [{}, {'jdk21_profile_operands': 5, 'jdk25_profile_operands': 5}]
+        for operation in ('drop25', 'fivefiles', 'drift', 'boolcount'):
+            scope = copy.deepcopy(baseline['tool_scope'])
+            if operation == 'drop25': del scope['full_typed_JDK_trees']['25']
+            if operation == 'fivefiles': scope['full_typed_JDK_trees']['21']['file'] = 5
+            if operation == 'drift': scope['after_sha256'] = 'b' * 64
+            if operation == 'boolcount': scope['full_typed_JDK_trees']['21']['symlink'] = True
+            variants.append(scope)
+        for scope in variants:
+            with self.subTest(scope=scope):
+                receipt = copy.deepcopy(baseline)
+                receipt['tool_scope'] = scope
+                self.fixture._write_json(obligations.HKDF_SOURCE_RECEIPT, receipt)
+                with self.assertRaisesRegex(obligations.LedgerError, 'complete typed JDK tool provenance'):
+                    obligations._validate_current_hkdf_binding(self.root)
 
     def test_target_receipt_cannot_support_full_aws_closure(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1443,7 +1573,7 @@ class ObligationLedgerTests(unittest.TestCase):
     def test_stale_hkdf_input_is_not_hidden_by_repinned_evidence(self):
         self.fixture.make_supported("hkdf-production-functional")
         source_path = "formal/dafny/hkdf/Hkdf.dfy"
-        inputs_path = "formal/dafny/inputs.json"
+        inputs_path = obligations.HKDF_SOURCE_MANIFEST
         inputs = self.fixture._load_json(inputs_path)
         inputs["inputs"][source_path] = sha((self.root / source_path).read_bytes())
         self.fixture._write_json(inputs_path, inputs)
@@ -1587,6 +1717,108 @@ class ObligationLedgerTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertFalse(payload["ok"])
         self.assertTrue(payload["failures"])
+
+
+class CurrentHkdfModeTests(unittest.TestCase):
+    """Unit receipts only; this mode cannot provide a global release pass."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.fixture = Fixture(self.root)
+        for name in obligations.HKDF_CURRENT_CLAIMS:
+            self.fixture.make_supported(name)
+        self.fixture.write_ledger()
+
+    def test_hkdf_current_cli_uses_explicit_root_and_distinct_scoped_schema(self):
+        with mock.patch.dict('os.environ', {'CRYPTO_HISTORICAL_ROOT': '/unrelated/historical-epoch'}), \
+                mock.patch.object(obligations, 'validate_ledger', side_effect=AssertionError('global gate is separate')), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            code = obligations.main(['--hkdf-current-only', '--root', str(self.root)])
+        self.assertEqual(0, code)
+        status = json.loads(output.getvalue())
+        self.assertEqual(obligations.HKDF_CURRENT_STATUS_SCHEMA, status['schema'])
+        self.assertNotEqual(obligations.STATUS_SCHEMA, status['schema'])
+        self.assertEqual(set(obligations.HKDF_CURRENT_CLAIMS), set(status['claims']))
+        self.assertIs(False, status['full_ledger'])
+        self.assertIs(False, status['globalV7'])
+        self.assertIs(False, status['artifactqualification'])
+
+    def test_hkdf_current_cli_rejects_missing_root_unknown_scope_and_require_switch(self):
+        for argv in (['--hkdf-current-only'],
+                     ['--hkdf-current-only', '--root', str(self.root), '--require', 'jvm-constant-time'],
+                     ['--hkdf-current-only', '--root', str(self.root), '--global'],
+                     ['--hkdf-current-only=other', '--root', str(self.root)]):
+            with self.subTest(argv=argv), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                obligations.main(argv)
+            self.assertEqual(2, error.exception.code)
+
+    def test_hkdf_current_mode_rejects_relative_root_and_external_ledger(self):
+        with self.assertRaisesRegex(obligations.LedgerError, 'explicit absolute project root'):
+            obligations.validate_current_hkdf(Path('.'))
+        with self.assertRaisesRegex(obligations.LedgerError, 'canonical ledger'):
+            obligations.validate_current_hkdf(self.root, self.root.parent / 'other-ledger.json')
+
+    def test_hkdf_current_mode_does_not_fall_back_from_historical_epoch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            historical = Path(tmp)
+            ledger = historical / 'formal/crypto-obligations.json'
+            ledger.parent.mkdir(parents=True)
+            shutil.copyfile(self.fixture.path, ledger)
+            with mock.patch.dict('os.environ', {'CRYPTO_HISTORICAL_ROOT': str(self.root)}), \
+                    self.assertRaises(obligations.LedgerError):
+                obligations.validate_current_hkdf(historical)
+
+    def test_hkdf_current_mode_rejects_own_claim_inflation_and_global_v7_promotion(self):
+        baseline = copy.deepcopy(self.fixture.ledger)
+        variants = []
+        for field, value in (('strength', 'bytecode'), ('production', False),
+                             ('assumptions', []), ('evidence', []), ('status', 'snapshot')):
+            variant = copy.deepcopy(baseline)
+            next(c for c in variant['claims'] if c['id'] == 'hkdf-production-functional')[field] = value
+            variants.append(variant)
+        variant = copy.deepcopy(baseline)
+        next(o for o in variant['obligations'] if o['id'] == 'V7')['status'] = 'implementation-proof'
+        variants.append(variant)
+        variant = copy.deepcopy(baseline)
+        variant['claims'].append(copy.deepcopy(variant['claims'][0]))
+        variants.append(variant)
+        for variant in variants:
+            with self.subTest(variant=variant['claims'][-1]['id']):
+                self.fixture.path.write_text(json.dumps(variant))
+                with self.assertRaises(obligations.LedgerError):
+                    obligations.validate_current_hkdf(self.root)
+
+    def test_hkdf_current_mode_requires_independent_ledger_receipt_pin(self):
+        receipt = self.fixture._load_json(obligations.HKDF_SOURCE_RECEIPT)
+        receipt['unreviewed'] = 'new receipt bytes without the independent ledger pin'
+        self.fixture._write_json(obligations.HKDF_SOURCE_RECEIPT, receipt)
+        with self.assertRaisesRegex(obligations.LedgerError, 'stale/tampered evidence hash'):
+            obligations.validate_current_hkdf(self.root)
+
+    def test_hkdf_current_mode_rejects_unlisted_package_control(self):
+        self.fixture.write('formal/source/hkdf/controls/unlisted.py', 'unlisted = True\n')
+        with self.assertRaisesRegex(obligations.LedgerError, 'package admission failed'):
+            obligations.validate_current_hkdf(self.root)
+
+    def test_hkdf_current_failure_keeps_scoped_schema_and_cannot_replace_global_gate(self):
+        self.assertTrue(obligations.validate_current_hkdf(self.root)['ok'])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code = obligations.main(['--root', str(self.root)])
+        self.assertEqual(1, code)
+        self.assertEqual(obligations.STATUS_SCHEMA, json.loads(output.getvalue())['schema'])
+        self.fixture.claim('hkdf-production-functional')['strength'] = 'bytecode'
+        self.fixture.write_ledger()
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code = obligations.main(['--hkdf-current-only', '--root', str(self.root)])
+        self.assertEqual(1, code)
+        failed = json.loads(output.getvalue())
+        self.assertFalse(failed['ok'])
+        self.assertEqual(obligations.HKDF_CURRENT_STATUS_SCHEMA, failed['schema'])
+        self.assertIs(False, failed['full_ledger'])
+        self.assertIs(False, failed['globalV7'])
+        self.assertIs(False, failed['artifactqualification'])
 
 
 class ReleaseGateTests(unittest.TestCase):

@@ -135,13 +135,20 @@ Checks enforced by `Structure` and the extractor include:
   used to classify result objects as public shape while payload bytes stay
   secret.
 
-Two additional static adapter-helper bodies, `HkdfBridge.sequence` and
-`labelUnits`, have checked trace programs. The former keeps the byte-array
-content role private; the latter handles a public label and allocates at the
-single reviewed pc 11 (`alloc_public: [11]`). The model observes lengths and
-allocations for clone/sequence creation; it does not model copied contents or
-prove copy ownership. `AliasNoClone` is trace-equivalent under this observer.
-The other adapter bodies and their dispatch/type/exception refinement stay open.
+The remaining static adapter helper `HkdfBridge.labelUnits` has a checked trace
+program. It handles a public label and allocates at the single reviewed pc 11
+(`alloc_public: [11]`). The former `HkdfBridge.sequence` helper was removed by the
+generated array-input route and is explicitly retired from the live root, method
+and call policies. Its historical certificates remain historical. Separate tests
+compile its exact predecessor source solely to preserve finite private-input and
+control-degradation regressions; they confer no current certificate.
+
+The replacement `VerifiedHkdf.CopyInput` route has source-level value, ownership
+and trace proofs in `formal/source/hkdf/ArrayInputTrace.dfy`. It is **not** counted
+as a bytecode-certified replacement here. The compiler/runtime copying boundary,
+other adapter bodies and dispatch/type/exception refinement remain trusted/open.
+The model observes allocation/length metadata, without copied-content or alias
+ownership refinement; `AliasNoClone` remains trace-equivalent under this observer.
 
 ### Owned-callee certificates and checked inline composition
 

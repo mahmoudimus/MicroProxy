@@ -12,9 +12,9 @@ import java.util.Objects;
  * Handwritten value/error boundary between {@link io.github.mahmoudimus.quic.Hkdf} and the
  * Dafny-generated RFC 5869/8446 implementation in {@code VerifiedHkdf}.
  *
- * <p>The generated kernel decides every functional result; this class only copies octets,
+ * <p>The generated kernel decides every functional result; this class delegates octet snapshots to generated array entries,
  * preserves UTF-16 label units for ASCII validation, and maps the kernel's failure data to the
- * historical Java exception types and messages of {@code quic.Hkdf}. Java array/sequence copying,
+ * historical Java exception types and messages of {@code quic.Hkdf}. Dafny-generated snapshots have source contracts; their compiler/runtime copying,
  * allocation, the Dafny compiler/runtime and JCE remain trusted; this is not a refinement proof
  * of the adapter, and it makes no constant-time claim.
  */
@@ -26,8 +26,8 @@ public final class HkdfBridge {
 
     /** {@code HKDF-Extract}; an empty salt is normalized by the generated kernel. */
     public static byte[] extract(int hashLength, byte[] salt, byte[] ikm) {
-        BytesResult result = __default.Extract(
-                hash(hashLength), sequence(salt, "salt"), sequence(ikm, "ikm"));
+        BytesResult result = __default.ExtractArrays(
+                hash(hashLength), Objects.requireNonNull(salt, "salt"), Objects.requireNonNull(ikm, "ikm"));
         if (result.is_Success()) {
             return bytes(result.dtor_bytes());
         }
@@ -36,8 +36,8 @@ public final class HkdfBridge {
 
     /** {@code HKDF-Expand}; the generated kernel validates length and key before its loop. */
     public static byte[] expand(int hashLength, byte[] prk, byte[] info, int length) {
-        BytesResult result = __default.Expand(hash(hashLength), sequence(prk, "prk"),
-                sequence(info, "info"), BigInteger.valueOf(length));
+        BytesResult result = __default.ExpandArrays(hash(hashLength), Objects.requireNonNull(prk, "prk"),
+                Objects.requireNonNull(info, "info"), BigInteger.valueOf(length));
         if (result.is_Success()) {
             return bytes(result.dtor_bytes());
         }
@@ -46,7 +46,7 @@ public final class HkdfBridge {
 
     /** RFC 8446 {@code HkdfLabel} serialization; the generated kernel validates ASCII and bounds. */
     public static byte[] labelInfo(String label, byte[] context, int length) {
-        BytesResult result = __default.LabelInfo(labelUnits(label), sequence(context, "context"),
+        BytesResult result = __default.LabelInfoArray(labelUnits(label), Objects.requireNonNull(context, "context"),
                 BigInteger.valueOf(length));
         if (result.is_Success()) {
             return bytes(result.dtor_bytes());
@@ -60,12 +60,6 @@ public final class HkdfBridge {
             case 48 -> SHA384;
             default -> throw new IllegalStateException("Unsupported HKDF hash length " + hashLength);
         };
-    }
-
-    private static DafnySequence<Byte> sequence(byte[] value, String name) {
-        // The clone gives the Dafny sequence its own backing storage. Caller-owned arrays are
-        // never retained in a generated value, including for concurrent or repeated calls.
-        return DafnySequence.of(Objects.requireNonNull(value, name).clone());
     }
 
     private static DafnySequence<Short> labelUnits(String label) {

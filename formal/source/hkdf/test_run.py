@@ -91,8 +91,8 @@ class GateParsing(unittest.TestCase):
 class MutationInventory(unittest.TestCase):
     def test_binding_controls_include_the_former_full_gate_bypass(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            controls = run.binding_mutants(run.INSTRUMENTED.read_text(), root)
+            root = Path(folder).resolve()
+            controls = run.binding_mutants((run.HERE / "fixtures/pre-array-Hkdf.dfy").read_text(), root)
             self.assertEqual({
                 "callee-suchthat-model-erasure", "callee-suchthat-same-model",
                 "trace-suchthat-reset", "nested-callee-suchthat",
@@ -107,9 +107,9 @@ class MutationInventory(unittest.TestCase):
                 self.assertTrue((root / name / "HkdfTrace.dfy").is_file())
 
     def test_checker_mutants_generate_each_named_control(self):
-        text = run.INSTRUMENTED.read_text()
+        text = (run.HERE / "fixtures/pre-array-Hkdf.dfy").read_text()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             found = run.checker_mutants(text, root)
             expected = {
                 "unmarked-secret-branch", "unmarked-secret-read", "stale-marker",
@@ -129,7 +129,7 @@ class MutationInventory(unittest.TestCase):
 
     def test_control_harness_uses_frozen_input_instead_of_mutable_checkout(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             frozen = root / "Frozen.dfy"
             frozen.write_text('include "../../dafny/hkdf/Hkdf.dfy"\n// frozen source\n')
             output = root / "control"
@@ -140,9 +140,9 @@ class MutationInventory(unittest.TestCase):
                              (output / "HkdfTrace.dfy").read_text())
 
     def test_accept_mutant_relabels_site_bijectively(self):
-        text = run.INSTRUMENTED.read_text()
+        text = (run.HERE / "fixtures/pre-array-Hkdf.dfy").read_text()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             accept = run.accept_mutants(text, root)
             mutated = (accept / "Hkdf.dfy").read_text()
             self.assertNotIn("EvBranch(2,", mutated)
@@ -150,9 +150,9 @@ class MutationInventory(unittest.TestCase):
             self.assertTrue((accept / "HkdfTrace.dfy").is_file())
 
     def test_metadata_mutants_generate_each_named_control(self):
-        text = run.INSTRUMENTED.read_text()
+        text = (run.HERE / "fixtures/pre-array-Hkdf.dfy").read_text()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             found = run.metadata_mutants(text, root)
             expected = {"metadata-branch-erases-boolean", "metadata-branch-erases-one-id",
                         "metadata-read-erases-address", "metadata-mac-erases-target",
@@ -163,9 +163,9 @@ class MutationInventory(unittest.TestCase):
                 self.assertTrue((root / name / "Hkdf.dfy").is_file())
 
     def test_observed_mutants_extend_trace_and_generate_harness(self):
-        text = run.INSTRUMENTED.read_text()
+        text = (run.HERE / "fixtures/pre-array-Hkdf.dfy").read_text()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             names = run.observed_mutants(text, root)
             self.assertEqual({"observed-secret-branch", "observed-secret-index",
                               "observed-secret-metadata"}, set(names))
@@ -178,43 +178,33 @@ class MutationInventory(unittest.TestCase):
 
 
 class Pins(unittest.TestCase):
-    def test_manifest_inventory_matches_repository(self):
-        manifest = json.loads((run.HERE / "inputs.json").read_text())
-        self.assertEqual(set(run.inventory()), set(manifest["inputs"]))
-        for name, expected in manifest["inputs"].items():
-            self.assertEqual(expected, run.digest(run.P / name), name)
+    def test_current_manifest_pins_are_complete(self):
+        from tooling import admission
+        manifest = run.HERE / 'inputs-v2.json'
+        data = admission.authenticate(run.P, manifest, admission.sha(manifest))
+        self.assertIn('formal/source/hkdf/ArrayInputTrace.dfy', data['inputs'])
+        self.assertIn('formal/source/hkdf/replay.py', data['inputs'])
 
 
 class OutputIsolation(unittest.TestCase):
-    def test_existing_output_is_rejected_before_pipeline_or_other_writes(self):
+    def test_missing_external_selection_does_not_create_output(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            output = root / "existing"
-            output.mkdir()
-            sentinel = output / "report.json"
-            sentinel.write_text("old report must survive")
-            other = root / "evidence"
-            other.mkdir()
-            (other / "report.json").write_text("unrelated evidence")
-            with patch.object(run, "P", root), patch.object(run, "pipeline") as pipeline:
-                with self.assertRaisesRegex(FileExistsError, "File exists"):
-                    run.main(["--output", str(output)])
-                pipeline.assert_not_called()
-            self.assertEqual("old report must survive", sentinel.read_text())
-            self.assertEqual("unrelated evidence", (other / "report.json").read_text())
+            output = Path(folder).resolve() / 'fresh'
+            with self.assertRaises(SystemExit):
+                run.main(['--output', str(output)])
+            self.assertFalse(output.exists())
 
-    def test_all_receipts_are_inside_new_output(self):
+    def test_bad_manifest_pin_does_not_import_or_write(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            output = root / "fresh"
-            result = {"status": "complete", "test": "owned receipt"}
-            with patch.object(run, "P", root), patch.object(run, "pipeline", return_value=result) as pipeline:
-                self.assertEqual(0, run.main(["--output", str(output)]))
-            pipeline.assert_called_once()
-            self.assertEqual(output.resolve() / "evidence", pipeline.call_args.args[2])
-            self.assertEqual(result, json.loads((output / "evidence/report.json").read_text()))
-            self.assertFalse((root / "evidence").exists())
+            root = Path(folder).resolve()
+            manifest = root / 'manifest.json'
+            manifest.write_text('{}')
+            output = root / 'fresh'
+            with self.assertRaisesRegex(run.GateError, 'manifest hash mismatch'):
+                run.main(['--manifest', str(manifest), '--expected-manifest', '0' * 64,
+                          '--output', str(output)])
+            self.assertFalse(output.exists())
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

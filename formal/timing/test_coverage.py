@@ -2,8 +2,8 @@
 
 Two groups:
 
-  * `PolicyCoverageTests` — the reviewed inventory: the two promoted
-    `HkdfBridge` helper roots, the narrowed `labelUnits` allocation-site
+  * `PolicyCoverageTests` — the reviewed inventory: the remaining promoted
+    `HkdfBridge.labelUnits` helper, explicit sequence retirement, its narrowed allocation-site
     declassification, the nine `NativeField` callee roots with their exact
     intermediate contracts and inlining closures, and the *frozen* budget and
     aggregate-label entries that must not drift.
@@ -17,9 +17,12 @@ The module needs only `javap` + the bound class directory (like
 `test_trace.py`); it does not run Dafny or a replay.
 """
 import copy
+import hashlib
 import json
 import os
 import sys
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -65,6 +68,38 @@ def disassemble(classname, key):
     return bt.disassemble(JAVAP, CLASSES, classname)[key]
 
 
+HISTORICAL = json.loads((HERE / 'fixtures/pre-array-hkdf/HISTORICAL.json').read_text())
+HISTORICAL_POLICY = copy.deepcopy(POLICY)
+HISTORICAL_POLICY['classes'][BRIDGE_OWNER]['methods'][SEQUENCE] = HISTORICAL['method_policy']
+HISTORICAL_POLICY['calls'][BRIDGE_OWNER + '.' + SEQUENCE] = HISTORICAL['call_contract']
+_historical_classes = None
+_historical_temporary = None
+
+
+def historical_sequence_result():
+    """Exact predecessor source in an isolated compile, with zero current credit."""
+    global _historical_classes, _historical_temporary
+    if _historical_classes is None:
+        source = HERE / 'fixtures/pre-array-hkdf/HkdfBridge.java'
+        if hashlib.sha256(source.read_bytes()).hexdigest() != HISTORICAL['source_sha256']:
+            raise AssertionError('historical HKDF fixture changed')
+        _historical_temporary = tempfile.TemporaryDirectory(prefix='historical-hkdf-sequence-')
+        _historical_classes = Path(_historical_temporary.name)
+        runtime = Path(os.environ.get('DAFNY_RUNTIME_JAR',
+            str(Path.home() / '.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar')))
+        actual = subprocess.run([str(JDK / 'bin/javac'), '--release', '21', '-g:lines,vars,source',
+            '-encoding', 'UTF-8', '-Xpkginfo:always', '-Xlint:all,-serial,-cast,-rawtypes',
+            '-cp', str(CLASSES) + os.pathsep + str(runtime), '-d', str(_historical_classes), str(source)],
+            capture_output=True, text=True)
+        if actual.returncode != 0 or actual.stdout.strip() or actual.stderr.strip():
+            raise AssertionError('historical-only compile failed: ' + actual.stdout + actual.stderr)
+        compiled = _historical_classes / (BRIDGE_OWNER + '.class')
+        if hashlib.sha256(compiled.read_bytes()).hexdigest() != HISTORICAL['class_sha256']:
+            raise AssertionError('historical-only compiled class differs from predecessor')
+    method = bt.disassemble(JAVAP, _historical_classes, BRIDGE)[SEQUENCE]
+    return bt.translate(method, HISTORICAL_POLICY, HISTORICAL_POLICY['classes'][BRIDGE_OWNER])
+
+
 def field_specs():
     return comp.load_callee_specs(POLICY, JAVAP, CLASSES, POLICY['callee_roots'])
 
@@ -106,15 +141,23 @@ def synthetic(steps, *, registers, param_regs, reg_taints, roles=None,
 # --------------------------------------------------------------------------- #
 class PolicyCoverageTests(unittest.TestCase):
     def helper_roots(self):
-        self.assertIn('helper_roots', POLICY, 'the two adapter helper roots are promoted')
+        self.assertIn('helper_roots', POLICY, 'the remaining adapter helper stays promoted')
         return POLICY['helper_roots']
 
-    def test_two_adapter_helper_roots_are_exact_and_removed_from_open(self):
+    def test_remaining_adapter_helper_and_explicit_sequence_retirement(self):
         helpers = {(entry['class'], entry['name'], entry['descriptor'])
                    for entry in self.helper_roots()}
-        self.assertEqual({(BRIDGE, 'sequence', '([BLjava/lang/String;)Ldafny/DafnySequence;'),
-                          (BRIDGE, 'labelUnits', '(Ljava/lang/String;)Ldafny/DafnySequence;')},
+        self.assertEqual({(BRIDGE, 'labelUnits', '(Ljava/lang/String;)Ldafny/DafnySequence;')},
                          helpers)
+        self.assertNotIn(SEQUENCE, bt.disassemble(JAVAP, CLASSES, BRIDGE))
+        self.assertNotIn(SEQUENCE, POLICY['classes'][BRIDGE_OWNER]['methods'])
+        self.assertNotIn(BRIDGE_OWNER + '.' + SEQUENCE, POLICY['calls'])
+        retired = POLICY['retired_helper_roots']
+        self.assertEqual(1, len(retired))
+        self.assertEqual('sequence', retired[0]['name'])
+        self.assertFalse(retired[0]['replacement_bytecode_certified'])
+        self.assertFalse(HISTORICAL['current_credit'])
+        self.assertFalse(any(x['name'] == 'CopyInput' for x in POLICY['helper_roots']))
         open_targets = {(entry['class'], entry['method']) for entry in POLICY['open_roots']}
         for _, name, descriptor in helpers:
             self.assertNotIn((BRIDGE, f'{name}:{descriptor}'), open_targets)
@@ -322,8 +365,7 @@ class AuditGateTests(unittest.TestCase):
     """The existing audit still rejects the classic private-flow escapes."""
 
     def sequence_result(self):
-        return bt.translate(disassemble(BRIDGE, SEQUENCE), POLICY,
-                            POLICY['classes'][BRIDGE_OWNER])
+        return historical_sequence_result()
 
     def private_result(self):
         """Standalone `NativeField.Add`: branch-free arithmetic with private operands."""
@@ -384,9 +426,8 @@ class AuditGateTests(unittest.TestCase):
 
 # --------------------------------------------------------------------------- #
 class PromotedRootControlTests(unittest.TestCase):
-    def test_sequence_input_pair_only(self):
-        result = bt.translate(disassemble(BRIDGE, SEQUENCE), POLICY,
-                              POLICY['classes'][BRIDGE_OWNER])
+    def test_historical_sequence_input_pair_only(self):
+        result = historical_sequence_result()
         control = ec.paired_control(result, require_liveness=False)
         self.assertEqual('ok', control['status'], control.get('reason'))
         self.assertTrue(control['state_invariants']['parameter_secret_role_contents_differ'])
@@ -461,8 +502,7 @@ class ApplicabilityGateTests(unittest.TestCase):
                             if entry['name'] == 'Add')
         public_leaf = next(entry for entry in POLICY['callee_roots']
                            if entry['name'] == 'Q')
-        sequence_root = next(entry for entry in POLICY['helper_roots']
-                             if entry['name'] == 'sequence')
+        sequence_root = HISTORICAL['root']
         label_root = next(entry for entry in POLICY['helper_roots']
                           if entry['name'] == 'labelUnits')
         self.assertTrue(R.control_requirement(private_root))
@@ -512,13 +552,11 @@ class ApplicabilityGateTests(unittest.TestCase):
                                                    leaf.get('status')),
                          'a public leaf is not required to be applicable')
 
-    def test_requested_sequence_control_rejects_public_only_degradation(self):
-        sequence_root = next(entry for entry in POLICY['helper_roots']
-                             if entry['name'] == 'sequence')
+    def test_historical_sequence_control_rejects_public_only_degradation(self):
+        sequence_root = HISTORICAL['root']
         label_root = next(entry for entry in POLICY['helper_roots']
                           if entry['name'] == 'labelUnits')
-        sequence = bt.translate(disassemble(BRIDGE, SEQUENCE), POLICY,
-                                POLICY['classes'][BRIDGE_OWNER])
+        sequence = historical_sequence_result()
         real = ec.paired_control(sequence, require_liveness=False)
         self.assertEqual('ok', real['status'])
         self.assertTrue(real['secret_parameter_roles'])

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Verify HKDF, audit assumptions, generate Java and exercise its real JCE boundary."""
 import argparse
+import hashlib
+import importlib.util
 import fcntl
 import json
 import os
@@ -13,11 +15,37 @@ import tempfile
 import time
 from zipfile import ZipFile
 
-from toolchain import digest, install
+# Historical utility API is retained for old finite regressions. The current
+# CLI below forwards to the one authenticated eight-root replay engine.
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def raw_module(name, path, expected):
+    raw = Path(path).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != expected:
+        raise RuntimeError('captured helper source pin mismatch: ' + str(path))
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(name)
+    sys.modules[name] = module
+    try: exec(compile(raw, str(path), 'exec'), module.__dict__)
+    except BaseException:
+        if previous is None: sys.modules.pop(name, None)
+        else: sys.modules[name] = previous
+        raise
+    return module
+
+
+def install(cache):
+    helper = raw_module('hkdf_legacy_toolchain', HERE / 'toolchain.py',
+        '4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8')
+    return helper.install(cache)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-FLAGS = ['--allow-external-contracts', '--verification-time-limit', '30', '--resource-limit', '10000000']
+FLAGS = ['--allow-external-contracts', '--verification-time-limit', '30', '--resource-limit', '50000000', '--cores', '2', '--solver-option', 'O:smt.case_split=0']
 SUMMARY = r'Dafny program verifier finished with (\d+) verified, (\d+) errors?'
 OUTER_MODULE = 'io.github.mahmoudimus.quic.internal.verifiedhkdf'
 OUTPUT_NAME = 'HkdfCrypto'
@@ -189,7 +217,8 @@ def domain_harness(source):
     return '''include "''' + source.as_posix() + '''"
 module PublicDomain {
   import VerifiedHkdf
-  method AllInputs(h: int, a: seq<bv8>, b: seq<bv8>, u: seq<bv16>, length: int) {
+  method AllInputs(h: int, a: seq<bv8>, b: seq<bv8>, u: seq<bv16>, length: int,
+                   left: array<bv8>, right: array<bv8>) {
     var x, {:ghost} tracex := VerifiedHkdf.Extract(h, a, b);
     assert x == VerifiedHkdf.ExtractSpec(h, a, b);
     var y, {:ghost} tracey := VerifiedHkdf.Expand(h, a, b, length);
@@ -198,6 +227,14 @@ module PublicDomain {
     assert z == VerifiedHkdf.LabelInfoSpec(u, b, length);
     var w, {:ghost} tracew := VerifiedHkdf.ExpandLabel(h, a, u, b, length);
     assert w == VerifiedHkdf.ExpandLabelSpec(h, a, u, b, length);
+    var c, {:ghost} tracec := VerifiedHkdf.CopyInput(left);
+    assert c == left[..];
+    var ea, {:ghost} traceea := VerifiedHkdf.ExtractArrays(h, left, right);
+    assert ea == VerifiedHkdf.ExtractSpec(h, left[..], right[..]);
+    var xa, {:ghost} tracexa := VerifiedHkdf.ExpandArrays(h, left, right, length);
+    assert xa == VerifiedHkdf.ExpandSpec(h, left[..], right[..], length);
+    var la, {:ghost} tracela := VerifiedHkdf.LabelInfoArray(u, left, length);
+    assert la == VerifiedHkdf.LabelInfoSpec(u, left[..], length);
   }
 }
 '''
@@ -390,7 +427,7 @@ def pipeline(args, output):
     }
 
 
-def main(argv=None):
+def historical_main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'target/dafny-hkdf')
     parser.add_argument('--cache', type=Path, default=Path(os.environ.get('MICROPROXY_FORMAL_CACHE', Path.home() / '.cache/microproxy-formal')))
@@ -419,6 +456,33 @@ def main(argv=None):
         finally:
             signal.signal(signal.SIGTERM, previous)
     return 0
+
+
+def owned_execute(command, log, timeout=180):
+    """Reviewed captured-source execution for the explicit generation utility."""
+    helper = ROOT / 'formal/source/hkdf/tooling/owned_call.py'
+    owner = raw_module('hkdf_generation_owned', helper,
+        '9d9357e973b4d7192dfb66efc9163fc2f6502f90cb9b66eab8306e3548897bb0')
+    log = Path(log)
+    private = log.with_name(log.name + '.environment')
+    private.mkdir()
+    for name in ('home', 'tmp', 'config', 'cache'): (private / name).mkdir()
+    env = {'PATH':'/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C','LC_ALL':'C','TZ':'UTC',
+           'HOME':str(private/'home'),'TMPDIR':str(private/'tmp'),'TMP':str(private/'tmp'),
+           'TEMP':str(private/'tmp'),'XDG_CONFIG_HOME':str(private/'config'),
+           'XDG_CACHE_HOME':str(private/'cache')}
+    code, text, record = owner.run(command, log, log.parent, env, timeout)
+    owner.durable_json(log.with_suffix('.record.json'), {'exit':code, 'argv':list(map(str,command)), **record})
+    return code, text
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    # Re-exec the current engine as raw __main__ source under an isolated
+    # interpreter. No inherited Python/.NET/native-loader selectors survive.
+    command = [sys.executable, '-I', '-B', str(ROOT / 'formal/source/hkdf/run.py'), *argv]
+    os.execve(sys.executable, command,
+              {'PATH':'/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C','LC_ALL':'C','TZ':'UTC'})
 
 
 if __name__ == '__main__':

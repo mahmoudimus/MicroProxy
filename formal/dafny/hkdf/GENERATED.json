@@ -3,7 +3,7 @@
   "outer_module": "io.github.mahmoudimus.quic.internal.verifiedhkdf",
   "output_name": "HkdfCrypto",
   "module": "VerifiedHkdf",
-  "verified": 62,
+  "verified": 257,
   "dafny": {
     "version": "4.9.1",
     "asset_sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
@@ -30,13 +30,13 @@
     "FailureKind_InvalidKey.java": "b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194",
     "FailureKind_InvalidLabel.java": "81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760",
     "FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
-    "__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
+    "__default.java": "4d44ac808e9f19c40de01c3201d229c265a503a63c7afa8bacf4dbbfe9230891"
   },
   "aggregator_sha256": "c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba",
   "translation_metadata_sha256": "b374f6b9506da02fb5c0c579a6c588807575eac7548a296ef823bc9c89ba4052",
   "classes": {
     "io/github/mahmoudimus/quic/Hkdf.class": "b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e",
-    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class": "4a1d2f0aeef211e31bc8f204ea455bd0a5ee0d43a56c1ebfb5baea4d8ea847ef",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class": "121530fa959adc3cc0e5198bc6c397e10b53745d41d8c217a0f4d0f30b5e04cc",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class": "0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class": "8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class": "b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4",
@@ -45,7 +45,11 @@
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class": "8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class": "f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class": "147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b",
-    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class": "c1df4e947257748b79568313e8381d02e83db8f58c1e42342c1bbbb98f76b0d5",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class": "9eb9326e60aa9333ff7b95e630074ddb72e2bfde3a07fd21249baea6e98ceb8b",
     "io/github/mahmoudimus/verifiedcrypto/JdkHmac.class": "08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b"
-  }
+  },
+  "source_sha256": "4ff0be35f814b7ad396fb8d643098a856c7e0c55c5d6b411931f58e20f9ac6d3",
+  "verification_scope": "257 actual own-file VCs on this exact source; separately 11 sequence NI and13 array NI. No physical timing/compiler refinement claim.",
+  "class_reference_profile": "macos-sdk10.0.400",
+  "class_reference_note": "Literal same-JDK R2 class map. Portable replay additionally compares fresh generated and committed source classes on each selected JDK21/25; profile-scoped maps are in formal/source/hkdf/fixtures/approved-r2.json."
 }

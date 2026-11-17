@@ -41,12 +41,20 @@ supplementary, with its original assumptions and incomplete coverage visible.
 The [direct source component](source/README.md) starts with universal SHAKE
 freshness, disjointness and frame proofs over calls to the actual implementation.
 Its source-trace and runtime boundaries are explicit.
-The [HKDF source-trace component](source/hkdf/README.md) proves paired observations
-for the actual Extract/Expand/TLS-label bodies. A reviewed, trusted resolved-AST
-adapter checks observation coverage and order; its correctness is not a Dafny
-theorem. Ghost erasure, generated classes and runtime behavior have separate gates
-and trust boundaries. Native SHAKE/Keccak/NTT/KEM and Java-adapter trace composition
-remain unfinished.
+The [HKDF source-trace component](source/hkdf/README.md) covers the actual
+Extract/Expand/TLS-label bodies and their generated array-input composition.
+Input-snapshot and alias/frame contracts are proved over executable Dafny rather
+than a model of the removed Java copy helper. A reviewed, trusted resolved-AST
+adapter checks observation coverage, short-circuit paths and child-trace order;
+its correctness is not a Dafny theorem. Ghost erasure, generated classes and
+runtime behavior have separate gates and trust boundaries. Full native
+SHAKE/sponge/NTT/KEM and remaining Java-adapter trace composition are unfinished.
+
+The [HKDF array delivery epoch](crypto/epochs/hkdf-array-001/README.md) checks the
+connection from the current HKDF component to a newly constructed library and
+bundle. Its retained native, current HKDF and fresh artifact scopes stay
+separate; component proof success does not authenticate a later JAR. Complete
+input and class deltas must be selected and checked before delivery qualifies.
 
 The [obligation ledger](obligations.md) records the selected implementation route,
 mandatory evidence, assumptions and remaining work for issue #117. Its Python
