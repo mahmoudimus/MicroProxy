@@ -13,7 +13,7 @@ as it did; trackers, filters, scripts (`ctx.failure`, `ctx.response_flags`,
 
 | cause | flag | details |
 |---|---|---|
-| connection refused, unreachable or timed out (`ConnectFailed`) | `UF` | `proxy_failure:connect_failed` |
+| connection refused, unreachable or timed out; a chained proxy refused the `CONNECT` (`ConnectFailed`, whose `reason()` and `chainedProxyStatus()` say how) | `UF` | `proxy_failure:connect_failed` |
 | the server's name did not resolve (`UnresolvedHost`) | `DF` | `proxy_failure:unresolved_host` |
 | TLS with the server or a chained proxy failed (`TlsFailed`) | `UF`, and `%UPSTREAM_TRANSPORT_FAILURE_REASON%` (`TlsFailed.reason()`: `certificate_revoked: ...`) | `proxy_failure:tls_failed` |
 | the server did not answer in time (`ServerTimeout`) | `UT` | `proxy_failure:server_timeout` (`upstream_response_timeout` mid-response) |

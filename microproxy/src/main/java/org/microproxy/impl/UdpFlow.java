@@ -42,7 +42,8 @@ import org.microproxy.udp.UdpMessage;
  * keep up holds up neither the other direction nor the connection. A capsule to the client is
  * stream data, which waits for flow control (the stream's and connection's windows in HTTP/2 and
  * HTTP/3, TCP's in HTTP/1.1): while the sender to the client waits, later datagrams queue up to
- * the bounds, and those past them are dropped and counted ({@link #dropped}). The {@link
+ * the bounds, and those past them are dropped and counted ({@link #dropped}; in the stats,
+ * {@code masque.datagrams_dropped}, and by direction {@code .to_target} and {@code .to_client}). The {@link
  * UdpInterceptor} runs on those threads. The flow ends when the client ends or resets its stream,
  * when nothing has moved either way for the idle timeout, or when its socket fails.
  *
@@ -548,6 +549,8 @@ final class UdpFlow implements UdpContext {
         stats.capsulesTx.add(toClientCapsules);
         stats.txBytes.add(toClientBytes);
         stats.datagramsDropped.add(dropped());
+        stats.datagramsDroppedToTarget.add(toTarget.dropped.get());
+        stats.datagramsDroppedToClient.add(toClient.dropped.get());
     }
 
     /** Datagrams dropped so far, both ways, because a queue was full. */

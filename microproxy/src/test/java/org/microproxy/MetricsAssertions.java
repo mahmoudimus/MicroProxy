@@ -8,13 +8,16 @@ import org.microproxy.stats.Histogram;
 import org.microproxy.stats.Metric;
 import org.microproxy.stats.StatsRegistry;
 
-/** Reading metrics in tests: a counter's or gauge's value, a histogram's count. */
-final class MetricsAssertions {
+/**
+ * Reading metrics in tests: a counter's or gauge's value, a histogram's count. Public for the
+ * tests of {@code org.microproxy.impl}.
+ */
+public final class MetricsAssertions {
 
     private MetricsAssertions() {}
 
     /** A counter's or gauge's value, a histogram's count; 0 for a metric not registered. */
-    static long value(StatsRegistry r, String name) {
+    public static long value(StatsRegistry r, String name) {
         Metric m = r.get(name);
         return switch (m) {
             case null -> 0;
@@ -26,12 +29,12 @@ final class MetricsAssertions {
     }
 
     /** Waits for the metric {@code name} to be {@code expected}. */
-    static void awaitValue(StatsRegistry r, String name, long expected) {
+    public static void awaitValue(StatsRegistry r, String name, long expected) {
         eventually(name + " = " + expected + " (is " + value(r, name) + ")", () -> value(r, name) == expected);
     }
 
     /** Waits for the metric {@code name} to be at least {@code least}. */
-    static void awaitAtLeast(StatsRegistry r, String name, long least) {
+    public static void awaitAtLeast(StatsRegistry r, String name, long least) {
         eventually(name + " >= " + least + " (is " + value(r, name) + ")", () -> value(r, name) >= least);
     }
 }

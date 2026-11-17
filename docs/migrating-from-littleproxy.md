@@ -144,7 +144,7 @@ these as options:
   whole cause chain (for a revoked certificate, the `CertPathValidatorException` with reason
   `REVOKED` is in it), and `TlsFailed.reason()` classifies it: `CERTIFICATE_REVOKED`,
   `CERTIFICATE_EXPIRED`, `CERTIFICATE_UNTRUSTED`, `HOSTNAME_MISMATCH`, `ALERT_RECEIVED` (with
-  `alert()`), ... The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` starts with the same
+  `alert()`), `CLOSED_BEFORE_CLIENT_HELLO`, `CLOSED_DURING_HANDSHAKE`, ... The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` starts with the same
   name.
 
 ## Activity logging

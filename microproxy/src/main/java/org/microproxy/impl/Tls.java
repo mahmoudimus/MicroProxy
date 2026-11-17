@@ -181,19 +181,17 @@ final class Tls {
     }
 
     /**
-     * Whether a failed client handshake means the peer is not a TLS server at all, the same
-     * signs LittleProxy's {@code shouldRetryWithoutSsl} looks for: plaintext where a TLS record
-     * was expected, or the peer closing or resetting the connection on the ClientHello.
-     * Certificate and protocol-version failures come from real TLS servers and do not count.
+     * Whether a failed client handshake means the peer is not a TLS server at all: it answered
+     * the ClientHello with bytes that are not a TLS record (a plain HTTP server's {@code 400}, say).
+     * A peer that closes or resets the connection without answering says nothing about what it
+     * speaks (a TLS server, or a chained proxy in front of one, does that too), so that is a
+     * failed handshake ({@link org.microproxy.ProxyFailure.TlsFailed.Reason#CLOSED_DURING_HANDSHAKE}),
+     * not a sign of plaintext. Certificate and protocol-version failures come from real TLS
+     * servers and do not count either.
      */
     static boolean looksLikePlaintextPeer(SSLException e) {
         String message = String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT);
-        return message.contains("unrecognized ssl message")
-                || message.contains("not an ssl")
-                || message.contains("remote host terminated")
-                || message.contains("connection reset")
-                || e.getCause() instanceof java.io.EOFException
-                || e.getCause() instanceof java.net.SocketException;
+        return message.contains("unrecognized ssl message") || message.contains("not an ssl");
     }
 
     /** {@code name} as SNI, or null when SNI cannot carry it (null, an IP address, an invalid name). */

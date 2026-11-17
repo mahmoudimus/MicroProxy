@@ -240,8 +240,16 @@ class LoopbackTest {
 
     @Test
     void datagrams() throws Exception {
-        try (QuicConnection c = connect()) {
-            assertTrue(c.maxDatagramSize() > 1000, "max " + c.maxDatagramSize());
+        // The client's path MTU pinned at 8192 (initial and minimum), with no discovery: MTU
+        // discovery raises maxDatagramSize() each time a probe is acknowledged, so with it a limit
+        // read in one call can be stale by the next and max + 1 may then be accepted. Pinned, the
+        // limit cannot move, and large datagrams and the exact max + 1 boundary stay covered.
+        TransportConfig pinned = fastTransport().toBuilder().mtuDiscoveryConfig(null).initialMtu(8192).minMtu(8192)
+                .build();
+        try (QuicClient pinnedClient = QuicClient.create(clientConfig(pinned));
+                QuicConnection c = pinnedClient.connect(server.localAddress(), "localhost", Duration.ofSeconds(10))) {
+            int max = c.maxDatagramSize();
+            assertTrue(max > 8000, "max " + max);
             // Datagrams are unreliable: resend until the echo comes back
             byte[] reply = null;
             for (int i = 0; i < 50 && reply == null; i++) {
@@ -250,9 +258,20 @@ class LoopbackTest {
             }
             assertNotNull(reply);
             assertTrue(new String(reply, java.nio.charset.StandardCharsets.US_ASCII).startsWith("ping "));
-            byte[] big = data(8, c.maxDatagramSize());
-            c.sendDatagram(big);
-            assertThrows(IllegalArgumentException.class, () -> c.sendDatagram(new byte[c.maxDatagramSize() + 1]));
+            // A datagram of the largest size goes through and comes back. The echo server drops
+            // what its own path cannot carry yet (its MTU discovery is on): resend until it has
+            // grown enough, skipping late pings.
+            byte[] big = data(8, max);
+            boolean echoed = false;
+            for (int i = 0; i < 100 && !echoed; i++) {
+                c.sendDatagram(big);
+                for (byte[] r; !echoed && (r = c.receiveDatagram(Duration.ofMillis(200))) != null; ) {
+                    echoed = java.util.Arrays.equals(big, r);
+                }
+            }
+            assertTrue(echoed, "the " + max + "-byte datagram came back");
+            assertEquals(max, c.maxDatagramSize(), "the pinned limit did not move");
+            assertThrows(IllegalArgumentException.class, () -> c.sendDatagram(new byte[max + 1]));
         }
     }
 

@@ -219,7 +219,10 @@ interface ClientChannel {
         return null;
     }
 
-    /** Answers a request that cannot be served with a plain {@code status} error, then {@link #close}s. */
+    /**
+     * Answers a request that cannot be served with a plain {@code status} error, then closes as
+     * {@link #closeAfterResponse} does.
+     */
     void reject(HttpResponseStatus status);
 
     /**
@@ -227,4 +230,15 @@ interface ClientChannel {
      * response that leaves it unusable, or when the exchange is abandoned.
      */
     void close();
+
+    /**
+     * {@link #close}s after a final response that has been written in full, which the client may
+     * not have read yet while it is still sending. HTTP/1 closes lingering: a TCP connection
+     * closed with bytes unread, or that bytes still reach after it closed, is reset, and a reset
+     * can discard the response before the client reads it. A stream of a multiplexed connection
+     * just closes: its connection stays open.
+     */
+    default void closeAfterResponse() {
+        close();
+    }
 }

@@ -499,7 +499,8 @@ public final class TransportConfig {
         }
 
         /**
-         * The DATAGRAM send buffer; the oldest unsent datagrams are dropped beyond it.
+         * The DATAGRAM send buffer; the oldest unsent datagrams are dropped beyond it. It also caps
+         * one datagram: {@code maxDatagramSize()} is never more than this.
          *
          * @param bytes at least 1
          * @return this builder
