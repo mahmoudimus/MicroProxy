@@ -38,7 +38,9 @@ class CertificateIssuerPolicyTest {
     void omittedIssuerContextFailsExplicitlyInsteadOfSubstitutingTheSubjectKey() throws Exception {
         CertifiedKey leaf = TestCerts.CA.issue(TestCerts.KeyType.RSA, "leaf.test");
         TlsAcceptancePolicy policy = new TlsAcceptancePolicy(null, null);
-        assertThrows(QuicException.class, () -> policy.certificates(List.of(leaf.chain().get(0))));
+        QuicException failure = assertThrows(QuicException.class, () -> policy.certificates(List.of(leaf.chain().get(0))));
+        // No path to an accepted issuer: a certificate path failure, for callers that classify it.
+        assertTrue(failure.getCause() instanceof java.security.cert.CertPathBuilderException, String.valueOf(failure.getCause()));
     }
 
     @Test
@@ -66,6 +68,8 @@ class CertificateIssuerPolicyTest {
         TlsAcceptancePolicy policy = new TlsAcceptancePolicy(null, null);
         QuicException failure = assertThrows(QuicException.class, () -> policy.certificates(chain));
         assertTrue(failure.getMessage().contains("issuer verification budget"));
+        // A bound on the work, not a verdict on trust.
+        assertTrue(failure.getCause() == null, String.valueOf(failure.getCause()));
     }
 
 }

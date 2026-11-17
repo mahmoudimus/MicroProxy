@@ -209,7 +209,7 @@ an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the
 |---|---|
 | `CERTIFICATE_REVOKED`, `REVOCATION_STATUS_UNKNOWN` | revocation checking (a `PKIXRevocationChecker` in the trust manager's parameters) found the certificate revoked, or could not tell |
 | `CERTIFICATE_EXPIRED`, `CERTIFICATE_NOT_YET_VALID` | a certificate of the chain is out of its validity period |
-| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed |
+| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed; with a [browser profile](browser-fingerprints.md)'s TLS, also a chain that leads to no issuer it carries or the trust manager accepts (`cannot establish the certificate issuer key ...`, a `CertPathBuilderException` in the cause chain) |
 | `HOSTNAME_MISMATCH` | the certificate is trusted but not valid for the host it was checked against |
 | `ALERT_RECEIVED` | the server ended the handshake with an alert; `alert()` names it (`handshake_failure`, `unrecognized_name`, ...) |
 | `TIMEOUT` | the handshake overran `--tls-handshake-timeout` |

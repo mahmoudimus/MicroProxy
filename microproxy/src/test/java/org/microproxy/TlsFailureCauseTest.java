@@ -29,6 +29,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.microproxy.ProxyFailure.TlsFailed.Reason;
+import org.microproxy.tls.BrowserProfile;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 import org.microproxy.tls.TestPki;
@@ -162,6 +163,30 @@ class TlsFailureCauseTest {
         ProxyFailure.TlsFailed failure = theFailure();
         inChain(failure.cause(), CertPathBuilderException.class);
         assertEquals(Reason.CERTIFICATE_UNTRUSTED, failure.reason());
+    }
+
+    @Test
+    void anUntrustedCertificateThroughABrowserProfile() throws Exception {
+        // As a fingerprint sidecar meets it: a browser profile's TLS stack, and a server that sends
+        // its leaf alone, from a CA the trust manager does not know.
+        HttpsServer origin = origin(TestPki.leafOnly(strangerCa, "localhost").context());
+        proxy = start(BrowserProfile.chrome156().sslContext(MitmHandshakeClosedTest.trusting(originCa)));
+        assertEquals(502, originate(origin));
+        ProxyFailure.TlsFailed failure = theFailure();
+        inChain(failure.cause(), CertPathBuilderException.class);
+        assertEquals(Reason.CERTIFICATE_UNTRUSTED, failure.reason());
+        FlowRecord record = flows.await("a 502 record", r -> r.responseCode() == 502);
+        assertTrue(record.upstreamTransportFailureReason().startsWith("certificate_untrusted: "),
+                record.upstreamTransportFailureReason());
+    }
+
+    @Test
+    void anUntrustedCertificateWithItsIssuerThroughABrowserProfile() throws Exception {
+        // The issuer in the chain: the stack's own checks pass, the trust manager rejects it.
+        HttpsServer origin = origin(strangerCa.serverContext("localhost"));
+        proxy = start(BrowserProfile.chrome156().sslContext(MitmHandshakeClosedTest.trusting(originCa)));
+        assertEquals(502, originate(origin));
+        assertEquals(Reason.CERTIFICATE_UNTRUSTED, theFailure().reason());
     }
 
     @Test
