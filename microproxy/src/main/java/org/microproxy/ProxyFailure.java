@@ -46,6 +46,68 @@ public sealed interface ProxyFailure {
         public HttpResponseStatus status() {
             return HttpResponseStatus.BAD_GATEWAY;
         }
+
+        /**
+         * {@return how the connection failed, as far as {@link #cause()}'s chain tells}
+         *
+         * @see Reason#of(Throwable)
+         */
+        public Reason reason() {
+            return Reason.of(cause);
+        }
+
+        /**
+         * {@return the status a chained HTTP proxy answered the {@code CONNECT} with ({@code 407},
+         * {@code 503}, ...), empty when the failure was not such an answer}
+         */
+        public java.util.OptionalInt chainedProxyStatus() {
+            ChainedProxyConnectException refused = Reason.chainedProxyConnect(cause);
+            return refused == null ? java.util.OptionalInt.empty() : refused.status();
+        }
+
+        /**
+         * How a connection attempt failed, read from the exception's cause chain: what a chained
+         * HTTP proxy did with the proxy's {@code CONNECT} ({@link ChainedProxyConnectException}),
+         * or anything else. {@link #code()} is the reason's snake_case name.
+         */
+        public enum Reason {
+            /** The chained proxy answered the {@code CONNECT} with a status other than {@code 2xx} ({@link ConnectFailed#chainedProxyStatus()}). */
+            CHAINED_PROXY_REFUSED,
+            /** The chained proxy closed the connection before its answer to the {@code CONNECT} was complete. */
+            CHAINED_PROXY_CLOSED,
+            /** The connection to the chained proxy was reset (or failed otherwise) before its answer to the {@code CONNECT}. */
+            CHAINED_PROXY_RESET,
+            /** Anything else: the connection refused, unreachable or timed out, a name that did not resolve, ... */
+            OTHER;
+
+            /** {@return the reason's name in lower case: {@code chained_proxy_refused}, ...} */
+            public String code() {
+                return name().toLowerCase(java.util.Locale.ROOT);
+            }
+
+            /**
+             * Classifies a failed connection attempt by its exception's cause chain.
+             *
+             * @param failure the attempt's exception, or null
+             * @return the reason, {@link #OTHER} when none is recognized
+             */
+            public static Reason of(Throwable failure) {
+                ChainedProxyConnectException connect = chainedProxyConnect(failure);
+                if (connect == null) return OTHER;
+                return switch (connect.outcome()) {
+                    case REFUSED -> CHAINED_PROXY_REFUSED;
+                    case CLOSED -> CHAINED_PROXY_CLOSED;
+                    case RESET -> CHAINED_PROXY_RESET;
+                };
+            }
+
+            static ChainedProxyConnectException chainedProxyConnect(Throwable failure) {
+                for (Throwable t = failure; t != null; t = t.getCause() == t ? null : t.getCause()) {
+                    if (t instanceof ChainedProxyConnectException e) return e;
+                }
+                return null;
+            }
+        }
     }
 
     /**
