@@ -96,6 +96,27 @@ another policy for it, including `none()`, with `HttpFilters.chainedProxyRetryBa
 - The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
   only a `DEBUG` log line.
 
+### When a chained proxy refuses the CONNECT
+
+A chained HTTP proxy (over HTTP/1.1 or HTTP/2) that does not open the tunnel the proxy's
+`CONNECT` asks for fails the attempt with a `ChainedProxyConnectException`, a `ConnectException`
+whose message is the one such failures always had (`chained proxy refused CONNECT: 407 Proxy
+Authentication Required`, `chained proxy refused CONNECT: connection closed`, or the socket's own
+`Connection reset` for a reset, whose exception is its cause). It is what
+`ChainedProxy.connectionFailed` and `serverConnectionExceptionCaught` get, and, when no route is
+left, the `ProxyFailure.ConnectFailed`'s `cause()`, which reads it without parsing the message:
+
+| `ConnectFailed.reason()` | `ChainedProxyConnectException.outcome()` | When | `chainedProxyStatus()` |
+|---|---|---|---|
+| `CHAINED_PROXY_REFUSED` | `REFUSED` | the proxy answered with a status other than `2xx` | the status (`407`, `503`, ...) |
+| `CHAINED_PROXY_CLOSED` | `CLOSED` | the proxy closed the connection before its answer was complete | empty |
+| `CHAINED_PROXY_RESET` | `RESET` | the proxy accepted the TCP connection and it was reset (or failed otherwise) before the answer: while the connection finished, while the proxy set its socket options, wrote the `CONNECT` or read the answer. Where the reset lands is a race; each place is the same reset. A socket the proxy closed itself (the client left, a deadline) is not one | empty |
+| `OTHER` | | anything else: the proxy refused or did not answer the TCP connection, its name did not resolve, the answer timed out or was malformed | empty |
+
+A tunnel the proxy opened and then ended during the TLS handshake with the server is a
+`TlsFailed` instead ([`CLOSED_BEFORE_CLIENT_HELLO`, `CLOSED_DURING_HANDSHAKE`](mitm.md#server-tls-failures)).
+SOCKS chained proxies are not covered: their failures are `OTHER`.
+
 ## HTTP/2 to chained proxies
 
 A chained HTTP proxy is spoken to in HTTP/1.1 by default: a connection of its own for each
@@ -245,8 +266,10 @@ MicroProxy.bootstrap()
   through (over an HTTP/1.1 TLS connection to the proxy, where TLS 1.3 allows one). Every other
   connection to the target, for the requests of an intercepted or plain session in the tunnel, is
   a tunnel through the same proxy, opened with the same `CONNECT` fields, never pooled;
-  `FullFlowContext.getChainedProxy()` names the proxy. A target that does not speak TLS to a
-  client that does gets a plain tunnel, a new one.
+  `FullFlowContext.getChainedProxy()` names the proxy. A target that answers the proxy's ClientHello with
+  bytes that are not TLS, to a client that speaks TLS, gets a plain tunnel, a new one; a proxy or
+  target that closes or resets the tunnel during the handshake fails it (`TlsFailed`, reason
+  `CLOSED_BEFORE_CLIENT_HELLO` or `CLOSED_DURING_HANDSHAKE`).
 - **Resets.** A client's reset of the stream resets the stream to the proxy (or closes the
   connection to it), and once the tunnel is open it is not a rapid reset. A reset from the proxy,
   or its connection closing, resets the client's stream.

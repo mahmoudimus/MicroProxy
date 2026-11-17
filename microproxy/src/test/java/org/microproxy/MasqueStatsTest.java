@@ -106,6 +106,8 @@ class MasqueStatsTest {
         assertEquals(6 * 3 + 4 + 7, value(r, "masque.rx_bytes_total"));
         assertEquals(6 * 3 + 9, value(r, "masque.tx_bytes_total"));
         assertEquals(0, value(r, "masque.datagrams_dropped"));
+        assertEquals(0, value(r, "masque.datagrams_dropped.to_target"));
+        assertEquals(0, value(r, "masque.datagrams_dropped.to_client"));
         // The hook saw each datagram both ways: dropped one, rewrote one
         assertEquals(1, value(r, "hooks.udp.drops"));
         assertEquals(1, value(r, "hooks.udp.rewrites"));

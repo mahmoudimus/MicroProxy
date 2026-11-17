@@ -128,7 +128,8 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 | `quic_transparent.relay_rx_bytes_total`, `relay_tx_bytes_total` | counter | bytes relayed from clients / from servers, counted when relays end |
 | `masque.udp_flows_active`, `udp_flows_total` | gauge, counter | CONNECT-UDP flows open / accepted |
 | `masque.datagrams_rx`, `datagrams_tx`, `capsules_rx`, `capsules_tx` | counter | UDP payloads from / to clients, and those of them in DATAGRAM capsules (all of them over HTTP/2 and HTTP/1.1), counted when flows end |
-| `masque.rx_bytes_total`, `tx_bytes_total`, `datagrams_dropped` | counter | payload bytes from / to clients, datagrams dropped by a full queue (either way, a client's flow-control window that stays closed among the causes), counted when flows end |
+| `masque.rx_bytes_total`, `tx_bytes_total` | counter | payload bytes from / to clients, counted when flows end |
+| `masque.datagrams_dropped`, `datagrams_dropped.to_target`, `datagrams_dropped.to_client` | counter | datagrams dropped by a flow's full queue, counted when flows end: all of them, then by direction (the two add up to the first): `to_client` (the target's datagrams, a client's flow-control window that stays closed among the causes) and `to_target` (the client's, a sender to the target that does not keep up, such as a slow UDP hook) |
 | `masque.flow_rejected.<reason>` | counter | CONNECT-UDP requests refused (`microproxy_reject_reason`): `limit` (too many flows) or `policy` (no direct route, a filter's answer) |
 | `masque.quic.*` | | as `quic_transparent.*`, for the QUIC inside CONNECT-UDP flows (`masque.quic.intercepted_total`, ...) |
 | `quic.messages_rx`, `messages_tx` | counter | whole messages cut from the streams of QUIC intercepted stream by stream for the message hook (`streamMessage`, `on_quic_message`), and the messages it returned that the proxy framed and sent |

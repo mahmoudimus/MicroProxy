@@ -532,6 +532,13 @@ class Http2ChainedProxyTest {
         try (Socket s = open(proxy.getListenAddress())) {
             assertEquals(502, status(connect(s, "127.0.0.1:" + echo.port())));
         }
+        // The stream's refusal is typed as an HTTP/1.1 proxy's is: its status, not only its message.
+        FlowRecord tunnel = flows.await("the refused tunnel",
+                r -> r.kind() == FlowRecord.Kind.TUNNEL && r.responseCode() == 502);
+        ProxyFailure.ConnectFailed failure = (ProxyFailure.ConnectFailed) tunnel.failure().orElseThrow();
+        assertEquals(ProxyFailure.ConnectFailed.Reason.CHAINED_PROXY_REFUSED, failure.reason());
+        assertEquals(java.util.OptionalInt.of(407), failure.chainedProxyStatus());
+        assertEquals("chained proxy refused CONNECT: 407 Proxy Authentication Required", failure.cause().getMessage());
     }
 
     // -------------------------------------------------------------------------------------------

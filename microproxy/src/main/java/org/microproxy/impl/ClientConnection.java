@@ -45,6 +45,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.AuthResult;
 import org.microproxy.ChainedProxy;
+import org.microproxy.ChainedProxyConnectException;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.ClientDetails;
@@ -2875,7 +2876,7 @@ final class ClientConnection implements Runnable {
             completed(ex, finalResponse, rejectedSource);
             ex.channel.serverConnectionDone(conn);
             conn.close();
-            if (!ex.channel.multiplexed()) ex.channel.close();
+            if (!ex.channel.multiplexed()) ex.channel.closeAfterResponse();
             return false;
         }
         ex.responseStarted = true;
@@ -2965,7 +2966,7 @@ final class ClientConnection implements Runnable {
             reuse(ex, conn);
         }
         if (closeClient) {
-            ex.channel.close();
+            ex.channel.closeAfterResponse();
             return false;
         }
         return true;
@@ -4082,13 +4083,19 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    /** Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null. */
+    /**
+     * Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null.
+     * The failure goes on the {@code CONNECT}'s record too, whose code stays the {@code 200} the
+     * client was sent: a session that failed so never has a tunnel record without a failure, even
+     * when no request follows to carry it.
+     */
     private ServerConnection sessionFailed(Exchange ex, String hostAndPort, IOException e, boolean retried) {
         ProxyFailure failure = e instanceof SharedConnectionPool.PoolExhaustedException
                 ? new ProxyFailure.NoConnectionAvailable(hostAndPort) : connectFailure(hostAndPort, e);
         LOG.log(Level.DEBUG, ex.log + "no route reached " + hostAndPort + " (" + unwrap(e).getMessage()
                 + "); intercepting without a server connection, the first request to be answered "
                 + failure.status().code());
+        ex.flow.failure(failure);
         sessionFailure.set(new SessionFailure(hostAndPort, failure, retried));
         return null;
     }
@@ -5547,8 +5554,14 @@ final class ClientConnection implements Runnable {
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
     }
 
-    /** Tells the filters and trackers that {@code conn}, a connection to a server, is made. */
+    /**
+     * Tells the filters and trackers that {@code conn}, a connection to a server, is made. The TLS
+     * failure of an attempt before it, which {@code tlsHandshakeFailed} reported, is not the
+     * exchange's: its record's {@code %UPSTREAM_TRANSPORT_FAILURE_REASON%} is of the connection it
+     * used (set again if that one's deferred handshake fails).
+     */
     private void connected(Exchange ex, ServerConnection conn) {
+        ex.flow.clearTransportFailure();
         recordUpstream(ex, conn);
         ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
         server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
@@ -5685,6 +5698,42 @@ final class ClientConnection implements Runnable {
         return remote;
     }
 
+    /**
+     * Whether a failed connect to an HTTP chained proxy, to send it a {@code CONNECT}, was a reset:
+     * the proxy accepted the connection and reset it (the JDK's {@code "Connection reset by peer
+     * (connect failed)"}). A refused or unreachable proxy ({@link ConnectException}, {@link
+     * java.net.NoRouteToHostException}, a {@code SocketException} such as {@code "Network is
+     * unreachable"}, which the JDK gives the same type as a reset) answered nothing, and stays
+     * what it is.
+     */
+    static boolean resetWhileConnecting(ChainedProxy proxy, Mode mode, java.net.SocketException e) {
+        if (!asksForConnect(proxy, mode)) return false;
+        if (e instanceof ConnectException || e instanceof java.net.NoRouteToHostException) return false;
+        return String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT).contains("connection reset");
+    }
+
+    /** Whether {@code proxy} is an HTTP chained proxy that the connection asks for a {@code CONNECT}. */
+    private static boolean asksForConnect(ChainedProxy proxy, Mode mode) {
+        return proxy != null && proxy.getChainedProxyType() == ChainedProxyType.HTTP && mode != Mode.PLAIN;
+    }
+
+    /**
+     * What {@code e} is, thrown on the connection to an HTTP chained proxy asked for a {@code
+     * CONNECT} after it accepted the connection, until its answer is read: setting the socket's
+     * options (a reset socket fails them, as {@code "Invalid argument"} on macOS), writing the
+     * {@code CONNECT}, reading the answer. Any {@code SocketException} there is the proxy's reset
+     * ({@link ChainedProxyConnectException#reset}), whatever its message, unless the proxy closed
+     * the socket itself (the client went away, a deadline), or it is one of the typed failures
+     * already. Elsewhere, {@code e} as it is.
+     */
+    static java.net.SocketException afterAccept(ChainedProxy proxy, Mode mode, Socket plain, Socket active,
+            java.net.SocketException e) {
+        if (!asksForConnect(proxy, mode) || e instanceof ConnectException) return e;
+        // (A TLS chained proxy's socket does not say that the socket under it was closed.)
+        if (plain.isClosed() || active.isClosed()) return e;
+        return ChainedProxyConnectException.reset(e);
+    }
+
     private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode)
             throws IOException {
         Http2Origins.Key proxyKey = http2ProxyKey(proxy, ex, mode);
@@ -5740,11 +5789,23 @@ final class ClientConnection implements Runnable {
             }
             ex.flow.markFirst(ClientFlowContext.CONNECT_START);
             long connectStart = cluster.enabled ? ClientFlowContext.now() : 0;
-            plain.connect(remote, connectTimeoutMillis(ex));
+            try {
+                plain.connect(remote, connectTimeoutMillis(ex));
+            } catch (java.net.SocketException e) {
+                // An HTTP chained proxy that accepted the connection and reset it before the
+                // CONNECT went out is the same failure as one resetting while it is written or
+                // its answer read: where it happened decides, not which exception carried it.
+                if (resetWhileConnecting(proxy, mode, e)) throw ChainedProxyConnectException.reset(e);
+                throw e;
+            }
             long connectNanos = cluster.enabled ? ClientFlowContext.now() - connectStart : -1;
             ex.flow.mark(ClientFlowContext.CONNECT_END);
-            plain.setTcpNoDelay(true);
-            plain.setSoTimeout(server.idleTimeoutMillis());
+            try {
+                plain.setTcpNoDelay(true);
+                plain.setSoTimeout(server.idleTimeoutMillis());
+            } catch (java.net.SocketException e) {
+                throw afterAccept(proxy, mode, plain, plain, e);
+            }
 
             Socket active = plain;
             if (proxy != null && proxy.requiresEncryption()) {
@@ -5819,11 +5880,25 @@ final class ClientConnection implements Runnable {
                 proxy.filterRequest(connectRequest);
                 stripRequestHeaders(connectRequest.headers());
                 traceUpstream(ex, connectRequest.headers());
-                new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
-                HttpResponse reply = HttpCodec.readResponse(reader, server.limits);
-                if (reply == null || reply.status().code() / 100 != 2) {
-                    throw new ConnectException("chained proxy refused CONNECT: "
-                            + (reply == null ? "connection closed" : reply.status()));
+                HttpResponse reply;
+                try {
+                    new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
+                    reply = HttpCodec.readResponse(reader, server.limits);
+                } catch (java.io.EOFException e) {
+                    throw ChainedProxyConnectException.closed(e);
+                } catch (java.io.InterruptedIOException | ProtocolException e) {
+                    // Timeouts and malformed answers stay what they are.
+                    throw e;
+                } catch (java.net.SocketException e) {
+                    // Reset (or failed) before the answer: typed, with the socket's own message;
+                    // unless the proxy closed the socket itself.
+                    throw afterAccept(proxy, mode, plain, active, e);
+                }
+                if (reply == null) {
+                    throw ChainedProxyConnectException.closed(null);
+                }
+                if (reply.status().code() / 100 != 2) {
+                    throw ChainedProxyConnectException.refused(reply.status().code(), reply.status().reasonPhrase());
                 }
                 if (server.sendProxyProtocol) {
                     writeProxyProtocolHeader(ex, rawOut, remote);
@@ -6000,7 +6075,7 @@ final class ClientConnection implements Runnable {
                 reply = stream.readResponse(server.limits);
             } while (reply.status().code() / 100 == 1);
             if (reply.status().code() / 100 != 2) {
-                throw new ConnectException("chained proxy refused CONNECT: " + reply.status());
+                throw ChainedProxyConnectException.refused(reply.status().code(), reply.status().reasonPhrase());
             }
             stream.countedAbove();
             Socket tunnel = stream.tunnelSocket();
@@ -6068,7 +6143,9 @@ final class ClientConnection implements Runnable {
         String sent = Tls.sniName(serverName) == null ? null : serverName;
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
-            SSLSocket tls = Tls.clientHandshake(context, active, verifyHost, target.port(), serverName, true,
+            // (Over a socket that tells whether the ClientHello could be sent, for the failure's reason.)
+            SSLSocket tls = Tls.clientHandshake(context, new ClientHelloSocket(active), verifyHost, target.port(),
+                    serverName, true,
                     server.tlsProtocols,
                     s -> {
                         if (alpn != null) offerAlpn(s, alpn);
@@ -6528,7 +6605,7 @@ final class ClientConnection implements Runnable {
         sent(ex, res, sent);
         completed(ex, res, sent);
         if (!keepAlive) {
-            ex.channel.close();
+            ex.channel.closeAfterResponse();
         }
         return keepAlive;
     }

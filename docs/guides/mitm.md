@@ -210,11 +210,24 @@ session: `FlowRecord.serverHandshake()`, `%MP_SERVER_HANDSHAKE%` in the access l
 record it is on: `TUNNEL 502` with `EAGER`, or `TUNNEL 200` and the first request's `502` with
 `DEFERRED`.
 
-A server that turns out not to speak TLS gets the client's bytes tunnelled, in both modes.
+A server that turns out not to speak TLS gets the client's bytes tunnelled, in both modes: one
+that answers the proxy's ClientHello with bytes that are not TLS (a plain HTTP server's `400`).
+A server (or chained proxy) that closes or resets the connection without answering is a failed
+handshake (`CLOSED_BEFORE_CLIENT_HELLO` or `CLOSED_DURING_HANDSHAKE` below), with its
+`tlsHandshakeFailed` event and the next route, never a tunnel: TLS servers end handshakes that
+way too.
 Unreachable servers fail the `CONNECT` with `502` in both, since it is connected before it is
 answered. With `DEFERRED`, `proxyToServerConnectionSSLHandshakeStarted` comes after the
 `CONNECT`'s `200`, and the `CONNECT` exchange completes (`proxyToClientResponseSent`,
 `responseCompleted`) once the server handshake is over, so its timings include that handshake.
+Its record (`FlowRecord.Kind.TUNNEL`) keeps the `200` the client was sent. When every route's
+handshake failed, it also carries the failure (`failure()`, the `UF` flag,
+`proxy_failure:tls_failed`, `%UPSTREAM_TRANSPORT_FAILURE_REASON%`), as the session's first
+request's `502` does, so a failed session never has a tunnel record without a failure, even when
+the client sends no request. When a later route's handshake succeeds, the record has neither a
+failure nor a transport failure reason: those describe the connection the session got, and the
+failed attempts are reported by their `tlsHandshakeFailed` events. The same holds for an
+`EAGER` `CONNECT` that a later route answered `200`.
 
 Every server TLS failure reaches filters, the `FailureResponder` and the access log as a
 `ProxyFailure.TlsFailed` whose `cause()` is the JDK's own exception with its whole cause chain:
@@ -225,11 +238,13 @@ an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the
 |---|---|
 | `CERTIFICATE_REVOKED`, `REVOCATION_STATUS_UNKNOWN` | revocation checking (a `PKIXRevocationChecker` in the trust manager's parameters) found the certificate revoked, or could not tell |
 | `CERTIFICATE_EXPIRED`, `CERTIFICATE_NOT_YET_VALID` | a certificate of the chain is out of its validity period |
-| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed |
+| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed; with a [browser profile](browser-fingerprints.md)'s TLS, also a chain that leads to no issuer it carries or the trust manager accepts (`cannot establish the certificate issuer key ...`, a `CertPathBuilderException` in the cause chain) |
 | `HOSTNAME_MISMATCH` | the certificate is trusted but not valid for the host it was checked against |
 | `ALERT_RECEIVED` | the server ended the handshake with an alert; `alert()` names it (`handshake_failure`, `unrecognized_name`, ...) |
 | `TIMEOUT` | the handshake overran `--tls-handshake-timeout` |
-| `OTHER` | anything else (no common version or cipher suite, the connection closed, ...) |
+| `CLOSED_BEFORE_CLIENT_HELLO` | the connection was reset before the proxy could send its ClientHello (writing it failed; `org.microproxy.ClientHelloNotSentException` is in the cause chain): through a chained proxy, typically one that resets the tunnel right after answering the `CONNECT`. A connection that was only closed, not reset, still takes the ClientHello and is `CLOSED_DURING_HANDSHAKE` |
+| `CLOSED_DURING_HANDSHAKE` | the peer closed or reset the connection after the proxy's ClientHello without sending an alert (`Remote host terminated the handshake`, `Connection reset`). Through a chained proxy, the proxy and the server behind it cannot be told apart: the proxy relays the server's end of the connection |
+| `OTHER` | anything else (no common version or cipher suite, ...) |
 
 The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` is that reason's name and the innermost
 cause's message: `certificate_revoked: Certificate has been revoked, reason: ...`.
@@ -363,5 +378,5 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
 - A server that refuses the proxy's versions with a `protocol_version` alert gets the requests
   inside the session a `502` (`TlsFailed`; see [server TLS
   failures](#deciding-what-to-intercept-the-clienthello)). One that just closes the connection on
-  the proxy's `ClientHello` looks like a server that does not speak TLS, and the client's bytes
-  are tunnelled without interception, as for any non-TLS server.
+  the proxy's `ClientHello` fails the handshake the same way, with the reason
+  `CLOSED_DURING_HANDSHAKE`.
