@@ -2852,7 +2852,7 @@ final class ClientConnection implements Runnable {
             completed(ex, finalResponse, rejectedSource);
             ex.channel.serverConnectionDone(conn);
             conn.close();
-            if (!ex.channel.multiplexed()) ex.channel.close();
+            if (!ex.channel.multiplexed()) ex.channel.closeAfterResponse();
             return false;
         }
         ex.responseStarted = true;
@@ -2942,7 +2942,7 @@ final class ClientConnection implements Runnable {
             reuse(ex, conn);
         }
         if (closeClient) {
-            ex.channel.close();
+            ex.channel.closeAfterResponse();
             return false;
         }
         return true;
@@ -6533,7 +6533,7 @@ final class ClientConnection implements Runnable {
         sent(ex, res, sent);
         completed(ex, res, sent);
         if (!keepAlive) {
-            ex.channel.close();
+            ex.channel.closeAfterResponse();
         }
         return keepAlive;
     }

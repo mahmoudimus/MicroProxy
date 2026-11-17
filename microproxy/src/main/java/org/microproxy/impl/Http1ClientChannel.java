@@ -44,6 +44,13 @@ final class Http1ClientChannel implements ClientChannel {
     /** How long a CONNECT-UDP flow's clean end waits for a capsule being written, before closing. */
     private static final long FLOW_END_WAIT_MILLIS = 250;
 
+    /**
+     * How long a lingering close ({@link #closeAfterResponse}) reads what the client still sends,
+     * at most (less when the idle timeout is shorter), and how many bytes it reads.
+     */
+    static final long LINGER_MILLIS = 2_000;
+    static final int LINGER_BYTES = 1 << 20;
+
     private final DefaultHttpProxyServer server;
     private final ClientFlowContext flowContext;
     private final String logPrefix;
@@ -52,6 +59,8 @@ final class Http1ClientChannel implements ClientChannel {
 
     /** The socket requests arrive on: the accepted one, or the TLS socket layered over it. */
     private volatile Socket socket;
+    /** The connection under any TLS: what a lingering close reads and discards. */
+    private final Socket transport;
     private ByteReader in;
     private OutputStream out;
     private HttpCodec.HttpWriter writer;
@@ -81,6 +90,7 @@ final class Http1ClientChannel implements ClientChannel {
             Runnable closeConnection) {
         this.server = server;
         this.socket = socket;
+        this.transport = socket;
         this.flowContext = flowContext;
         this.logPrefix = logPrefix;
         this.closeConnection = closeConnection;
@@ -617,11 +627,62 @@ final class Http1ClientChannel implements ClientChannel {
         } catch (IOException ignored) {
             // closing anyway
         }
-        close();
+        closeAfterResponse();
     }
 
     @Override
     public void close() {
         closeConnection.run();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A lingering close, as HTTP servers close after an error response (RFC 9112 section 9.6):
+     * the response is flushed and the output shut down (a TLS {@code close_notify}, then the FIN),
+     * so the client reads the response and the end of it; then what the client still sends (the
+     * rest of a request head, a body nobody read, a pipelined request) is read and discarded
+     * until the client closes too, for at most {@link #LINGER_MILLIS} (or the idle timeout, if
+     * shorter) and {@link #LINGER_BYTES}; then the connection closes. Closing outright instead,
+     * with bytes unread or still on their way, resets the connection, and the reset can discard
+     * the response at the client before it is read.
+     *
+     * <p>It runs on the exchange's (virtual) thread, holding no lock; a proxy that stops, or
+     * anything else that closes the connection meanwhile, ends it at once.
+     */
+    @Override
+    public void closeAfterResponse() {
+        try {
+            if (writer != null) writer.flush();
+            socket.shutdownOutput();
+            discardUntilClosed();
+        } catch (IOException | UnsupportedOperationException e) {
+            // closing now, as without lingering
+        }
+        close();
+    }
+
+    /** Reads and discards what the client sends until it closes, or the linger's bounds are reached. */
+    private void discardUntilClosed() throws IOException {
+        long lingerMillis = LINGER_MILLIS;
+        java.time.Duration idle = server.getIdleConnectionTimeout();
+        if (idle != null && !idle.isZero() && !idle.isNegative()) lingerMillis = Math.min(lingerMillis, idle.toMillis());
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(lingerMillis);
+        InputStream discard = transport.getInputStream();
+        byte[] scratch = new byte[8192];
+        int budget = LINGER_BYTES;
+        while (budget > 0) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) return;
+            transport.setSoTimeout((int) Math.max(1, Math.min(Integer.MAX_VALUE, TimeUnit.NANOSECONDS.toMillis(remaining))));
+            int n;
+            try {
+                n = discard.read(scratch, 0, Math.min(scratch.length, budget));
+            } catch (SocketTimeoutException e) {
+                return;
+            }
+            if (n < 0) return;
+            budget -= n;
+        }
     }
 }

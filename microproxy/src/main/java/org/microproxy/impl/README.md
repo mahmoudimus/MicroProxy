@@ -47,7 +47,11 @@ The channel owns:
   (through a `WebSocketRelay` when filters look at frames or messages: it parses frames, joins
   messages, and inflates and deflates permessage-deflate per hop with `PerMessageDeflate`; or,
   for a raw tunnel with a `TcpInterceptor`, through a `TcpSession` that runs the TCP hooks),
-  `reject(status)` answers a malformed request, and `close` closes the connection.
+  `reject(status)` answers a malformed request, `close` closes the connection, and
+  `closeAfterResponse` closes it after a final response the client may not have read yet: HTTP/1
+  shuts its output down and discards what the client still sends (at most 2 s and 1 MiB) before
+  closing, since closing with bytes unread or still arriving resets the connection, and the reset
+  can discard the response.
 - **Waiting.** `awaitUnlessClientLeaves` is the chained-proxy backoff wait, which stops early if
   the client disconnects.
 - **The exchange's `ClientFlowContext`** (timings, upstream status). For HTTP/1 it is the
@@ -106,8 +110,9 @@ next request and `awaitResponseHead`'s for the server's answer, read with no `SO
 shuts the input of a socket whose wait passed it, so the read fails with a
 `SocketTimeoutException` as a timed read would. A timed read would park its virtual thread with a
 timeout, and the JDK arms and cancels a timer for every such park (on JDK 25, by waking the
-scheduler's delay thread each time). TLS sockets, and reads whose timeout was changed for them,
-keep `SO_TIMEOUT`.
+scheduler's delay thread each time). TLS sockets, reads whose timeout was changed for them, and
+reads under the request-head deadline (whose `408` closes lingering, reading on after it), keep
+`SO_TIMEOUT`.
 
 `Http2Origins` keeps the HTTP/2 connections by `Key`: the server's authority, and its isolation
 (mode, route or hop, MITM manager, and the client connection for private ones). Its index is by
