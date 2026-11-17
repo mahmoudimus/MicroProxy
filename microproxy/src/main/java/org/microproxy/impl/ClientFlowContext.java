@@ -431,6 +431,11 @@ final class ClientFlowContext extends FlowContext {
         transportFailure = tlsReason(cause);
     }
 
+    /** Forgets a TLS failure of an earlier attempt: a later one connected. */
+    void clearTransportFailure() {
+        transportFailure = null;
+    }
+
     /**
      * Why a TLS handshake failed, for {@code %UPSTREAM_TRANSPORT_FAILURE_REASON%}: its class
      * ({@link ProxyFailure.TlsFailed.Reason#code()}), then the innermost cause's message, as in

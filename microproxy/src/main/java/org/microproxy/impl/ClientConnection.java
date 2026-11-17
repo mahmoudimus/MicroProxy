@@ -4022,13 +4022,19 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    /** Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null. */
+    /**
+     * Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null.
+     * The failure goes on the {@code CONNECT}'s record too, whose code stays the {@code 200} the
+     * client was sent: a session that failed so never has a tunnel record without a failure, even
+     * when no request follows to carry it.
+     */
     private ServerConnection sessionFailed(Exchange ex, String hostAndPort, IOException e, boolean retried) {
         ProxyFailure failure = e instanceof SharedConnectionPool.PoolExhaustedException
                 ? new ProxyFailure.NoConnectionAvailable(hostAndPort) : connectFailure(hostAndPort, e);
         LOG.log(Level.DEBUG, ex.log + "no route reached " + hostAndPort + " (" + unwrap(e).getMessage()
                 + "); intercepting without a server connection, the first request to be answered "
                 + failure.status().code());
+        ex.flow.failure(failure);
         sessionFailure.set(new SessionFailure(hostAndPort, failure, retried));
         return null;
     }
@@ -5476,8 +5482,14 @@ final class ClientConnection implements Runnable {
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
     }
 
-    /** Tells the filters and trackers that {@code conn}, a connection to a server, is made. */
+    /**
+     * Tells the filters and trackers that {@code conn}, a connection to a server, is made. The TLS
+     * failure of an attempt before it, which {@code tlsHandshakeFailed} reported, is not the
+     * exchange's: its record's {@code %UPSTREAM_TRANSPORT_FAILURE_REASON%} is of the connection it
+     * used (set again if that one's deferred handshake fails).
+     */
     private void connected(Exchange ex, ServerConnection conn) {
+        ex.flow.clearTransportFailure();
         recordUpstream(ex, conn);
         ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
         server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
@@ -5996,7 +6008,9 @@ final class ClientConnection implements Runnable {
         String sent = Tls.sniName(serverName) == null ? null : serverName;
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
-            SSLSocket tls = Tls.clientHandshake(context, active, verifyHost, target.port(), serverName, true,
+            // (Over a socket that tells whether the ClientHello could be sent, for the failure's reason.)
+            SSLSocket tls = Tls.clientHandshake(context, new ClientHelloSocket(active), verifyHost, target.port(),
+                    serverName, true,
                     server.tlsProtocols,
                     s -> {
                         if (alpn != null) offerAlpn(s, alpn);
