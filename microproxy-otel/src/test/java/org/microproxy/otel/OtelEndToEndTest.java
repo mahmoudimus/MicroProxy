@@ -124,6 +124,7 @@ class OtelEndToEndTest {
         assertEquals("h1", server.attr("microproxy.flow"));
         assertEquals("127.0.0.1:" + port, server.attr("upstream_cluster"));
         assertEquals("HTTP/1.1", server.attr("microproxy.upstream_protocol"));
+        assertNull(server.attr("microproxy.mitm_server_handshake"));
         assertNull(server.attr("error.type"));
         assertNull(server.attr("response_flags"));
         assertEquals(0, server.statusCode());
@@ -376,6 +377,7 @@ class OtelEndToEndTest {
             assertEquals(TRACE, tunnel.traceId());
             assertEquals(PARENT, tunnel.parentSpanId());
             assertEquals("tunnel", tunnel.attr("microproxy.flow"));
+            assertNull(tunnel.attr("microproxy.mitm_server_handshake"), "a tunnel that is not intercepted");
             assertEquals("tcp", tunnel.attr("network.transport"));
             assertEquals(5L, tunnel.attr("microproxy.bytes_received"));
             assertEquals(5L, tunnel.attr("microproxy.bytes_sent"));
@@ -515,6 +517,7 @@ class OtelEndToEndTest {
                     s -> s.kind() == 2 && "/h2".equals(s.attr("url.path")));
             assertEquals("2", server.attr("network.protocol.version"));
             assertEquals("h2", server.attr("microproxy.flow"));
+            assertEquals("DEFERRED", server.attr("microproxy.mitm_server_handshake"), "the intercepted session's");
             assertEquals("https", server.attr("url.scheme"));
             assertEquals("localhost", server.attr("server.address"));
             assertTrue(server.attr("microproxy.stream_id") instanceof Long);

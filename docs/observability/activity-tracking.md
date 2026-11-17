@@ -60,7 +60,9 @@ or flow. Use this page to build your own logging or metrics; the [access log](ac
   CONNECT-UDP flow and relayed or stream-intercepted QUIC flow when it closes. The `FlowRecord`
   has the request and response heads, the bytes each way (to the client and on the server's
   wire), the upstream and local addresses and TLS sessions, the duration, the flags and details,
-  and what kind of flow it was; the [access log](access-logs.md#access-logs-envoy-compatible) is made of them.
+  what kind of flow it was, and, for an intercepted `CONNECT` and the requests inside its session,
+  the server handshake mode it used (`serverHandshake()`: `DEFERRED` or `EAGER`, see [Server TLS
+  failures](../guides/mitm.md#server-tls-failures)); the [access log](access-logs.md#access-logs-envoy-compatible) is made of them.
 - **In filters:** `HttpFilters.proxyToClientResponseSent(response, source)` is called once a
   response has been written in full, whoever made it, with the head as sent and its
   `ResponseSource`; `ctx.timings()` covers the whole exchange by then.

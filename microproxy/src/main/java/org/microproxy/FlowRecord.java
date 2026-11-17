@@ -85,6 +85,7 @@ public final class FlowRecord {
     private final String upstreamProtocol;
     private final SSLSession upstreamSslSession;
     private final String upstreamTransportFailureReason;
+    private final MitmServerHandshake serverHandshake;
     private final EnumSet<ResponseFlag> responseFlags;
     private final ProxyFailure failure;
     private final String responseCodeDetails;
@@ -112,6 +113,7 @@ public final class FlowRecord {
         this.upstreamProtocol = b.upstreamProtocol;
         this.upstreamSslSession = b.upstreamSslSession;
         this.upstreamTransportFailureReason = b.upstreamTransportFailureReason;
+        this.serverHandshake = b.serverHandshake;
         this.responseFlags = EnumSet.noneOf(ResponseFlag.class);
         this.responseFlags.addAll(b.responseFlags);
         this.failure = b.failure;
@@ -276,6 +278,26 @@ public final class FlowRecord {
         return upstreamTransportFailureReason;
     }
 
+    /**
+     * When the proxy ran its TLS handshake with the server of an intercepted {@code CONNECT}, as
+     * it was resolved for this flow: from the request's filters ({@link
+     * HttpFilters#proxyToServerMitmHandshake()}), the protocol policy ({@link
+     * ProtocolPolicy#mitmServerHandshake()}), or {@link MitmServerHandshake#DEFERRED} for a
+     * browser profile's context or a transparent TLS connection. The {@code CONNECT}'s tunnel
+     * record and the records of the requests inside its intercepted session carry it, so that a
+     * {@code 502} reads the same either way: on the tunnel's record with {@link
+     * MitmServerHandshake#EAGER}, on the first request's with {@link MitmServerHandshake#DEFERRED}.
+     * {@code %MP_SERVER_HANDSHAKE%} renders it.
+     *
+     * @return the mode, or empty when the proxy did not intercept the flow: no MITM manager, a
+     *     filter or the host rules kept it from interception, a server that does not speak TLS,
+     *     or a {@code DEFERRED} session whose ClientHello was then declined or that carried plain
+     *     HTTP (an {@code EAGER} handshake that ran before a decline is kept)
+     */
+    public Optional<MitmServerHandshake> serverHandshake() {
+        return Optional.ofNullable(serverHandshake);
+    }
+
     /** {@return the response flags (see {@link FlowContext#responseFlags()}), unmodifiable} */
     public Set<ResponseFlag> responseFlags() {
         return java.util.Collections.unmodifiableSet(responseFlags);
@@ -346,6 +368,7 @@ public final class FlowRecord {
         private String upstreamProtocol;
         private SSLSession upstreamSslSession;
         private String upstreamTransportFailureReason;
+        private MitmServerHandshake serverHandshake;
         private Set<ResponseFlag> responseFlags = Set.of();
         private ProxyFailure failure;
         private String responseCodeDetails;
@@ -491,6 +514,18 @@ public final class FlowRecord {
          */
         public Builder downstreamLocalAddress(InetSocketAddress address) {
             this.downstreamLocalAddress = address;
+            return this;
+        }
+
+        /**
+         * Sets the server handshake mode of an intercepted {@code CONNECT} ({@link
+         * FlowRecord#serverHandshake()}).
+         *
+         * @param mode the mode, or {@code null} when the flow was not intercepted
+         * @return this builder
+         */
+        public Builder serverHandshake(MitmServerHandshake mode) {
+            this.serverHandshake = mode;
             return this;
         }
 

@@ -206,6 +206,7 @@ final class Semconv {
         if (!r.responseFlags().isEmpty()) a.put("response_flags", ResponseFlag.render(r.responseFlags(), false));
         if (r.upstreamCluster() != null) a.put("upstream_cluster", r.upstreamCluster());
         if (r.upstreamProtocol() != null) a.put("microproxy.upstream_protocol", r.upstreamProtocol());
+        r.serverHandshake().ifPresent(m -> a.put("microproxy.mitm_server_handshake", m.name()));
         if (r.upstreamAddress() != null) a.put("upstream_address", address(r.upstreamAddress()));
         if (r.source() != null) a.put("microproxy.response_source", r.source().name());
         if (r.responseCodeDetails() != null) a.put("microproxy.response_code_details", r.responseCodeDetails());

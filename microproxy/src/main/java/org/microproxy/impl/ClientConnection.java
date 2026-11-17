@@ -596,6 +596,11 @@ final class ClientConnection implements Runnable {
         /** This exchange's server handshake runs eagerly because a policy or its filters said so explicitly. */
         boolean explicitEagerServerTls;
         /**
+         * The server handshake mode of this {@code CONNECT}, while it is intercepted ({@link
+         * FlowRecord#serverHandshake()}); null when it is not.
+         */
+        MitmServerHandshake serverHandshake;
+        /**
          * The proxy made up this CONNECT for a connection that arrived without one (transparent TLS,
          * a {@code tcp://} reverse proxy): nothing is written to the client in HTTP.
          */
@@ -888,6 +893,12 @@ final class ClientConnection implements Runnable {
      * filters give one an absolute URI of its own ({@link #redirected}).
      */
     private String mitmHostAndPort;
+    /**
+     * While serving intercepted traffic: the server handshake mode of the {@code CONNECT} that
+     * started the session, which the records of its requests carry ({@link
+     * FlowRecord#serverHandshake()}).
+     */
+    private volatile MitmServerHandshake sessionServerHandshake;
     /**
      * Why the server's deferred TLS handshake for the intercepted session failed on every route
      * ({@link #failOverDeferredTls}): the session's first request that needs its server is
@@ -1730,11 +1741,22 @@ final class ClientConnection implements Runnable {
                         flow.upstreamSslSession())
                 .upstreamProtocol(flow.upstreamProtocol())
                 .upstreamTransportFailureReason(flow.transportFailure())
+                .serverHandshake(serverHandshake(ex))
                 .downstreamLocalAddress(flow.localAddress())
                 .outcome(flow.responseFlags(), flow.failure().orElse(null), flow.responseCodeDetails().orElse(null))
                 .trace(ex.trace)
                 .build();
         flowEnded(record);
+    }
+
+    /**
+     * The server handshake mode {@code ex}'s record carries: its own, for an intercepted {@code
+     * CONNECT}; for a request inside an intercepted session, the session's.
+     */
+    private MitmServerHandshake serverHandshake(Exchange ex) {
+        if (ex.serverHandshake != null) return ex.serverHandshake;
+        if (ex.kind == FlowRecord.Kind.TUNNEL || ex.kind == FlowRecord.Kind.SOCKS) return null;
+        return mitmHostAndPort != null && !plainSession ? sessionServerHandshake : null;
     }
 
     /** Hands a finished exchange's or flow's record to the tracer, then to the trackers. */
@@ -3140,7 +3162,8 @@ final class ClientConnection implements Runnable {
         ex.offerHttp2 = server.http2Origins != null;
         // TLS with the server waits for the client's ClientHello, whose protocols and name it
         // mirrors, unless it runs before the CONNECT is answered (MitmServerHandshake.EAGER).
-        ex.deferServerTls = mitm && mitmServerHandshake(ex, target, hostAndPort) == MitmServerHandshake.DEFERRED;
+        ex.serverHandshake = mitm ? mitmServerHandshake(ex, target, hostAndPort) : null;
+        ex.deferServerTls = ex.serverHandshake == MitmServerHandshake.DEFERRED;
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
@@ -3183,6 +3206,7 @@ final class ClientConnection implements Runnable {
                         mitm = false;
                         inspect = false;
                         mode = Mode.TUNNEL;
+                        ex.serverHandshake = null;
                         conn = connect(hostAndPort, ex, route, mode);
                     }
                 } catch (SharedConnectionPool.PoolExhaustedException e) {
@@ -4220,9 +4244,18 @@ final class ClientConnection implements Runnable {
      * Tunnels the client's bytes, those already read first, to the server: over {@code conn} when
      * it is still a plain connection, else over a new one.
      */
+    /**
+     * {@code ex}'s tunnel is not intercepted after all: a deferred server handshake never ran as
+     * the proxy's, so the record shows none; an eager one that did run stays recorded.
+     */
+    private static void notIntercepted(Exchange ex) {
+        if (ex.serverHandshake == MitmServerHandshake.DEFERRED) ex.serverHandshake = null;
+    }
+
     private boolean tunnelAfterPeek(Exchange ex, ServerConnection conn, String hostAndPort, List<ChainedProxy> route,
             String why) throws IOException {
         LOG.log(Level.DEBUG, ex.log + "tunnelling " + hostAndPort + ": " + why);
+        notIntercepted(ex);
         releaseHttp2Claim(ex);
         completeConnect(ex);
         if (conn != null && conn.tlsPending) {
@@ -4303,6 +4336,7 @@ final class ClientConnection implements Runnable {
      */
     private boolean servePlainSession(Exchange ex, ServerConnection conn, String hostAndPort) throws IOException {
         LOG.log(Level.DEBUG, ex.log + "plain HTTP after CONNECT " + hostAndPort + ": serving it as HTTP");
+        notIntercepted(ex);
         releaseHttp2Claim(ex);
         completeConnect(ex);
         mitmHostAndPort = hostAndPort;
@@ -4641,6 +4675,7 @@ final class ClientConnection implements Runnable {
         SSLSocket tls = handshakeWithClient(clientContext, false, s -> mirrorAlpn(s, serverAlpn, http2), target.host());
 
         mitmHostAndPort = hostAndPort;
+        sessionServerHandshake = ex.serverHandshake;
         String raw = rawSessionReason(conn, tls, target);
         if (raw != null) {
             relayDecrypted(ex, conn, target, raw);
