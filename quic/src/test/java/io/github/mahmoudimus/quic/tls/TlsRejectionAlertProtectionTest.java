@@ -142,6 +142,12 @@ class TlsRejectionAlertProtectionTest {
         TlsClientConnection.TlsAlertException e =
                 assertThrows(TlsClientConnection.TlsAlertException.class, c::handshake);
         assertFalse(e.received());
+        // The client rejects the certificate as soon as it has read it, while the server may still be
+        // writing the rest of its flight (CertificateVerify and Finished, or ServerKeyExchange and
+        // ServerHelloDone). Closing now would have the relay close the server's connection under it, and
+        // the server would fail on its own write (Broken pipe) before reading the alert, as it does with
+        // the JDK's own client. Keep the connection open until the server has read what the client sent.
+        outcome.get(10, TimeUnit.SECONDS);
         plain.close();
         return e;
     }
