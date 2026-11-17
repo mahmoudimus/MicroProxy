@@ -25,13 +25,38 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Prepare the externally selected historical and current views
+      # keccak-005: keccak-004 source evidence on the released 0.9.0 delivery base.
+      # The selection SHA256 below is a PROPOSED literal, pending independent review (PR checklist).
+      - name: Prepare the externally selected keccak-005 historical and current views
         id: epoch
-        uses: ./.github/actions/keccak-historical
-        with:
-          selection-sha256: a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe
+        run: |
+          python -I -B formal/source/epochs/keccak-005/ci/run.py prepare \
+            --repository "$GITHUB_WORKSPACE" \
+            --selection "$GITHUB_WORKSPACE/formal/source/epochs/keccak-005/ci/selection.json" \
+            --expected-selection-sha256 51827a2c2500b74b183c2349ee4e000901dc22bcfd2e72e2a6737f730fac3592 \
+            --output "$RUNNER_TEMP/keccak-prepared"
+          python -I -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          prepared = Path(os.environ["RUNNER_TEMP"]) / "keccak-prepared"
+          raw = (prepared / "receipt.json").read_bytes()
+          receipt = json.loads(raw)
+          outputs = {
+              "prepared": str(prepared),
+              "prepared-sha256": hashlib.sha256(raw).hexdigest(),
+              "views": receipt["views"],
+              "capsule": receipt["capsule"],
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              for key, value in outputs.items():
+                  out.write(key + "=" + value + "\n")
+          PY
       - name: Test current component admission and evidence boundaries
         run: |
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-005/parent -p test_parent.py -v
+          python -I -B -m unittest discover -s formal/source/epochs/keccak-005/ci -p 'test_*.py' -v
           python -I -B -m unittest discover -s formal/source/epochs/keccak-004/parent -p test_parent.py -v
           python -I -B -m unittest discover -s formal/source/epochs/keccak-004/capsule -p 'test_*.py' -v
           python -I -B -m unittest discover -s formal/source/epochs/keccak-004/ci -p 'test_*.py' -v
@@ -71,14 +96,14 @@ jobs:
         # Artifact execution is the selected retained Darwin instance.
         # This job freshly checks the checkout and class identities on Ubuntu.
         run: |
-          python -I -B formal/source/epochs/keccak-004/ci/run.py check \
+          python -I -B formal/source/epochs/keccak-005/ci/run.py check \
             --repository "$GITHUB_WORKSPACE" \
             --prepared "${{ steps.epoch.outputs.prepared }}" \
             --expected-prepared-sha256 "${{ steps.epoch.outputs.prepared-sha256 }}" \
             --classes "$GITHUB_WORKSPACE/quic/target/classes" \
-            --retained-data "$GITHUB_WORKSPACE/formal/crypto/evidence/2026-11-05-keccak/parent" \
-            --selection "$GITHUB_WORKSPACE/formal/source/epochs/keccak-004/ci/selection.json" \
-            --expected-selection-sha256 a4278744422a6e59e84976e0fdbf234521fc9a81d94eaefabe26c470dd44dabe \
+            --retained-data "$GITHUB_WORKSPACE/formal/crypto/evidence/2026-11-16-keccak-005/parent" \
+            --selection "$GITHUB_WORKSPACE/formal/source/epochs/keccak-005/ci/selection.json" \
+            --expected-selection-sha256 51827a2c2500b74b183c2349ee4e000901dc22bcfd2e72e2a6737f730fac3592 \
             --output "$RUNNER_TEMP/keccak-current-check"
       - uses: actions/upload-artifact@v7.0.2
         if: always()

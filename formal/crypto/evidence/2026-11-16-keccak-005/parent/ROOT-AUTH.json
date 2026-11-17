@@ -1,0 +1,19 @@
+{
+  "all_actual_JAR_maps_and_current_checkout_inputs_reauthenticated": true,
+  "all_raw_command_and_classload_logs_authenticated": true,
+  "api_report_sha256": "cdbff285279bd94cb30b26a088f7a5a0db119e81e6d8e3654fb995c00725c44f",
+  "bundle_sha256": "071cb41b8fb02cc3f62471078f896e798402ed51215060c8663a4304205e97a1",
+  "crypto_classes": 84,
+  "handshakes_each_JDK": 9,
+  "library_classes": 468,
+  "library_sha256": "017ebb7c3bd922af37c8ec7fc100363785cc4b6c20b633cacbb57d26af13c510",
+  "nonce_cases_each_JDK": 9,
+  "notices": 3,
+  "parent_report_sha256": "8055916829b8e5f0a3213c6d4123e99c0f753987ef75777bab4a80a65e1b48ae",
+  "qualification": false,
+  "qualified_commit": "65c9d2e07c523c703a40081cc74e62866e614f3a",
+  "runtime_classes": 37,
+  "scope": "retained Darwin-arm64 parent qualification and exact published Maven Central 0.9.0 library/bundle/current-checkout identity",
+  "source_files": 467,
+  "status": "authenticated"
+}

@@ -1,0 +1,11 @@
+{
+  "capsule_archive_sha256": "308ed6dc10577f2d6f43f165ca5b72e175697654859e3609a8611ace1956fecd",
+  "capsule_sha256": "3dde2d3f961cf6690f2559baab30f59ebd3bf5800824107c35bd9f33ee217ee0",
+  "current_checkout_sha256": "0ff55e0781a7b6012a07ae21a21d1369c05e057a4905d64e45a782ca5ee3624f",
+  "extractor_sha256": "3ef0b190bb255cf50dbf6800395b69d39951e6af9c094f8f79ea26f2be4cf182",
+  "parent_sha256": "fb2f08aa0b45f21c6cc8f80c595f7a1f6c8d96ee9b76112664bc3ed2f6e54650",
+  "policy_sha256": "0c4c3702e8539b6206e9db5bd3ec55d312bc6bdfdf91a64a8a7da9c9692d3fd5",
+  "retained_index_sha256": "b1a07ee2cfcfac23cf31467a56ecbd81f2966ecc6ca9a257aa2e31c70362c460",
+  "schema": "microproxy.keccak005-ci-selection/1",
+  "scope": "retained-Darwin-arm64-plus-current-checkout-identity"
+}
