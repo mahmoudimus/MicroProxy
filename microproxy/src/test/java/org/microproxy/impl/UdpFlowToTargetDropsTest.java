@@ -160,6 +160,8 @@ class UdpFlowToTargetDropsTest {
             assertEquals(expected, target.received());
             assertEquals(expectedDrops, flow.dropped());
             assertEquals(expectedDrops, value(stats, "masque.datagrams_dropped"), "counted when the flow ended");
+            assertEquals(expectedDrops, value(stats, "masque.datagrams_dropped.to_target"), "all toward the target");
+            assertEquals(0, value(stats, "masque.datagrams_dropped.to_client"), "none the other way");
             assertEquals(sent.size() + 2, value(stats, "masque.datagrams_rx"));
             assertEquals(2, value(stats, "masque.udp_flows_total"));
 
