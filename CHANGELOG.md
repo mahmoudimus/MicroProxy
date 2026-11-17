@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.9.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.2...v0.9.0) (2026-11-17)
+
+
+### Features
+
+* **flow:** typed chained-proxy CONNECT failures on ConnectFailed ([f862112](https://github.com/mahmoudimus/MicroProxy/commit/f862112f3127d4da0ac89d1beac983f25a38361c))
+* **flow:** typed chained-proxy CONNECT failures on ConnectFailed ([b20a106](https://github.com/mahmoudimus/MicroProxy/commit/b20a106d4ca733bf52911fdf6a18b90014eb42c3))
+* **observability:** record the MITM server handshake mode on FlowRecord ([802ba78](https://github.com/mahmoudimus/MicroProxy/commit/802ba7892ef32706721b22a7fa9fa2ec4c3d7dab))
+* **observability:** record the MITM server handshake mode on FlowRecord ([5835f17](https://github.com/mahmoudimus/MicroProxy/commit/5835f1730b74d5ddec05720ef4cdcd5a03508756))
+* **stats:** count MASQUE datagram drops by direction ([637e91c](https://github.com/mahmoudimus/MicroProxy/commit/637e91c80525ec1e5a1a5b6f5bc7d51a5169f0e9))
+* **stats:** count MASQUE datagram drops by direction ([ae80da9](https://github.com/mahmoudimus/MicroProxy/commit/ae80da98997262ad71cec45f2db71ef83c24f732))
+* **stats:** keep masque.datagrams_dropped beside the counts by direction ([12e1285](https://github.com/mahmoudimus/MicroProxy/commit/12e12853aff3c522e84395a81a65d1f075b58780))
+
+
+### Bug Fixes
+
+* **flow:** a chained proxy reset while connecting is CHAINED_PROXY_RESET too ([2ade695](https://github.com/mahmoudimus/MicroProxy/commit/2ade695bfa9e9a9f773d32b40b25216f8fefc819))
+* **flow:** a chained proxy that resets as soon as it accepts is always CHAINED_PROXY_RESET ([398d56d](https://github.com/mahmoudimus/MicroProxy/commit/398d56deacf2ac781b6becfca1654e2427596953))
+* **flow:** a failed intercepted session has its failure on the tunnel record ([14c6153](https://github.com/mahmoudimus/MicroProxy/commit/14c61530745dac63bbaa8bf537f670540187072b))
+* **flow:** a socket the proxy closed itself is no chained-proxy reset ([e68affc](https://github.com/mahmoudimus/MicroProxy/commit/e68affc4505d426e7df5e3818e626aa5c9735442))
+* **http1:** close lingering after a final response so the client keeps it ([afc5cde](https://github.com/mahmoudimus/MicroProxy/commit/afc5cdee13c48f21a2a88d60df9d0a893f33cead))
+* **http1:** close lingering after a final response so the client keeps it ([6b5f276](https://github.com/mahmoudimus/MicroProxy/commit/6b5f276ce0b021b39da616637655429211495c7e))
+* **mitm:** defer the server handshake for browser-profile contexts ([aa4659d](https://github.com/mahmoudimus/MicroProxy/commit/aa4659d69a42aaafdbc8e9700234141fc960d319))
+* **mitm:** defer the server handshake for browser-profile contexts ([ed0cff7](https://github.com/mahmoudimus/MicroProxy/commit/ed0cff788a6257b558b132288ab73726c1f375e5))
+* **mitm:** let the MITM manager declare the handshake mode ([96163b5](https://github.com/mahmoudimus/MicroProxy/commit/96163b55499263ec5e14e11fb3568dab2901ab16))
+* **quic:** include the datagram send-buffer cap in maxDatagramSize() ([51c6519](https://github.com/mahmoudimus/MicroProxy/commit/51c6519fd76c7fcf45c3685ecf661beb9b320db7))
+* **quic:** include the datagram send-buffer cap in maxDatagramSize() ([279988a](https://github.com/mahmoudimus/MicroProxy/commit/279988aa1362d8b49b05a410a355508329777799))
+* **tls:** a server handshake the peer closes or resets is a TLS failure ([5c7c666](https://github.com/mahmoudimus/MicroProxy/commit/5c7c66603b3483b521fcfbf47604c511aaa0dbc0))
+* **tls:** a server handshake the peer closes or resets is a TLS failure ([36919ac](https://github.com/mahmoudimus/MicroProxy/commit/36919acc773ab97b0bceb1e2d6a0274c51f0576c))
+* **tls:** a socket the proxy closed itself is no ClientHello that was not sent ([306ca7f](https://github.com/mahmoudimus/MicroProxy/commit/306ca7fcc1d82b6932fbff27475184575ec6e538))
+* **tls:** an untrusted certificate through a browser profile is CERTIFICATE_UNTRUSTED ([bf3e0fd](https://github.com/mahmoudimus/MicroProxy/commit/bf3e0fd2c86eca3b4dc849b19ec9085ca7b43993))
+* **tls:** an untrusted certificate through a browser profile is CERTIFICATE_UNTRUSTED ([36ef526](https://github.com/mahmoudimus/MicroProxy/commit/36ef526c7e786f4e0b308b6dfbf72879548f35ae))
+
+
+### Documentation
+
+* **observability:** name the MITM manager's preference among the mode's sources ([44bda07](https://github.com/mahmoudimus/MicroProxy/commit/44bda075cb8f777d1704e912d4c3ecac2752c8f8))
+
 ## [0.8.2](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.1...v0.8.2) (2026-11-16)
 
 
