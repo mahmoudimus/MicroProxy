@@ -181,24 +181,28 @@ handshake is closed. LittleProxy runs the handshake first because its
 server's session; proxy authentication happens on the `CONNECT` in both modes. Transparent TLS
 connections, whose ClientHello the proxy has read already, are always deferred.
 
-A browser profile needs the client's ClientHello: when the MITM manager's server context is one
-(`BrowserProfile.sslContext`, any context `FingerprintSslContext.isFingerprint` recognizes), the
-mode is resolved, for each intercepted `CONNECT`, in this order:
+A browser profile needs the client's ClientHello, so the MITM manager can ask for a mode
+(`MitmManager.preferredServerHandshake()`). For each intercepted `CONNECT` the mode is, in this
+order:
 
 1. the request's filters (`proxyToServerMitmHandshake()`), when they choose;
 2. a value set explicitly in a protocol policy (`onHttp1(p -> p.mitmServerHandshake(EAGER))`,
    `onAllProtocols(...)`, `policy.*.mitm_server_handshake`; `ProtocolPolicy.mitmServerHandshakeExplicit()`);
-3. `DEFERRED`, because the context is a browser profile's;
+3. the preference of the manager chosen for the connection (`MitmManager.forConnection`);
 4. the built-in preset's value: `DEFERRED` for `ProtocolPolicy.defaults()`, `EAGER` for
    `ProtocolPolicy.littleProxy()` (`withLittleProxyCompatibility()`, or the preset applied by hand).
 
-So `withLittleProxyCompatibility()` with a browser profile defers, while it stays `EAGER` with a
-JDK context. To find out, the proxy asks the MITM manager for the target's server context
-(`serverSslContext(host, port, flow)`) once more before the `CONNECT` is answered, only when
-the preset's `EAGER` would otherwise apply. An explicit `EAGER` with a browser profile is kept,
-and logged once per proxy as a `WARNING` (the first time such a handshake runs): its ClientHello
-offers the proxy's ALPN protocols, not the client's, and no SNI for a client that `CONNECT`s to
-an IP address.
+`CertificateAuthorityMitmManager` prefers `DEFERRED` when the upstream context it was built with
+is a browser profile's (`BrowserProfile.sslContext`, any context
+`FingerprintSslContext.isFingerprint` recognizes), and states no preference otherwise. So
+`withLittleProxyCompatibility()` with a browser profile defers, while it stays `EAGER` with a JDK
+context. A manager of your own that hands out profile contexts (from `serverSslContext`, say per
+session) must return `Optional.of(MitmServerHandshake.DEFERRED)` from
+`preferredServerHandshake()` itself; without it, the LittleProxy preset's `EAGER` stays. The
+preference is asked for before any server context, and no context is fetched to decide the mode.
+An explicit `EAGER` with a browser profile is kept, and logged once per proxy as a `WARNING` (the
+first time such a handshake runs, from the context it uses): its ClientHello offers the proxy's
+ALPN protocols, not the client's, and no SNI for a client that `CONNECT`s to an IP address.
 
 The mode a flow used is on its records, the tunnel's and those of the requests inside its
 session: `FlowRecord.serverHandshake()`, `%MP_SERVER_HANDSHAKE%` in the access log, and

@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
@@ -135,6 +136,27 @@ public interface MitmManager {
      */
     default boolean shouldIntercept(ClientHello clientHello, FlowContext flow) {
         return true;
+    }
+
+    /**
+     * The server handshake mode this manager's server contexts need, when the request's filters
+     * ({@link HttpFilters#proxyToServerMitmHandshake()}) and the protocol policy (only a value set
+     * explicitly, {@link ProtocolPolicy#mitmServerHandshakeExplicit()}) leave it open: it then
+     * overrides the policy's preset ({@link ProtocolPolicy#defaults()}, {@link
+     * ProtocolPolicy#littleProxy()}). A manager whose server contexts are browser profiles' ({@link
+     * org.microproxy.tls.BrowserProfile#sslContext}) returns {@link MitmServerHandshake#DEFERRED}:
+     * their ClientHello can mirror the client's ALPN protocols and SNI only after reading it.
+     * {@link org.microproxy.tls.CertificateAuthorityMitmManager} does so when its upstream context
+     * is a profile's. A manager that hands out profile contexts without saying so here keeps the
+     * preset's mode, {@link MitmServerHandshake#EAGER} under {@link ProtocolPolicy#littleProxy()}.
+     * Called on the manager chosen for the connection ({@link #forConnection}), at most once per
+     * intercepted {@code CONNECT} and before any server context is asked for, so it should be
+     * cheap and cannot depend on the server.
+     *
+     * @return the mode, or empty (the default) to leave it to the preset
+     */
+    default Optional<MitmServerHandshake> preferredServerHandshake() {
+        return Optional.empty();
     }
 
     /**

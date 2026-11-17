@@ -78,9 +78,10 @@ A field's value for an exchange is, from the first that sets it:
    `withLittleProxyCompatibility()`, `ProtocolPolicy.littleProxy()`.
 
 One exception: `mitm_server_handshake` taken from a built-in preset (`defaults()` or
-`littleProxy()`, whether as the protocol's defaults or applied with `preset`) is `DEFERRED` when the
-MITM manager's server context is a browser profile's; only a value set explicitly, or the
-filters' choice, keeps `EAGER` then ([Server TLS failures](mitm.md#server-tls-failures)).
+`littleProxy()`, whether as the protocol's defaults or applied with `preset`) gives way to the MITM
+manager's preference (`MitmManager.preferredServerHandshake()`), which is `DEFERRED` for a
+`CertificateAuthorityMitmManager` with a browser profile's context; only a value set explicitly,
+or the filters' choice, keeps `EAGER` then ([Server TLS failures](mitm.md#server-tls-failures)).
 `ProtocolPolicy.mitmServerHandshakeExplicit()` tells the two apart.
 
 The client's protocol is the one it speaks to the proxy, `FlowContext.getHttpVersion()` (and
