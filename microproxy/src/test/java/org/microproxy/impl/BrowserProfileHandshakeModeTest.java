@@ -27,6 +27,7 @@ import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MicroProxy;
+import org.microproxy.MitmManager;
 import org.microproxy.MitmServerHandshake;
 import org.microproxy.ProtocolPolicy;
 import org.microproxy.TestSupport;
@@ -68,13 +69,19 @@ class BrowserProfileHandshakeModeTest {
     /** The intercepting proxy, every request's server {@code backend}, its server context {@code serverContext}. */
     private void start(HttpProxyServerBootstrap bootstrap, SSLContext serverContext, CertificateAuthority backend,
             HttpFilters filters) {
+        start(bootstrap, new CertificateAuthorityMitmManager(proxyCa, serverContext), backend, filters);
+    }
+
+    /** The intercepting proxy with {@code manager}, every request's server {@code backend}. */
+    private void start(HttpProxyServerBootstrap bootstrap, MitmManager manager, CertificateAuthority backend,
+            HttpFilters filters) {
         HttpsServer server = TestSupport.httpsOrigin(backend.serverContext("localhost", "127.0.0.1"),
                 TestSupport.fixed(200, "origin"));
         closeables.add(() -> server.stop(0));
         InetSocketAddress target = new InetSocketAddress(TestSupport.LOOPBACK, server.getAddress().getPort());
         HttpFiltersSource resolve = HttpFilters.builder().resolveWith(h -> target).build();
         proxy = bootstrap.withPort(0)
-                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, serverContext))
+                .withManInTheMiddle(manager)
                 .withFiltersSource(filters == null ? resolve : HttpFiltersChain.of((r, c) -> filters, resolve))
                 .start();
     }
@@ -125,6 +132,9 @@ class BrowserProfileHandshakeModeTest {
         assertFalse(FingerprintSslContext.isFingerprint(originCa.clientContext()));
         assertFalse(FingerprintSslContext.isFingerprint(SSLContext.getDefault()));
         assertFalse(FingerprintSslContext.isFingerprint(null));
+        assertTrue(SslContexts.isBrowserProfile(profile()));
+        assertFalse(SslContexts.isBrowserProfile(originCa.clientContext()));
+        assertFalse(SslContexts.isBrowserProfile(null));
     }
 
     @Test
@@ -209,6 +219,84 @@ class BrowserProfileHandshakeModeTest {
             }
         });
         assertEager();
+    }
+
+    /**
+     * A manager that hands out {@code delegate}'s contexts and certificates, counting the server
+     * contexts asked for, and declares {@code preference} (not {@code delegate}'s).
+     */
+    private static final class Counting implements MitmManager {
+        final MitmManager delegate;
+        final java.util.Optional<MitmServerHandshake> preference;
+        final java.util.concurrent.atomic.AtomicInteger serverContexts = new java.util.concurrent.atomic.AtomicInteger();
+
+        Counting(MitmManager delegate, java.util.Optional<MitmServerHandshake> preference) {
+            this.delegate = delegate;
+            this.preference = preference;
+        }
+
+        @Override
+        public SSLContext serverSslContext(String peerHost, int peerPort) {
+            serverContexts.incrementAndGet();
+            return delegate.serverSslContext(peerHost, peerPort);
+        }
+
+        @Override
+        public SSLContext clientSslContextFor(org.microproxy.http.HttpRequest connectRequest,
+                javax.net.ssl.SSLSession serverSslSession) {
+            return delegate.clientSslContextFor(connectRequest, serverSslSession);
+        }
+
+        @Override
+        public java.util.Optional<MitmServerHandshake> preferredServerHandshake() {
+            return preference;
+        }
+    }
+
+    @Test
+    void certificateAuthorityManagersPreferDeferredForAProfilesContextOnly() {
+        assertEquals(java.util.Optional.of(MitmServerHandshake.DEFERRED),
+                new CertificateAuthorityMitmManager(proxyCa, profile()).preferredServerHandshake());
+        assertEquals(java.util.Optional.empty(),
+                new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()).preferredServerHandshake());
+        assertEquals(java.util.Optional.empty(), new CertificateAuthorityMitmManager(proxyCa).preferredServerHandshake());
+        assertEquals(java.util.Optional.empty(), new Counting(new CertificateAuthorityMitmManager(proxyCa, profile()),
+                java.util.Optional.empty()).preferredServerHandshake(), "the interface's default");
+    }
+
+    @Test
+    void aManagerHandingOutProfileContextsWithoutSayingSoKeepsThePresetsEager() throws Exception {
+        start(littleProxy(), new Counting(new CertificateAuthorityMitmManager(proxyCa, profile()),
+                java.util.Optional.empty()), strangerCa, null);
+        assertEager();
+    }
+
+    @Test
+    void aManagersDeclaredPreferenceDecidesOverThePreset() throws Exception {
+        // Whatever its contexts: a JDK one here.
+        start(littleProxy(), new Counting(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()),
+                java.util.Optional.of(MitmServerHandshake.DEFERRED)), strangerCa, null);
+        assertDeferred();
+    }
+
+    @Test
+    void theManagerChosenPerConnectionDeclaresThePreference() throws Exception {
+        MitmManager profiled = new CertificateAuthorityMitmManager(proxyCa, profile());
+        start(littleProxy(), MitmManager.perConnection(flow -> profiled), strangerCa, null);
+        assertDeferred();
+    }
+
+    @Test
+    void thePresetsEagerPathAsksForTheServerContextOncePerConnect() throws Exception {
+        Counting counting = new Counting(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()),
+                java.util.Optional.empty());
+        start(littleProxy(), counting, originCa, null);
+        for (int i = 1; i <= 3; i++) {
+            Outcome outcome = connectAndGet();
+            assertEquals(200, outcome.connectStatus());
+            assertTrue(outcome.inside().endsWith("origin"), outcome.inside());
+            assertEquals(i, counting.serverContexts.get(), "server contexts asked for after CONNECT " + i);
+        }
     }
 
     @Test

@@ -316,10 +316,10 @@ public final class ProtocolPolicy {
      * Whether {@link #mitmServerHandshake()} was set explicitly: by {@link
      * Builder#mitmServerHandshake} (or its configuration name, {@code mitm_server_handshake}),
      * here or in a policy this one was built from, rather than taken from a built-in preset
-     * ({@link #defaults()}, {@link #littleProxy()}). Only an explicit value is kept when the MITM
-     * manager's server context is a browser profile's ({@link
-     * org.microproxy.tls.BrowserProfile#sslContext}): a preset's then gives way to {@link
-     * MitmServerHandshake#DEFERRED}, so that the server's ClientHello can mirror the client's.
+     * ({@link #defaults()}, {@link #littleProxy()}). A preset's value gives way to the MITM
+     * manager's preference ({@link MitmManager#preferredServerHandshake()}), such as {@link
+     * MitmServerHandshake#DEFERRED} for a browser profile's contexts, so that the server's
+     * ClientHello can mirror the client's; an explicit value is kept.
      *
      * @return true when the field is set, and not by a built-in preset
      */

@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLContext;
@@ -16,6 +17,7 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import org.microproxy.KeyMaterial;
 import org.microproxy.MitmManager;
+import org.microproxy.MitmServerHandshake;
 import org.microproxy.http.HttpRequest;
 
 /**
@@ -36,6 +38,8 @@ public class CertificateAuthorityMitmManager implements MitmManager {
 
     private final CertificateAuthority authority;
     private final SSLContext upstreamContext;
+    /** The upstream context is a browser profile's, whose ClientHello mirrors the client's. */
+    private final boolean browserProfile;
     private final KeyPair leafKeyPair = CertificateAuthority.newEcKeyPair();
     private final ReentrantLock cacheLock = new ReentrantLock();
     private final int maxCachedHosts;
@@ -75,6 +79,7 @@ public class CertificateAuthorityMitmManager implements MitmManager {
         if (maxCachedHosts <= 0) throw new IllegalArgumentException("maxCachedHosts must be positive");
         this.authority = authority;
         this.upstreamContext = upstreamContext;
+        this.browserProfile = SslContexts.isBrowserProfile(upstreamContext);
         this.maxCachedHosts = maxCachedHosts;
         this.contexts = new LinkedHashMap<>(16, 0.75f, true) {
             @Override
@@ -129,6 +134,20 @@ public class CertificateAuthorityMitmManager implements MitmManager {
         } finally {
             cacheLock.unlock();
         }
+    }
+
+    /**
+     * {@link MitmServerHandshake#DEFERRED} when the upstream context given at construction is a
+     * browser profile's ({@link BrowserProfile#sslContext}), so that its ClientHello can mirror the
+     * client's; else empty, leaving the mode to the protocol policy. A subclass that overrides
+     * {@link #serverSslContext(String, int, org.microproxy.FlowContext)} to hand out other contexts
+     * should override this too.
+     *
+     * @return the mode the upstream context needs, or empty
+     */
+    @Override
+    public Optional<MitmServerHandshake> preferredServerHandshake() {
+        return browserProfile ? Optional.of(MitmServerHandshake.DEFERRED) : Optional.empty();
     }
 
     /** {@return the authority used to issue interception certificates} */
