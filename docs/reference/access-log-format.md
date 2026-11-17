@@ -56,6 +56,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%MP_CHUNKED_LENGTH%` | whether the request had both `Transfer-Encoding: chunked` and `Content-Length`, accepted with `--allow-chunked-length` (its `Content-Length` dropped) |
 | `%MP_SOCKS_VERSION%`, `%MP_FORWARDED_VIA%` | the SOCKS version; the client's own proxy the request went through |
 | `%MP_USER%`, `%MP_URL%`, `%MP_UPSTREAM_STATUS%` | the authenticated user; the absolute URL; the status the server sent (before a filter changed it) |
+| `%MP_SERVER_HANDSHAKE%` | `DEFERRED` or `EAGER`: when the proxy ran its TLS handshake with the server of an intercepted `CONNECT`, as resolved for it (filters, protocol policy, the MITM manager's preference; see [Server TLS failures](../guides/mitm.md#server-tls-failures)), on the tunnel's record and on those of the requests inside its session (`FlowRecord.serverHandshake()`); `-` when the flow was not intercepted |
 | `%MP_UPSTREAM_PROTOCOL%` | the protocol spoken to `%UPSTREAM_CLUSTER%`: to a chained proxy `HTTP/1.1` or `HTTP/2` (for a tunnel, that of its `CONNECT`), `SOCKS4` or `SOCKS5`; else to the server `HTTP/1.1`, `HTTP/2` or `HTTP/3`; `-` for a tunnel straight to the server |
 | `%MP_TIMING(phase)%` | `dns`, `connect`, `tls`, `client_tls`, `ttfb` or `total`, in milliseconds with three decimals |
 | `%MP_SCRIPT_CALLS%`, `%MP_SCRIPT_TIME%` | the exchange's calls into [scripts](starlark-api.md#script-budgets), and the milliseconds they took together, with three decimals |

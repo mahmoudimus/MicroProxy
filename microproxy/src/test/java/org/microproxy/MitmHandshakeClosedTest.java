@@ -210,6 +210,8 @@ class MitmHandshakeClosedTest {
         assertTrue(request.upstreamTransportFailureReason().startsWith(reason.code() + ": "),
                 request.upstreamTransportFailureReason());
         assertTrue(handshakeFailures.contains(failure.cause()), "tlsHandshakeFailed got the handshake's exception");
+        assertEquals(java.util.Optional.of(MitmServerHandshake.DEFERRED), request.serverHandshake(),
+                "the session's request record carries the session's mode");
         return failure;
     }
 
@@ -229,6 +231,8 @@ class MitmHandshakeClosedTest {
         assertTrue(tunnel.upstreamTransportFailureReason() != null
                 && tunnel.upstreamTransportFailureReason().startsWith(reason.code() + ": "),
                 "the tunnel's transport failure: " + tunnel.upstreamTransportFailureReason());
+        assertEquals(java.util.Optional.of(MitmServerHandshake.DEFERRED), tunnel.serverHandshake(),
+                "the tunnel record carries its mode");
         return tunnel;
     }
 
@@ -341,6 +345,48 @@ class MitmHandshakeClosedTest {
         assertEquals(1, handshakeFailures.size());
     }
 
+    /** The three reset faults of a fingerprint sidecar's upstream, and where they happen. */
+    enum ResetFault {
+        CHAINED_PROXY_RESETS_AFTER_ITS_200(Fault.RESET_AFTER_200, true),
+        CHAINED_PROXY_RESETS_AFTER_THE_CLIENT_HELLO(Fault.RESET_AFTER_HELLO, true),
+        ORIGIN_RESETS_AFTER_THE_CLIENT_HELLO(Fault.RESET_AFTER_HELLO, false);
+
+        final Fault fault;
+        final boolean chained;
+
+        ResetFault(Fault fault, boolean chained) {
+            this.fault = fault;
+            this.chained = chained;
+        }
+    }
+
+    /**
+     * Under LittleProxy's preset (EAGER) with a browser profile, whose manager declares DEFERRED:
+     * each reset is a typed failure on both records, and both records say DEFERRED.
+     */
+    @ParameterizedTest
+    @EnumSource(ResetFault.class)
+    void aResetUnderTheLittleProxyPresetWithABrowserProfileIsADeferredTypedFailure(ResetFault reset)
+            throws Exception {
+        AtomicInteger accepted = new AtomicInteger();
+        CountDownLatch ended = new CountDownLatch(1);
+        HttpProxyServerBootstrap bootstrap = proxy(Stack.BROWSER_PROFILE).withLittleProxyCompatibility(true);
+        String target;
+        if (reset.chained) {
+            TestSupport.RawServer chained = chainedProxy(reset.fault, accepted, ended);
+            bootstrap.withChainProxyManager(always(http(chained.address())));
+            target = "origin.test:443";
+        } else {
+            target = "localhost:" + origin(reset.fault, accepted).port();
+        }
+        HttpProxyServer proxy = start(bootstrap);
+        CountDownLatch beforeHello = reset.fault.afterHello ? new CountDownLatch(0) : ended;
+        assertEquals(502, getThroughConnect(proxy, target, beforeHello), "the CONNECT was answered first: DEFERRED");
+        assertTlsFailed(expected(reset.fault));
+        assertEquals(1, accepted.get());
+        assertEquals(1, handshakeFailures.size());
+    }
+
     @ParameterizedTest
     @EnumSource(Stack.class)
     void everyRouteResettingExhaustsTheRetries(Stack stack) throws Exception {
@@ -375,6 +421,7 @@ class MitmHandshakeClosedTest {
         ProxyFailure.TlsFailed failure = assertInstanceOf(ProxyFailure.TlsFailed.class, tunnel.failure().orElseThrow());
         assertEquals(Reason.CLOSED_DURING_HANDSHAKE, failure.reason());
         assertTrue(tunnel.responseFlags().contains(ResponseFlag.UPSTREAM_CONNECTION_FAILURE), tunnel.responseFlags().toString());
+        assertEquals(java.util.Optional.of(MitmServerHandshake.EAGER), tunnel.serverHandshake());
         assertEquals(1, accepted.get());
         assertEquals(1, handshakeFailures.size());
     }

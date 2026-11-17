@@ -282,6 +282,62 @@ class HttpsProxyForwardingTest {
     }
 
     @Test
+    void aTunnelInsideAnInterceptedSessionDoesNotTakeTheSessionsHandshakeMode() throws Exception {
+        TestSupport.RawServer echo = echoServer();
+        startCorp(false, null);
+        List<FlowRecord> records = new CopyOnWriteArrayList<>();
+        proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy())
+                .plusActivityTracker(new ActivityTrackerAdapter() {
+                    @Override
+                    public void flowEnded(FlowRecord record) {
+                        records.add(record);
+                    }
+                })
+                .start();
+        try (SSLSocket session = h1Session()) {
+            String head = connectInside(session, target(echo));
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            assertEquals("not intercepted", echoBack(session, "not intercepted"));
+        }
+        eventually("both tunnels' records", () -> records.stream().filter(r -> r.kind() == FlowRecord.Kind.TUNNEL)
+                .count() == 2);
+        FlowRecord outer = records.stream().filter(r -> r.request().uri().equals(corpTarget())).findFirst().orElseThrow();
+        FlowRecord inner = records.stream().filter(r -> r.request().uri().equals(target(echo))).findFirst().orElseThrow();
+        assertEquals(java.util.Optional.of(MitmServerHandshake.DEFERRED), outer.serverHandshake());
+        assertEquals(java.util.Optional.empty(), inner.serverHandshake(), "a tunnel the session's server opened");
+    }
+
+    @Test
+    void plainHttpInATunnelInsideAnInterceptedSessionDoesNotTakeTheSessionsHandshakeMode() throws Exception {
+        TestSupport.RawServer plain = closing(TestSupport.rawServer(s -> {
+            readUntil(s.getInputStream(), "\r\n\r\n");
+            write(s.getOutputStream(), "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 5\r\n\r\nplain");
+        }));
+        startCorp(false, null);
+        List<FlowRecord> records = new CopyOnWriteArrayList<>();
+        proxy = microProxy().plusActivityTracker(new ActivityTrackerAdapter() {
+            @Override
+            public void flowEnded(FlowRecord record) {
+                records.add(record);
+            }
+        }).start();
+        try (SSLSocket session = h1Session()) {
+            String head = connectInside(session, target(plain));
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            write(session.getOutputStream(), "GET /plain HTTP/1.1\r\nHost: " + target(plain)
+                    + "\r\nConnection: close\r\n\r\n");
+            String response = new String(session.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(response.endsWith("plain"), response);
+        }
+        eventually("the plain request's record", () -> records.stream()
+                .anyMatch(r -> r.kind() == FlowRecord.Kind.HTTP1 && r.request().uri().endsWith("/plain")));
+        FlowRecord request = records.stream()
+                .filter(r -> r.kind() == FlowRecord.Kind.HTTP1 && r.request().uri().endsWith("/plain"))
+                .findFirst().orElseThrow();
+        assertEquals(java.util.Optional.empty(), request.serverHandshake(), "plain HTTP, no TLS with its server");
+    }
+
+    @Test
     void aClientOfferingOnlyHttp11ReachesTheCorporateProxyOverHttp11() throws Exception {
         TestSupport.RawServer echo = echoServer();
         startCorp(true, null);

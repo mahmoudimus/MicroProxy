@@ -204,6 +204,12 @@ An explicit `EAGER` with a browser profile is kept, and logged once per proxy as
 first time such a handshake runs, from the context it uses): its ClientHello offers the proxy's
 ALPN protocols, not the client's, and no SNI for a client that `CONNECT`s to an IP address.
 
+The mode a flow used is on its records, the tunnel's and those of the requests inside its
+session: `FlowRecord.serverHandshake()`, `%MP_SERVER_HANDSHAKE%` in the access log, and
+`microproxy.mitm_server_handshake` on OpenTelemetry spans. So a `502` reads the same whichever
+record it is on: `TUNNEL 502` with `EAGER`, or `TUNNEL 200` and the first request's `502` with
+`DEFERRED`.
+
 A server that turns out not to speak TLS gets the client's bytes tunnelled, in both modes: one
 that answers the proxy's ClientHello with bytes that are not TLS (a plain HTTP server's `400`).
 A server (or chained proxy) that closes or resets the connection without answering is a failed

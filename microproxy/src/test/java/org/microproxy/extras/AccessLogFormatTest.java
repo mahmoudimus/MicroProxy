@@ -134,6 +134,7 @@ class AccessLogFormatTest {
                 .upstream(new InetSocketAddress("192.0.2.1", 443), new InetSocketAddress("10.0.0.2", 40000),
                         "proxy.test:3128", new Session("TLSv1.3", "TLS_AES_128_GCM_SHA256", serverCert))
                 .upstreamTransportFailureReason("handshake failed")
+                .serverHandshake(org.microproxy.MitmServerHandshake.DEFERRED)
                 .downstreamLocalAddress(new InetSocketAddress("10.0.0.2", 8080))
                 .outcome(EnumSet.of(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED, ResponseFlag.UPSTREAM_CONNECTION_FAILURE),
                         new ProxyFailure.ConnectFailed("example.test:8080", new java.net.ConnectException("refused")),
@@ -242,6 +243,7 @@ class AccessLogFormatTest {
                 Arguments.of("%MP_USER%", "alice"),
                 Arguments.of("%MP_URL%", "http://example.test:8080/a/b?c=d"),
                 Arguments.of("%MP_UPSTREAM_STATUS%", "503"),
+                Arguments.of("%MP_SERVER_HANDSHAKE%", "DEFERRED"),
                 Arguments.of("%MP_TIMING(dns)% %MP_TIMING(connect)% %MP_TIMING(tls)% %MP_TIMING(client_tls)%"
                         + " %MP_TIMING(ttfb)% %MP_TIMING(total)% %MP_TIMING(nope)%",
                         "1.000 2.000 3.000 2.000 10.000 25.000 -"),
@@ -295,12 +297,12 @@ class AccessLogFormatTest {
     void unavailableValuesAreDashes() {
         FlowRecord bare = FlowRecord.builder(new FlowContext(1, () -> null, () -> null, new ClientDetails()),
                 FlowRecord.Kind.QUIC_RELAY).build();
-        assertEquals("- - 0 - - - - - - - - - - - - - - - - false quic_relay",
+        assertEquals("- - 0 - - - - - - - - - - - - - - - - false quic_relay -",
                 render("%START_TIME% %REQ(:METHOD)% %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_SENT% %DURATION%"
                         + " %UPSTREAM_HOST% %UPSTREAM_CLUSTER% %DOWNSTREAM_REMOTE_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS%"
                         + " %DOWNSTREAM_TLS_VERSION% %DOWNSTREAM_PEER_SUBJECT% %REQUESTED_SERVER_NAME%"
                         + " %TLS_JA3_FINGERPRINT% %MP_RESPONSE_SOURCE% %MP_SOCKS_VERSION% %MP_URL% %PROTOCOL%"
-                        + " %RESPONSE_CODE_DETAILS% %MP_EARLY_DATA% %MP_FLOW%", bare));
+                        + " %RESPONSE_CODE_DETAILS% %MP_EARLY_DATA% %MP_FLOW% %MP_SERVER_HANDSHAKE%", bare));
     }
 
     @Test
