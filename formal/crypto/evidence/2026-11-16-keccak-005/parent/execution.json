@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "-I",
+    "-B",
+    "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/parent.py",
+    "_worker",
+    "--request",
+    "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/request.json",
+    "--expected-request-sha256",
+    "e7a2ef9ab44205619316ffcf1aa27a99b519eab0b81c22287a7871acfcea7106"
+  ],
+  "cleanup": "TERM/KILL owned process group after every exit, independent of direct-child state",
+  "environment": {
+    "HOME": "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/child/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TEMP": "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/child/tmp",
+    "TMP": "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/child/tmp",
+    "TMPDIR": "/Volumes/nocache/keccak-requal-2026-11-16/k5/q/qualify/child/tmp",
+    "TZ": "UTC"
+  },
+  "exit": 0,
+  "log": "worker.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
