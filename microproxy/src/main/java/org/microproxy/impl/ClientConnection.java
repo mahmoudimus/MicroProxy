@@ -594,6 +594,8 @@ final class ClientConnection implements Runnable {
          * (TCP, and through chained proxies), and run the handshake later ({@link #startServerTls}).
          */
         boolean deferServerTls;
+        /** This exchange's server handshake runs eagerly because a policy or its filters said so explicitly. */
+        boolean explicitEagerServerTls;
         /**
          * The proxy made up this CONNECT for a connection that arrived without one (transparent TLS,
          * a {@code tcp://} reverse proxy): nothing is written to the client in HTTP.
@@ -3238,9 +3240,12 @@ final class ClientConnection implements Runnable {
 
     /**
      * When the server's TLS handshake runs for {@code ex}, a {@code CONNECT} to intercept: as its
-     * filters say ({@link HttpFilters#proxyToServerMitmHandshake()}), else as its protocol's
-     * policy does. A transparent TLS connection's is always deferred: its ClientHello is read
-     * already, and it gets no answer in HTTP.
+     * filters say ({@link HttpFilters#proxyToServerMitmHandshake()}); else as its protocol's
+     * policy sets explicitly ({@link org.microproxy.ProtocolPolicy#mitmServerHandshakeExplicit()});
+     * else as the connection's MITM manager prefers ({@link MitmManager#preferredServerHandshake()},
+     * deferred for a browser profile's contexts); else as the policy's preset does. A transparent
+     * TLS connection's is always deferred: its ClientHello is read already, and it gets no answer
+     * in HTTP.
      */
     private MitmServerHandshake mitmServerHandshake(Exchange ex) {
         if (ex.implicit && ex.socks == 0) return MitmServerHandshake.DEFERRED;
@@ -3250,7 +3255,38 @@ final class ClientConnection implements Runnable {
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, ex.log + "proxyToServerMitmHandshake threw; using the policy's", e);
         }
-        return own != null ? own : ex.policy.mitmServerHandshake();
+        if (own != null) {
+            ex.explicitEagerServerTls = own == MitmServerHandshake.EAGER;
+            return own;
+        }
+        MitmServerHandshake policy = ex.policy.mitmServerHandshake();
+        if (ex.policy.policy().mitmServerHandshakeExplicit()) {
+            ex.explicitEagerServerTls = policy == MitmServerHandshake.EAGER;
+            return policy;
+        }
+        // Over a preset's mode (LittleProxy's EAGER), the manager's: a browser profile's contexts need DEFERRED.
+        MitmServerHandshake preferred = null;
+        try {
+            preferred = connectionMitm.preferredServerHandshake().orElse(null);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "preferredServerHandshake threw; using the policy's", e);
+        }
+        return preferred != null ? preferred : policy;
+    }
+
+    /**
+     * Warns, once per proxy, that {@code ex}'s server handshake runs eagerly, as set explicitly,
+     * with a browser profile's {@code context}: its ClientHello cannot mirror the client's.
+     */
+    private void warnEagerBrowserProfile(Exchange ex, SSLContext context) {
+        if (ex.explicitEagerServerTls
+                && org.microproxy.tls.SslContexts.isBrowserProfile(context)
+                && server.warnedEagerBrowserProfile.compareAndSet(false, true)) {
+            LOG.log(Level.WARNING, "the MITM server handshake is EAGER, set explicitly (by a protocol policy or a"
+                    + " filter's proxyToServerMitmHandshake), with a browser profile's server context: its ClientHello"
+                    + " cannot mirror the client's (ALPN, and SNI for a client that connects by IP address); DEFERRED"
+                    + " lets the profile emulate the browser. Logged once per proxy.");
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -6061,6 +6097,7 @@ final class ClientConnection implements Runnable {
         MitmManager manager = connectionMitm;
         SSLContext context = serverTlsContext(manager, target, serverContext);
         ex.serverTlsContext = context;
+        warnEagerBrowserProfile(ex, context);
         ProxyStats.ClusterStats cluster = server.stats.cluster(serverContext.getChainedProxy(), hostAndPort);
         // The filters' identity, if any, over the names derived from the request.
         TlsServerIdentity identity = tlsIdentity(ex, hostAndPort);

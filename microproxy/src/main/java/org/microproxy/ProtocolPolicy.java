@@ -42,7 +42,9 @@ import java.util.Optional;
  * policy of the protocol they speak to it; transparent QUIC and the QUIC inside a CONNECT-UDP
  * flow are HTTP/3.
  *
- * <p>Instances are immutable and thread-safe, and equal when they set the same fields alike.
+ * <p>Instances are immutable and thread-safe, and equal when they set the same fields alike (a
+ * {@link #mitmServerHandshake()} from a built-in preset is not alike one set explicitly: {@link
+ * #mitmServerHandshakeExplicit()}).
  */
 public final class ProtocolPolicy {
 
@@ -57,6 +59,7 @@ public final class ProtocolPolicy {
             .requestHeadTimeout(Duration.ofSeconds(30))
             .generatedResponses(GeneratedResponses.REPLACEABLE)
             .mitmServerHandshake(MitmServerHandshake.DEFERRED)
+            .asPreset()
             .build();
 
     private static final ProtocolPolicy LITTLE_PROXY = new Builder()
@@ -68,6 +71,7 @@ public final class ProtocolPolicy {
             .requestHeadTimeout(Duration.ofSeconds(30))
             .generatedResponses(GeneratedResponses.REPLACEABLE)
             .mitmServerHandshake(MitmServerHandshake.EAGER)
+            .asPreset()
             .build();
 
     private final Boolean resolveBeforeProxyToServerRequest;
@@ -79,6 +83,8 @@ public final class ProtocolPolicy {
     private final Boolean allowChunkedLength;
     private final GeneratedResponses generatedResponses;
     private final MitmServerHandshake mitmServerHandshake;
+    /** {@link #mitmServerHandshake} came from a built-in preset ({@link #defaults()}, {@link #littleProxy()}). */
+    private final boolean mitmServerHandshakeFromPreset;
 
     private ProtocolPolicy(Builder b) {
         resolveBeforeProxyToServerRequest = b.resolveBeforeProxyToServerRequest;
@@ -90,6 +96,7 @@ public final class ProtocolPolicy {
         allowChunkedLength = b.allowChunkedLength;
         generatedResponses = b.generatedResponses;
         mitmServerHandshake = b.mitmServerHandshake;
+        mitmServerHandshakeFromPreset = b.mitmServerHandshake != null && b.mitmServerHandshakeFromPreset;
     }
 
     /**
@@ -306,6 +313,21 @@ public final class ProtocolPolicy {
     }
 
     /**
+     * Whether {@link #mitmServerHandshake()} was set explicitly: by {@link
+     * Builder#mitmServerHandshake} (or its configuration name, {@code mitm_server_handshake}),
+     * here or in a policy this one was built from, rather than taken from a built-in preset
+     * ({@link #defaults()}, {@link #littleProxy()}). A preset's value gives way to the MITM
+     * manager's preference ({@link MitmManager#preferredServerHandshake()}), such as {@link
+     * MitmServerHandshake#DEFERRED} for a browser profile's contexts, so that the server's
+     * ClientHello can mirror the client's; an explicit value is kept.
+     *
+     * @return true when the field is set, and not by a built-in preset
+     */
+    public boolean mitmServerHandshakeExplicit() {
+        return mitmServerHandshake != null && !mitmServerHandshakeFromPreset;
+    }
+
+    /**
      * HTTP/1 only: whether an HTTP/1.1 request with both {@code Transfer-Encoding} and {@code
      * Content-Length} is accepted (see {@link HttpProxyServerBootstrap#withAllowChunkedLength}).
      * Set with {@link Http1PolicyBuilder#allowChunkedLength}; a policy for other protocols
@@ -342,14 +364,15 @@ public final class ProtocolPolicy {
                 && Objects.equals(requestHeadTimeout, p.requestHeadTimeout)
                 && Objects.equals(allowChunkedLength, p.allowChunkedLength)
                 && generatedResponses == p.generatedResponses
-                && mitmServerHandshake == p.mitmServerHandshake;
+                && mitmServerHandshake == p.mitmServerHandshake
+                && mitmServerHandshakeFromPreset == p.mitmServerHandshakeFromPreset;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(resolveBeforeProxyToServerRequest, filterConnectAnswer, servePlainHttpAfterConnect,
                 proxyProtocolDestination, tlsRetryWithoutSni, requestHeadTimeout, allowChunkedLength, generatedResponses,
-                mitmServerHandshake);
+                mitmServerHandshake, mitmServerHandshakeFromPreset);
     }
 
     /**
@@ -399,6 +422,7 @@ public final class ProtocolPolicy {
         Boolean allowChunkedLength;
         GeneratedResponses generatedResponses;
         MitmServerHandshake mitmServerHandshake;
+        boolean mitmServerHandshakeFromPreset;
 
         Builder() {}
 
@@ -425,7 +449,10 @@ public final class ProtocolPolicy {
             if (p.tlsRetryWithoutSni != null) tlsRetryWithoutSni = p.tlsRetryWithoutSni;
             if (p.requestHeadTimeout != null) requestHeadTimeout = p.requestHeadTimeout;
             if (p.generatedResponses != null) generatedResponses = p.generatedResponses;
-            if (p.mitmServerHandshake != null) mitmServerHandshake = p.mitmServerHandshake;
+            if (p.mitmServerHandshake != null) {
+                mitmServerHandshake = p.mitmServerHandshake;
+                mitmServerHandshakeFromPreset = p.mitmServerHandshakeFromPreset;
+            }
             if (http1Fields && p.allowChunkedLength != null) allowChunkedLength = p.allowChunkedLength;
         }
 
@@ -516,6 +543,13 @@ public final class ProtocolPolicy {
          */
         public Builder mitmServerHandshake(MitmServerHandshake value) {
             mitmServerHandshake = Objects.requireNonNull(value, "mitmServerHandshake");
+            mitmServerHandshakeFromPreset = false;
+            return this;
+        }
+
+        /** Marks what is set so far as a built-in preset's ({@link ProtocolPolicy#mitmServerHandshakeExplicit()}). */
+        Builder asPreset() {
+            mitmServerHandshakeFromPreset = true;
             return this;
         }
 

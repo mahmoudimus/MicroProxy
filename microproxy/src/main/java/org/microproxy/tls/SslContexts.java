@@ -34,6 +34,38 @@ public final class SslContexts {
     private SslContexts() {}
 
     /**
+     * Whether {@code context} is a browser profile's ({@link BrowserProfile#sslContext}, or any
+     * context {@code io.github.mahmoudimus.quic.tls.FingerprintSslContext} built), whose sockets
+     * present a browser's ClientHello. False without the {@code quic} module on the class path,
+     * where no such context can exist.
+     *
+     * @param context the context, or null
+     * @return true for a browser profile's context
+     */
+    public static boolean isBrowserProfile(SSLContext context) {
+        return context != null && Fingerprints.PRESENT && Fingerprints.is(context);
+    }
+
+    /** The {@code quic} module's fingerprint contexts, touched only when the module is present. */
+    private static final class Fingerprints {
+        static final boolean PRESENT = present();
+
+        private static boolean present() {
+            try {
+                Class.forName("io.github.mahmoudimus.quic.tls.FingerprintSslContext", false,
+                        SslContexts.class.getClassLoader());
+                return true;
+            } catch (ClassNotFoundException | LinkageError e) {
+                return false;
+            }
+        }
+
+        static boolean is(SSLContext context) {
+            return io.github.mahmoudimus.quic.tls.FingerprintSslContext.isFingerprint(context);
+        }
+    }
+
+    /**
      * How a context made by this class validates servers: its trust manager, which trusts every
      * server for {@link #trustAll()}. Contexts made elsewhere are unknown, except the JDK's
      * default context ({@link SSLContext#getDefault()}), whose trust is the JDK's default trust
