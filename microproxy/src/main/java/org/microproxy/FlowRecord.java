@@ -282,8 +282,9 @@ public final class FlowRecord {
      * When the proxy ran its TLS handshake with the server of an intercepted {@code CONNECT}, as
      * it was resolved for this flow: from the request's filters ({@link
      * HttpFilters#proxyToServerMitmHandshake()}), the protocol policy ({@link
-     * ProtocolPolicy#mitmServerHandshake()}), or {@link MitmServerHandshake#DEFERRED} for a
-     * browser profile's context or a transparent TLS connection. The {@code CONNECT}'s tunnel
+     * ProtocolPolicy#mitmServerHandshake()}), the MITM manager's preference ({@link
+     * MitmManager#preferredServerHandshake()}), or {@link MitmServerHandshake#DEFERRED} for a
+     * transparent TLS connection. The {@code CONNECT}'s tunnel
      * record and the records of the requests inside its intercepted session carry it, so that a
      * {@code 502} reads the same either way: on the tunnel's record with {@link
      * MitmServerHandshake#EAGER}, on the first request's with {@link MitmServerHandshake#DEFERRED}.
