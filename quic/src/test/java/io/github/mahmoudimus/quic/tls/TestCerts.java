@@ -143,6 +143,7 @@ public final class TestCerts {
         /** The fixed start of validity of a deterministic authority, or null for a day ago. */
         private final Instant validFrom;
         private final Map<KeyType, KeyPair> leafKeys = new ConcurrentHashMap<>();
+        private final String name;
 
         Authority(String name) {
             this(name, null, null);
@@ -151,12 +152,21 @@ public final class TestCerts {
         private Authority(String name, SecureRandom random, Instant validFrom) {
             this.random = random;
             this.validFrom = validFrom;
+            this.name = name;
             key = random != null ? generate(KeyType.P256, random) : generate(KeyType.P256);
             certificate = sign(name, key.getPublic(), key.getPrivate(), null, true, List.of());
         }
 
         public X509TrustManager trustManager() {
             return TestCerts.trustManager(certificate);
+        }
+
+        /**
+         * This authority's certificate as {@code signer} issues it: the same subject and key, so
+         * a copy of the root that chains on to {@code signer} (a cross-signature).
+         */
+        public X509Certificate crossSignedBy(Authority signer) {
+            return sign(name, key.getPublic(), signer.key.getPrivate(), signer.certificate, true, List.of());
         }
 
         /** A leaf for {@code names} (DNS names or IP literals) with the shared key of {@code type}. */

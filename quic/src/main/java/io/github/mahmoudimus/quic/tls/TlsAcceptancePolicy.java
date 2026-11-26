@@ -22,6 +22,7 @@ import java.security.spec.NamedParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.XECPublicKeySpec;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -263,14 +264,43 @@ final class TlsAcceptancePolicy {
         algorithm(SIGNATURE, scheme.jcaAlgorithm(), key, params, true);
     }
 
+    /**
+     * Applies the policy to every certificate a certification path from the leaf could use: the
+     * leaf, and each chain certificate reachable from it through issuers whose keys verify it,
+     * with every such issuer edge checked. The JDK may build its path through any of them, so
+     * none is skipped, including chain copies of an accepted issuer.
+     *
+     * <p>A chain certificate other than the leaf that nothing verifies cannot be on a path and is
+     * not checked. A server may send a cross-signed copy of an accepted root whose own issuer the
+     * trust manager no longer carries (flex.cybersource.com sends SSL.com TLS ECC Root CA 2022
+     * signed by Comodo AAA, which current JDKs do not ship); such a dead end fails the chain only
+     * when no branch reaches an accepted issuer, as before. A branch that ends in a self-signed
+     * certificate or a loop is left to the trust manager.
+     */
     void certificates(List<X509Certificate> chain) throws QuicException {
         if (chain.isEmpty()) throw rejected("missing peer certificates");
-        for (int i = 0; i < chain.size(); i++) {
-            X509Certificate cert = chain.get(i);
-            key(SIGNATURE, cert.getPublicKey(), false);
+        X509Certificate leaf = chain.get(0);
+        Set<X509Certificate> seen = new HashSet<>();
+        ArrayDeque<X509Certificate> pending = new ArrayDeque<>();
+        pending.add(leaf);
+        seen.add(leaf);
+        boolean anchored = false;
+        QuicException unissued = null;
+        while (!pending.isEmpty()) {
+            X509Certificate cert = pending.poll();
             // An accepted anchor's own certificate signature does not establish the chain.
             // Its public key is still constrained when it verifies a child's signature.
-            if (acceptedIssuers.contains(cert)) continue;
+            if (acceptedIssuers.contains(cert)) {
+                key(SIGNATURE, cert.getPublicKey(), false);
+                anchored = true;
+                continue;
+            }
+            List<X509Certificate> issuers = verifiedIssuers(cert, chain);
+            if (issuers.isEmpty() && cert != leaf) {
+                if (unissued == null) unissued = noIssuer();
+                continue;
+            }
+            key(SIGNATURE, cert.getPublicKey(), false);
             AlgorithmParameters params = null;
             if (cert.getSigAlgParams() != null) {
                 try {
@@ -284,31 +314,52 @@ final class TlsAcceptancePolicy {
                 pssCertificateParameters(params);
             }
             algorithm(SIGNATURE, cert.getSigAlgName(), null, params, false);
-            PublicKey issuer = verifiedIssuerKey(cert, chain);
-            algorithm(SIGNATURE, cert.getSigAlgName(), issuer, params, false);
+            if (issuers.isEmpty()) {
+                if (unissued == null) unissued = noIssuer();
+                continue;
+            }
+            for (X509Certificate issuer : issuers) {
+                algorithm(SIGNATURE, cert.getSigAlgName(), issuer.getPublicKey(), params, false);
+                if (acceptedIssuers.contains(issuer)) {
+                    anchored = true;
+                } else if (seen.add(issuer)) {
+                    pending.add(issuer);
+                }
+            }
         }
+        if (!anchored && unissued != null) throw unissued;
     }
 
-    /** Direct signer lookup only: no network, AIA fetches or certification-path search. */
-    private PublicKey verifiedIssuerKey(X509Certificate certificate, List<X509Certificate> chain) throws QuicException {
-        List<X509Certificate> candidates = new ArrayList<>(chain);
-        candidates.addAll(acceptedIssuers);
+    private static QuicException noIssuer() {
+        return untrustedIssuer("cannot establish the certificate issuer key from the supplied chain and accepted issuers");
+    }
+
+    /**
+     * The accepted issuers and chain certificates whose keys verify {@code certificate}, accepted
+     * issuers first. Direct signer lookup only: no network, AIA fetches or certification-path
+     * search; at most {@link #MAX_ISSUER_VERIFICATIONS} signature checks per certificate.
+     */
+    private List<X509Certificate> verifiedIssuers(X509Certificate certificate, List<X509Certificate> chain)
+            throws QuicException {
+        List<X509Certificate> candidates = new ArrayList<>(acceptedIssuers);
+        candidates.addAll(chain);
+        List<X509Certificate> verified = new ArrayList<>();
         int attempts = 0;
         for (X509Certificate candidate : candidates) {
             if (!certificate.getIssuerX500Principal().equals(candidate.getSubjectX500Principal())) continue;
+            if (verified.contains(candidate)) continue;
             if (attempts >= MAX_ISSUER_VERIFICATIONS) {
                 throw rejected("certificate issuer verification budget exceeded");
             }
             attempts++;
             try {
-                PublicKey issuerKey = candidate.getPublicKey();
-                certificate.verify(issuerKey);
-                return issuerKey;
+                certificate.verify(candidate.getPublicKey());
+                verified.add(candidate);
             } catch (GeneralSecurityException | RuntimeException e) {
                 // A matching name is insufficient; try another candidate within the same bound.
             }
         }
-        throw untrustedIssuer("cannot establish the certificate issuer key from the supplied chain and accepted issuers");
+        return verified;
     }
 
     /**
