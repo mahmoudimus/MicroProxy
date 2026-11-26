@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "-I",
+    "-B",
+    "/Volumes/code/work/keccak006/q/run/qualify/parent.py",
+    "_worker",
+    "--request",
+    "/Volumes/code/work/keccak006/q/run/qualify/request.json",
+    "--expected-request-sha256",
+    "192d54aee3b7a52e70c5bd51d226ebce5863f6aac14a21973f2bae945eac21a1"
+  ],
+  "cleanup": "TERM/KILL owned process group after every exit, independent of direct-child state",
+  "environment": {
+    "HOME": "/Volumes/code/work/keccak006/q/run/qualify/child/home",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TEMP": "/Volumes/code/work/keccak006/q/run/qualify/child/tmp",
+    "TMP": "/Volumes/code/work/keccak006/q/run/qualify/child/tmp",
+    "TMPDIR": "/Volumes/code/work/keccak006/q/run/qualify/child/tmp",
+    "TZ": "UTC"
+  },
+  "exit": 0,
+  "log": "worker.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

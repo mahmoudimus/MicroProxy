@@ -1,0 +1,20 @@
+{
+  "all_actual_JAR_maps_and_current_checkout_inputs_reauthenticated": true,
+  "all_raw_command_and_classload_logs_authenticated": true,
+  "api_report_sha256": "84e6c254cc8249282deb7e200f5c958ca71f51cb262c09b56354d0d5f0d30b43",
+  "artifact_source": "GitHub Packages https://maven.pkg.github.com/mahmoudimus/MicroProxy (Maven Central blocked the namespace until 2026-12-01; 0.10.0 is not on Central)",
+  "bundle_sha256": "63af8d221a75f187b68f1642e0936000245b6e5c3fefb87b7d4ca51288212249",
+  "crypto_classes": 84,
+  "handshakes_each_JDK": 9,
+  "library_classes": 468,
+  "library_sha256": "ee86938869c455827305712591b250104f6a47158db198e90baef39782ca20c3",
+  "nonce_cases_each_JDK": 9,
+  "notices": 3,
+  "parent_report_sha256": "590143cf8b83b695834503961aede615eb6b6c63fd8d212cb609a8ff711b7149",
+  "qualification": false,
+  "qualified_commit": "b80932f387b69b50276fd6a4d87bd65a6156955b",
+  "runtime_classes": 37,
+  "scope": "retained Darwin-arm64 parent qualification and exact published GitHub Packages 0.10.0 library/bundle/current-checkout identity",
+  "source_files": 468,
+  "status": "authenticated"
+}
