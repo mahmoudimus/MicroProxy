@@ -72,6 +72,217 @@ class FlowFilterTest {
         assertFalse(matches("~m POST", request()));
     }
 
+    private static FlowFilter.Flow at(String url) {
+        return FlowFilter.flow(get(), url, null);
+    }
+
+    @Test
+    void urlRulesSeeTheNormalizedUrlSoEscapesAndDefaultPortsCannotSlipPastADeny() {
+        // Percent-escapes of unreserved characters are decoded: /%61ds/ is /ads/ to the origin.
+        assertTrue(matches("~u /ads/", at("http://example.com/%61ds/x")));
+        assertTrue(matches("~u /ads/", at("http://example.com/a%64%73/x")));
+        assertTrue(matches("~u \"/a-b_c\\\\.d~e\"", at("http://example.com/a%2Db%5Fc%2Ed%7Ee")));
+        assertTrue(matches("/ads/", at("http://example.com/%61ds/x")), "a bare regex is a URL rule too");
+        // The default port of the scheme is dropped; the host is lower case.
+        assertTrue(matches("~u ^https://example\\.com/", at("https://example.com:443/x")));
+        assertTrue(matches("~u ^http://example\\.com/", at("http://example.com:80/x")));
+        assertTrue(matches("~u ^https://example\\.com/", at("HTTPS://Example.COM:443/x")));
+        assertTrue(matches("~u ^https://\\[::1\\]/", at("https://[::1]:443/x")));
+        // The proxy routes on the host after the last @: user info is not part of the URL rules see.
+        assertTrue(matches("~u ^https://example\\.com/", at("https://u@example.com:443/x")));
+        assertTrue(matches("~u ^http://example\\.com/", at("http://a:b@example.com/x")));
+        assertFalse(matches("~u ^http://example\\.com", at("http://example.com:80@evil.test/x")),
+                "the host is evil.test, whatever comes before the @");
+        // Ports as the proxy parses them: :080, :+80 and an empty port are port 80.
+        assertTrue(matches("~u ^http://example\\.com/", at("http://example.com:080/x")));
+        assertTrue(matches("~u ^http://example\\.com/", at("http://example.com:+80/x")));
+        assertTrue(matches("~u ^http://example\\.com/", at("http://example.com:/x")));
+        assertTrue(matches("~u ^https://example\\.com:8443/", at("https://example.com:08443/x")));
+        // A trailing dot names the same host.
+        assertTrue(matches("~u ^https://example\\.com/", at("https://example.com./x")));
+        assertTrue(matches("~u ^https://example\\.com/", at("https://example.com.:443/x")));
+        // Dot segments, escaped or not, are resolved as the origin resolves them.
+        assertTrue(matches("~u ^https://example\\.com/admin", at("https://example.com/./admin")));
+        assertTrue(matches("~u ^https://example\\.com/admin", at("https://example.com/x/../admin")));
+        assertTrue(matches("~u ^https://example\\.com/admin", at("https://example.com/x/%2E%2E/admin")));
+        assertTrue(matches("~u ^https://example\\.com/admin", at("https://example.com/%2e/admin")));
+        assertTrue(matches("~u ^https://example\\.com/admin\\?q=/\\.\\./", at("https://example.com/admin?q=/../")),
+                "only the path is resolved");
+        // Other ports, and escapes of reserved or non-ASCII bytes, are kept.
+        assertTrue(matches("~u ^https://example\\.com:8443/", at("https://example.com:8443/x")));
+        assertTrue(matches("~u ^http://example\\.com:443/", at("http://example.com:443/x")));
+        assertTrue(matches("~u /a%2Fb", at("http://example.com/a%2Fb")));
+        assertFalse(matches("~u /a/b", at("http://example.com/a%2Fb")));
+        assertTrue(matches("~u q=%26", at("http://example.com/?q=%26")));
+        // Malformed escapes are left as they are.
+        assertTrue(matches("~u /%6g%", at("http://example.com/%6g%")));
+    }
+
+    @Test
+    void anOriginFormRequestIsNormalizedFromItsHostHeader() {
+        HttpRequest r = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/%61ds/../ads/x");
+        r.headers().set("Host", "EXAMPLE.com:080");
+        FlowFilter.Flow flow = FlowFilter.flow(r, RewriteRules.absoluteUrl(r, null), null);
+        assertTrue(matches("~u ^http://example\\.com/ads/x$", flow));
+    }
+
+    @Test
+    void longDotSegmentRunsNormalizeInLinearTime() {
+        String path = "/a/..".repeat(200_000) + "/x";
+        long started = System.nanoTime();
+        assertEquals("http://example.com/x", FlowFilter.normalizedUrl("http://example.com" + path));
+        assertTrue(System.nanoTime() - started < 10_000_000_000L, "linear: a 1 MB path takes milliseconds; quadratic copying would take minutes");
+    }
+
+    @Test
+    void rulesWrittenForTheOldSpellingAreFlagged() {
+        assertTrue(FlowFilter.looksStale("/%61ds/"));
+        assertTrue(FlowFilter.looksStale("%2e%2e"));
+        assertTrue(FlowFilter.looksStale("^https://example\\.com:443/"));
+        assertTrue(FlowFilter.looksStale("^http://example\\.com:80$"));
+        assertTrue(FlowFilter.looksStale("^https://[^/]*@"));
+        assertTrue(FlowFilter.looksStale("/\\.\\./"));
+        assertTrue(FlowFilter.looksStale("\\.\\./"));
+        assertTrue(FlowFilter.looksStale("/\\.\\.$"));
+        assertTrue(FlowFilter.looksStale("/\\.\\.(/|$)"));
+        assertTrue(FlowFilter.looksStale("/../"));
+        // Still live: a non-default port, ports that only start with 80/443, other escapes.
+        assertFalse(FlowFilter.looksStale("^http://example\\.com:443/"));
+        assertFalse(FlowFilter.looksStale("^https://example\\.com:80/"));
+        assertFalse(FlowFilter.looksStale("^http://example\\.com:8080/"));
+        assertFalse(FlowFilter.looksStale("^http://example\\.com:80\\d\\d/"));
+        assertFalse(FlowFilter.looksStale("^https://example\\.com:443[0-9]/"));
+        assertFalse(FlowFilter.looksStale("/a%2Fb"));
+        assertFalse(FlowFilter.looksStale("/ads/"));
+        assertFalse(FlowFilter.looksStale("\\.(js|css)$"));
+        assertFalse(FlowFilter.looksStale("/\\.(git|env)"));
+        assertFalse(FlowFilter.looksStale("/\\."));
+        assertTrue(FlowFilter.looksStale("/\\./"));
+        assertTrue(FlowFilter.looksStale("^https://[^/]+:443/"));
+        assertFalse(FlowFilter.looksStale("^https://example\\.com/a@b"), "an @ in the path is not user info");
+        assertFalse(FlowFilter.looksStale("page\\.html"));
+    }
+
+    @Test
+    void aDomainRuleIgnoresATrailingDot() {
+        assertTrue(matches("~d ^example\\.com$", at("https://example.com./x")));
+        HttpRequest r = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/x");
+        r.headers().set("Host", "example.com.:443");
+        assertTrue(matches("~d ^example\\.com$", FlowFilter.flow(r, "https://other.test/x", null)));
+    }
+
+    @Test
+    void decodeQuery() {
+        assertEquals("https://e.test/dl?file=/files/x", FlowFilter.decodeQuery("https://e.test/dl?file=%2Ffiles%2Fx"));
+        assertEquals("https://e.test/?q=é&r=%", FlowFilter.decodeQuery("https://e.test/?q=%C3%A9&r=%"));
+        assertEquals("https://e.test/?q=\uFFFD", FlowFilter.decodeQuery("https://e.test/?q=%C3"), "malformed UTF-8 is replaced");
+        assertEquals("https://e.test/a%2Fb?x=/#f/", FlowFilter.decodeQuery("https://e.test/a%2Fb?x=%2F#f%2F"),
+                "the path is not decoded; everything after ? is");
+        assertEquals("https://e.test/?cmd=rm -rf", FlowFilter.decodeQuery("https://e.test/?cmd=rm+-rf"), "+ is a space");
+        assertEquals("https://e.test/?n=a%0Ab%C2%85c", FlowFilter.decodeQuery("https://e.test/?n=a%0ab%c2%85c"),
+                "decoded line terminators stay escaped");
+        assertEquals("https://e.test/a%2Fb", FlowFilter.decodeQuery("https://e.test/a%2Fb"));
+        assertEquals(null, FlowFilter.queryDecoded(at("https://e.test/dl?file=/x")), "nothing to decode");
+    }
+
+    @Test
+    void aLineTerminatorInTheUrlCannotSatisfyAnAnchor() {
+        // U+0085 arrives as the raw byte 0x85 (ISO-8859-1); java.util.regex treats it as a line end.
+        assertFalse(matches("~u ^http://good\\.example/", at("http://evil.test/?\u0085http://good.example/")));
+        assertFalse(matches("~u ^https://e\\.test/dl\\?file=/ok$", at("https://e.test/dl?file=/ok\u0085&admin=1")));
+        assertFalse(matches("~u ^https://e\\.test/ok$", at("https://e.test/ok\u2028x")));
+        assertEquals("https://e.test/a%85b", FlowFilter.normalizedUrl("https://e.test/a\u0085b"));
+    }
+
+    @Test
+    void theDecodedViewCoversFragmentsPlusAndEscapedNewlines() {
+        assertTrue(blocks("~u [?&]file=/files/x", "https://e.test/get?a=1#&file=%2Ffiles%2Fx"));
+        assertTrue(blocks("~u [?&]next=//.*evil\\.example", "https://e.test/?next=%2F%2Fx%0Aevil.example"));
+        assertTrue(blocks("~u \"[?&]cmd=rm -rf\"", "https://e.test/?cmd=rm+-rf"));
+        assertTrue(blocks("~u \"[?&]cmd=rm -rf\"", "https://e.test/?cmd=rm%20-rf"));
+    }
+
+    @Test
+    void theDecodedViewIsOnlyForFiltersWithAUrlRule() {
+        assertTrue(FlowFilter.parse("~u x").usesUrl());
+        assertTrue(FlowFilter.parse("x").usesUrl());
+        assertTrue(FlowFilter.parse("~m GET & !(~u x | ~d y)").usesUrl());
+        assertFalse(FlowFilter.parse("~bq secret").usesUrl());
+        assertFalse(FlowFilter.parse("~d example\\.com & ~m POST").usesUrl());
+    }
+
+    /** As {@link BlockList} applies a rule: it blocks when it matches either URL form. */
+    private static boolean blocks(String rule, String url) {
+        FlowFilter filter = FlowFilter.parse(rule);
+        FlowFilter.Flow flow = at(url);
+        FlowFilter.Flow decoded = FlowFilter.queryDecoded(flow);
+        return filter.matches(flow) || (decoded != null && filter.matches(decoded));
+    }
+
+    @Test
+    void sharedUrlFilterCasesWithTheBrowserAddOn() {
+        // starlarky-addons urlFiltersMatchTheCanonicalUrlNotItsSpelling: deny rules.
+        String bundle = "~u fabulous\\.bundle\\.js";
+        String chat = "~u ^https://checkout\\.example\\.test/chat\\.js$";
+        for (String url : new String[] {"https://shop.example/files/fabulous.bundle.js",
+                "https://shop.example/files/%66abulous.bundle.js", "https://shop.example/files/fabulous%2Ebundle.js"}) {
+            assertTrue(blocks(bundle, url), url);
+        }
+        for (String url : new String[] {"https://checkout.example.test:443/chat.js", "https://CHECKOUT.example.test/chat.js",
+                "https://checkout.example.test/%63hat.js"}) {
+            assertTrue(blocks(chat, url), url);
+        }
+        assertFalse(blocks(chat, "https://checkout.example.test:8443/chat.js"));
+        assertFalse(blocks(bundle, "https://shop.example/files/app.bundle.js"));
+        String file = "~u [?&]file=/files/fabulous\\.bundle\\.js";
+        assertTrue(blocks(file, "https://shop.example/dl?file=/files/fabulous.bundle.js"));
+        assertTrue(blocks(file, "https://shop.example/dl?file=%2Ffiles%2Ffabulous.bundle.js"));
+        assertFalse(blocks(file, "https://shop.example/dl?file=%2Ffiles%2Fapp.bundle.js"));
+        // Allow-only, written for BlockList as "block what is not allowed".
+        String allow = "!(~u ^https://checkout\\.example\\.test/pay$ | ~u ^https://checkout\\.example\\.test/dl\\?file=/ok$)";
+        assertTrue(blocks(allow, "https://checkout.example.test/dl?file=%2Fok"), "decoding does not widen an allow");
+        assertFalse(blocks(allow, "https://checkout.example.test:443/%70ay"));
+        assertTrue(blocks(allow, "https://checkout.example.test/pay?next=1"));
+    }
+
+    @Test
+    void anAllowRuleSeesTheNormalizedUrlAsWell() {
+        // !~u /public/ blocks everything else; an escaped /public/ is still /public/.
+        assertFalse(matches("!~u /public/", at("http://example.com/%70ublic/x")));
+        assertTrue(matches("!~u /public/", at("http://example.com/other/x")));
+    }
+
+    @Test
+    void normalizedUrl() {
+        assertEquals("https://example.com/ads/?q=%26#f", FlowFilter.normalizedUrl("HTTPS://EXAMPLE.com:443/%61ds/?q=%26#f"));
+        assertEquals("http://example.com", FlowFilter.normalizedUrl("http://Example.com:80"));
+        assertEquals("http://example.com:8080/", FlowFilter.normalizedUrl("http://example.com:8080/"));
+        assertEquals("http://example.com/%C3%A9%2F", FlowFilter.normalizedUrl("http://example.com/%c3%a9%2f"),
+                "other escapes stay escaped, in upper-case hex");
+        assertEquals("http://example.com/%\u0663\u0663", FlowFilter.normalizedUrl("http://example.com/%\u0663\u0663"),
+                "only ASCII hex digits make an escape");
+        assertEquals("example.com/x", FlowFilter.normalizedUrl("example.com/x"), "not absolute: only escapes change");
+        assertEquals("http://example.com/%2561", FlowFilter.normalizedUrl("http://example.com/%2561"), "decoded once only");
+        assertEquals("http://example.com/%6", FlowFilter.normalizedUrl("http://example.com/%6"));
+        assertEquals("http://[::1]/", FlowFilter.normalizedUrl("http://[::1]/"));
+        assertEquals("http://[::1]:8080/", FlowFilter.normalizedUrl("http://[::1]:08080/"));
+        assertEquals("http://[fe80::1%25en0]/", FlowFilter.normalizedUrl("http://[fe80::1%25en0]:80/"));
+        assertEquals("http://[fe80::1%31]/", FlowFilter.normalizedUrl("http://[fe80::1%31]/"), "zone ids are not decoded");
+        // As URI.toASCIIString() hands them over: non-ASCII stays escaped, IDN hosts are punycode.
+        assertEquals("https://xn--mnchen-3ya.example/stra%C3%9Fe/%C3%BC?q=%C3%BC",
+                FlowFilter.normalizedUrl("https://XN--MNCHEN-3YA.example/stra%c3%9fe/%c3%bc?q=%c3%bc"));
+        assertEquals("foo://h:-1/", FlowFilter.normalizedUrl("foo://h:-1/"), "no default port for an unknown scheme");
+        assertEquals("http://", FlowFilter.normalizedUrl("http://"));
+        assertEquals("a:b://x", FlowFilter.normalizedUrl("a:b://x"));
+        assertEquals("http://example.com:99999/", FlowFilter.normalizedUrl("http://example.com:99999/"), "not a port: kept");
+        assertEquals("http://example.com/a/g", FlowFilter.normalizedUrl("http://example.com/a/b/c/./../../g"));
+        assertEquals("http://example.com/", FlowFilter.normalizedUrl("http://example.com/../../"));
+        assertEquals("http://example.com/a/", FlowFilter.normalizedUrl("http://example.com/a/b/.."));
+        assertEquals("http://example.com//admin", FlowFilter.normalizedUrl("http://example.com//admin"), "empty segments stay");
+        assertEquals("http://example.com/x/admin", FlowFilter.normalizedUrl("http://example.com/x//../admin"),
+                "RFC 3986: .. removes the empty segment (an origin that merges slashes first serves /admin)");
+    }
+
     @Test
     void headersAndContentTypes() {
         assertTrue(matches("~h user-agent:\\scurl", request()));

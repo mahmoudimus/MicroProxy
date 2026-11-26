@@ -36,7 +36,13 @@ import org.microproxy.http.HttpUtil;
  *   <caption>Operators</caption>
  *   <tr><th>expression</th><th>matches</th></tr>
  *   <tr><td>{@code ~u regex}, or a bare {@code regex}</td><td>the URL (absolute, {@code https://}
- *       inside intercepted sessions)</td></tr>
+ *       inside intercepted sessions), normalized: lower-case scheme and host, no user info, no
+ *       trailing dot on the host, the port as the proxy reads it ({@code :080}, {@code :+80} and
+ *       {@code :} are port 80) and dropped when it is the scheme's default, escapes of
+ *       unreserved characters (letters, digits, {@code - . _ ~}) decoded and other escapes in
+ *       upper-case hex, and dot segments removed from the path. Escaped {@code /} and {@code \},
+ *       {@code ;} parameters and {@code //} are left as they are. A rule that looks for something
+ *       the normalized URL cannot have logs a warning when parsed</td></tr>
  *   <tr><td>{@code ~d regex}</td><td>the request's host</td></tr>
  *   <tr><td>{@code ~m regex}</td><td>the method</td></tr>
  *   <tr><td>{@code ~h regex}, {@code ~hq regex}, {@code ~hs regex}</td><td>a header line ({@code
@@ -69,6 +75,26 @@ import org.microproxy.http.HttpUtil;
  * is how the addons buffer only the exchanges a filter might select.
  */
 public final class FlowFilter {
+
+    private static final System.Logger LOG = System.getLogger(FlowFilter.class.getName());
+
+    /**
+     * In a URL rule's source: something the normalized URL no longer has in its authority or
+     * path (an escaped unreserved character, the scheme's default port, user info, a dot
+     * segment), so the rule may no longer match. A heuristic, for a warning only.
+     */
+    private static final Pattern STALE_URL_PATTERN = Pattern.compile(String.join("|",
+            "%(2[de]|3[0-9]|4[1-9a-f]|5[0-9a]|5f|6[1-9a-f]|7[0-9a]|7e)",
+            "http:/+(?:\\[[^\\]]*\\]|[^/\\[])*:80(?![0-9\\\\\\[{(])",
+            "https:/+(?:\\[[^\\]]*\\]|[^/\\[])*:443(?![0-9\\\\\\[{(])",
+            "://(?:\\[[^\\]]*\\]|[^/@\\[])*@",
+            "(?:^|/)(?:\\\\?\\.\\\\?\\.(?:/|\\$|\\(|$)|\\\\?\\./)"),
+            Pattern.CASE_INSENSITIVE);
+
+    /** Whether a URL rule's regex looks written for URLs as clients spell them; see {@link #normalizedUrl}. */
+    static boolean looksStale(String regex) {
+        return STALE_URL_PATTERN.matcher(regex).find();
+    }
 
     /** The filter that matches every exchange ({@code ~all}). */
     public static final FlowFilter ALL = parse("~all");
@@ -125,6 +151,11 @@ public final class FlowFilter {
         return root.uses(Scope.REQUEST);
     }
 
+    /** {@return whether the expression has a URL rule ({@code ~u} or a bare regex)} */
+    public boolean usesUrl() {
+        return root.usesUrl();
+    }
+
     /** {@return whether the expression looks at the response body ({@code ~b}, {@code ~bs})} */
     public boolean usesResponseBody() {
         return root.uses(Scope.RESPONSE);
@@ -175,6 +206,112 @@ public final class FlowFilter {
      */
     public static Flow flow(HttpRequest request, String url, HttpResponse response) {
         return new MessageFlow(request, url, response);
+    }
+
+    /**
+     * {@code flow} with the query of its normalized URL fully percent-decoded (as UTF-8) for URL
+     * rules, or null if decoding the query changes nothing. Origins decode query values, so
+     * {@code ?file=%2Ffiles%2Fx} is {@code ?file=/files/x} to them; {@link BlockList} blocks when
+     * a rule matches either form. Only URL rules see the difference.
+     *
+     * @param flow the exchange
+     * @return the exchange with its query decoded for URL rules, or null
+     */
+    public static Flow queryDecoded(Flow flow) {
+        String normalized = normalizedUrl(flow.url());
+        String decoded = decodeQuery(normalized);
+        return decoded.equals(normalized) ? null : new QueryDecodedFlow(flow, decoded);
+    }
+
+    /**
+     * {@code url} with everything after its first {@code ?} decoded as a form-encoded query
+     * would be: escapes as UTF-8 ({@code U+FFFD} for bad sequences, malformed escapes kept) and
+     * {@code +} as a space. The fragment is included: a request-target has none, and origins that
+     * keep a {@code #} in the query decode what follows it too. Control characters and line
+     * terminators the decoding produces stay escaped, so they cannot end a line for the regex.
+     */
+    static String decodeQuery(String url) {
+        int q = url.indexOf('?');
+        if (q < 0 || (url.indexOf('%', q) < 0 && url.indexOf('+', q) < 0)) return url;
+        StringBuilder sb = new StringBuilder(url.length());
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        int end = url.length();
+        for (int i = q + 1; i < end; i++) {
+            char c = url.charAt(i);
+            int hi = c == '%' && i + 2 < end ? hex(url.charAt(i + 1)) : -1;
+            int lo = hi >= 0 ? hex(url.charAt(i + 2)) : -1;
+            if (lo >= 0) {
+                bytes.write(hi * 16 + lo);
+                i += 2;
+                continue;
+            }
+            if (bytes.size() > 0) {
+                sb.append(bytes.toString(UTF_8));
+                bytes.reset();
+            }
+            sb.append(c == '+' ? ' ' : c);
+        }
+        if (bytes.size() > 0) sb.append(bytes.toString(UTF_8));
+        return url.substring(0, q + 1) + escapeControls(sb.toString(), true);
+    }
+
+    /**
+     * {@code s} with control characters ({@code U+0000}-{@code U+001F}, {@code U+007F}-{@code
+     * U+009F}) and the line terminators {@code U+2028} and {@code U+2029} escaped: as one byte
+     * when {@code s} holds raw request bytes (ISO-8859-1), as UTF-8 when it holds decoded text.
+     */
+    private static final char[] HEX = "0123456789ABCDEF".toCharArray();
+
+    private static String escapeControls(String s, boolean utf8) {
+        StringBuilder sb = null;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            boolean control = c < 0x20 || (c >= 0x7f && c <= 0x9f) || c == '\u2028' || c == '\u2029';
+            if (!control) {
+                if (sb != null) sb.append(c);
+                continue;
+            }
+            if (sb == null) sb = new StringBuilder(s.length() + 8).append(s, 0, i);
+            byte[] encoded = utf8 || c > 0xff ? String.valueOf(c).getBytes(UTF_8) : new byte[] {(byte) c};
+            for (byte b : encoded) sb.append('%').append(HEX[(b >> 4) & 0xf]).append(HEX[b & 0xf]);
+        }
+        return sb == null ? s : sb.toString();
+    }
+
+    /** A flow whose URL rules see {@link #ruleUrl}; everything else is the delegate's. */
+    private static final class QueryDecodedFlow implements Flow {
+        private final Flow delegate;
+        private final String ruleUrl;
+
+        QueryDecodedFlow(Flow delegate, String ruleUrl) {
+            this.delegate = delegate;
+            this.ruleUrl = ruleUrl;
+        }
+
+        @Override
+        public HttpRequest request() {
+            return delegate.request();
+        }
+
+        @Override
+        public String url() {
+            return delegate.url();
+        }
+
+        @Override
+        public HttpResponse response() {
+            return delegate.response();
+        }
+
+        @Override
+        public byte[] requestBody() {
+            return delegate.requestBody();
+        }
+
+        @Override
+        public byte[] responseBody() {
+            return delegate.responseBody();
+        }
     }
 
     private static final class MessageFlow implements Flow {
@@ -262,6 +399,10 @@ public final class FlowFilter {
         default boolean uses(Scope bodyScope) {
             return false;
         }
+
+        default boolean usesUrl() {
+            return false;
+        }
     }
 
     private record Not(Node node) implements Node {
@@ -273,6 +414,11 @@ public final class FlowFilter {
         @Override
         public boolean uses(Scope s) {
             return node.uses(s);
+        }
+
+        @Override
+        public boolean usesUrl() {
+            return node.usesUrl();
         }
     }
 
@@ -292,6 +438,11 @@ public final class FlowFilter {
         public boolean uses(Scope s) {
             return nodes.stream().anyMatch(n -> n.uses(s));
         }
+
+        @Override
+        public boolean usesUrl() {
+            return nodes.stream().anyMatch(Node::usesUrl);
+        }
     }
 
     private record Or(List<Node> nodes) implements Node {
@@ -309,6 +460,11 @@ public final class FlowFilter {
         @Override
         public boolean uses(Scope s) {
             return nodes.stream().anyMatch(n -> n.uses(s));
+        }
+
+        @Override
+        public boolean usesUrl() {
+            return nodes.stream().anyMatch(Node::usesUrl);
         }
     }
 
@@ -330,7 +486,13 @@ public final class FlowFilter {
     private record Url(Pattern pattern) implements Node {
         @Override
         public Tri eval(Flow f) {
-            return Tri.of(pattern.matcher(f.url()).find());
+            String url = f instanceof QueryDecodedFlow q ? q.ruleUrl : normalizedUrl(f.url());
+            return Tri.of(pattern.matcher(url).find());
+        }
+
+        @Override
+        public boolean usesUrl() {
+            return true;
         }
     }
 
@@ -434,6 +596,144 @@ public final class FlowFilter {
         return sb.toString();
     }
 
+    /**
+     * {@code url} as URL rules ({@code ~u}, bare regexes) see it, so that a rule cannot be passed
+     * by spelling the URL the proxy routes, and the origin serves, another way:
+     *
+     * <ul>
+     *   <li>the scheme and host in lower case, without user info (the proxy routes on the host
+     *       after the last {@code @}) and without a trailing {@code .} on the host;</li>
+     *   <li>the port as the proxy reads it: dropped when empty or the scheme's default ({@code
+     *       80} for http and ws, {@code 443} for https and wss), otherwise in plain decimal, so
+     *       {@code :080}, {@code :+80} and {@code :} are all port 80;</li>
+     *   <li>percent-escapes of unreserved characters (RFC 3986 section 2.3: letters, digits and
+     *       {@code - . _ ~}) decoded; other escapes stay escaped, in upper-case hex, and a
+     *       malformed escape is kept as it is;</li>
+     *   <li>dot segments ({@code /./}, {@code /x/../}, escaped or not) removed from the path, as
+     *       in RFC 3986 section 5.2.4.</li>
+     * </ul>
+     *
+     * <p>Escaped {@code /} and {@code \}, {@code ;} parameters and empty segments ({@code //})
+     * are left alone: origins disagree on what they mean. A URL without a scheme only has its
+     * escapes normalized.
+     *
+     * @param url an absolute URL, as {@link Flow#url()} gives it
+     * @return the normalized URL
+     */
+    static String normalizedUrl(String url) {
+        int sep = url.indexOf("://");
+        if (sep <= 0 || !url.substring(0, sep).chars().allMatch(c -> (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')) {
+            return escapeControls(decodeUnreserved(url), false);
+        }
+        String scheme = url.substring(0, sep).toLowerCase(Locale.ROOT);
+        int start = sep + 3;
+        int end = start;
+        while (end < url.length() && "/?#".indexOf(url.charAt(end)) < 0) end++;
+        String authority = url.substring(start, end);
+        String hostPort = authority.substring(authority.lastIndexOf('@') + 1);
+        // An IPv6 literal's zone id may hold escapes that are part of the literal; leave them.
+        if (!hostPort.startsWith("[")) hostPort = decodeUnreserved(hostPort);
+        int close = hostPort.startsWith("[") ? hostPort.indexOf(']') : -1;
+        int colon = close >= 0 ? (hostPort.length() > close + 1 && hostPort.charAt(close + 1) == ':' ? close + 1 : -1)
+                : hostPort.indexOf(':') == hostPort.lastIndexOf(':') ? hostPort.indexOf(':') : -1;
+        String host = colon >= 0 ? hostPort.substring(0, colon) : hostPort;
+        String port = colon >= 0 ? hostPort.substring(colon + 1) : null;
+        if (close < 0 && host.endsWith(".") && host.length() > 1) host = host.substring(0, host.length() - 1);
+        if (port != null) port = canonicalPort(port, switch (scheme) {
+            case "http", "ws" -> 80;
+            case "https", "wss" -> 443;
+            default -> -1;
+        });
+        String rest = decodeUnreserved(url.substring(end));
+        int pathEnd = 0;
+        while (pathEnd < rest.length() && "?#".indexOf(rest.charAt(pathEnd)) < 0) pathEnd++;
+        return escapeControls(scheme + "://" + host.toLowerCase(Locale.ROOT) + (port == null ? "" : ":" + port)
+                + removeDotSegments(rest.substring(0, pathEnd)) + rest.substring(pathEnd), false);
+    }
+
+    /**
+     * {@code port} as the proxy reads it ({@link Integer#parseInt}, empty for the default): null
+     * when it is the scheme's default, plain decimal otherwise, and as written if it is not a port.
+     */
+    private static String canonicalPort(String port, int defaultPort) {
+        if (port.isEmpty()) return defaultPort > 0 ? null : port;
+        try {
+            int n = Integer.parseInt(port);
+            if (defaultPort > 0 && n == defaultPort) return null;
+            return n >= 1 && n <= 65535 ? Integer.toString(n) : port;
+        } catch (NumberFormatException e) {
+            return port;
+        }
+    }
+
+    /** RFC 3986 section 5.2.4, in one pass over {@code path}. */
+    static String removeDotSegments(String path) {
+        if (path.indexOf('.') < 0) return path;
+        StringBuilder out = new StringBuilder(path.length());
+        int i = 0;
+        int n = path.length();
+        while (i < n) {
+            if (path.startsWith("../", i)) {
+                i += 3;
+            } else if (path.startsWith("./", i)) {
+                i += 2;
+            } else if (path.startsWith("/./", i)) {
+                i += 2;
+            } else if (i + 2 == n && path.startsWith("/.", i)) {
+                out.append('/');
+                i = n;
+            } else if (path.startsWith("/../", i)) {
+                i += 3;
+                out.setLength(Math.max(out.lastIndexOf("/"), 0));
+            } else if (i + 3 == n && path.startsWith("/..", i)) {
+                out.setLength(Math.max(out.lastIndexOf("/"), 0));
+                out.append('/');
+                i = n;
+            } else if ((i + 1 == n && path.charAt(i) == '.') || (i + 2 == n && path.startsWith("..", i))) {
+                i = n;
+            } else {
+                int next = path.indexOf('/', path.charAt(i) == '/' ? i + 1 : i);
+                if (next < 0) next = n;
+                out.append(path, i, next);
+                i = next;
+            }
+        }
+        return out.toString();
+    }
+
+    /** {@code s} with escapes of unreserved characters decoded and the rest in upper-case hex. */
+    private static String decodeUnreserved(String s) {
+        if (s.indexOf('%') < 0) return s;
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            int hi = i + 2 < s.length() ? hex(s.charAt(i + 1)) : -1;
+            int lo = hi >= 0 ? hex(s.charAt(i + 2)) : -1;
+            if (c != '%' || lo < 0) {
+                sb.append(c);
+                continue;
+            }
+            char decoded = (char) (hi * 16 + lo);
+            if ((decoded >= 'a' && decoded <= 'z') || (decoded >= 'A' && decoded <= 'Z')
+                    || (decoded >= '0' && decoded <= '9') || "-._~".indexOf(decoded) >= 0) {
+                sb.append(decoded);
+            } else {
+                sb.append('%').append(Character.toUpperCase(s.charAt(i + 1))).append(Character.toUpperCase(s.charAt(i + 2)));
+            }
+            i += 2;
+        }
+        return sb.toString();
+    }
+
+    /** The value of an ASCII hex digit, or -1. */
+    private static int hex(char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    }
+
     /** The host of an absolute URL, without port, brackets or user info. */
     static String urlHost(String url) {
         int start = url.indexOf("://");
@@ -452,7 +752,9 @@ public final class FlowFilter {
             return close > 0 ? a.substring(1, close) : a;
         }
         int colon = a.lastIndexOf(':');
-        return colon >= 0 && a.indexOf(':') == colon ? a.substring(0, colon) : a;
+        String host = colon >= 0 && a.indexOf(':') == colon ? a.substring(0, colon) : a;
+        // A trailing dot names the same host.
+        return host.length() > 1 && host.endsWith(".") ? host.substring(0, host.length() - 1) : host;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -531,7 +833,7 @@ public final class FlowFilter {
             }
             if (c == ')') throw error("unexpected ')'");
             if (c == '~') return code();
-            return new Url(regex(argument(), false));
+            return url(argument());
         }
 
         private Node code() {
@@ -546,7 +848,7 @@ public final class FlowFilter {
                 case "q" -> new HasResponse(false);
                 case "s" -> new HasResponse(true);
                 case "a" -> new Asset();
-                case "u" -> new Url(regex(argument(), false));
+                case "u" -> url(argument());
                 case "d" -> new Domain(regex(argument(), false));
                 case "m" -> new Method(regex(argument(), false));
                 case "h" -> new Header(regex(argument(), false), Scope.BOTH);
@@ -597,6 +899,18 @@ public final class FlowFilter {
                 sb.append(c);
             }
             throw error("unterminated string");
+        }
+
+        /** A URL rule; warns about a pattern that can no longer match a normalized URL. */
+        private Url url(String regex) {
+            if (looksStale(regex)) {
+                LOG.log(System.Logger.Level.WARNING, "URL rule " + regex + " may no longer match: URL rules see"
+                        + " the normalized URL, whose authority and path have no escaped unreserved characters,"
+                        + " default port, user info or dot segments (see the ~u operator in FlowFilter)");
+            }
+            // One line: a line terminator must not let ^ or $ match inside the URL.
+            Pattern pattern = regex(regex, false);
+            return new Url(Pattern.compile(pattern.pattern(), pattern.flags() & ~Pattern.MULTILINE));
         }
 
         private Pattern regex(String regex, boolean bytes) {
