@@ -209,39 +209,57 @@ public final class FlowFilter {
     }
 
     /**
-     * {@code flow} with the query of its normalized URL fully percent-decoded (as UTF-8) for URL
-     * rules, or null if decoding the query changes nothing. Origins decode query values, so
-     * {@code ?file=%2Ffiles%2Fx} is {@code ?file=/files/x} to them; {@link BlockList} blocks when
-     * a rule matches either form. Only URL rules see the difference.
+     * {@code flow} as URL rules see it with the query of its normalized URL decoded, in each way
+     * an origin may decode it: escapes as UTF-8 with {@code +} kept and with {@code +} as a space,
+     * each also with the query delimiters {@code & = # ;} left escaped (so {@code [^&]*} does not
+     * stop at a decoded {@code %26} the origin reads inside one value). Forms equal to the normalized URL or to each other are left out, so the list is
+     * empty when decoding changes nothing. Origins decode query values, so {@code
+     * ?file=%2Ffiles%2Fx} is {@code ?file=/files/x} to them; {@link BlockList} blocks when a rule
+     * matches the normalized URL or any of these forms. Only URL rules see the difference.
      *
      * @param flow the exchange
-     * @return the exchange with its query decoded for URL rules, or null
+     * @return the exchange with its query decoded for URL rules, one flow per distinct form
      */
-    public static Flow queryDecoded(Flow flow) {
+    public static List<Flow> queryDecoded(Flow flow) {
         String normalized = normalizedUrl(flow.url());
-        String decoded = decodeQuery(normalized);
-        return decoded.equals(normalized) ? null : new QueryDecodedFlow(flow, decoded);
+        List<Flow> forms = new ArrayList<>(4);
+        List<String> seen = new ArrayList<>(5);
+        seen.add(normalized);
+        for (boolean keepDelimiters : new boolean[] {false, true}) {
+            for (boolean plusAsSpace : new boolean[] {false, true}) {
+                String decoded = decodeQuery(normalized, plusAsSpace, keepDelimiters);
+                if (!seen.contains(decoded)) {
+                    seen.add(decoded);
+                    forms.add(new QueryDecodedFlow(flow, decoded));
+                }
+            }
+        }
+        return forms;
     }
 
     /**
-     * {@code url} with everything after its first {@code ?} decoded as a form-encoded query
-     * would be: escapes as UTF-8 ({@code U+FFFD} for bad sequences, malformed escapes kept) and
-     * {@code +} as a space. The fragment is included: a request-target has none, and origins that
-     * keep a {@code #} in the query decode what follows it too. Control characters and line
-     * terminators the decoding produces stay escaped, so they cannot end a line for the regex.
+     * {@code url} with everything after its first {@code ?} decoded: escapes as UTF-8 ({@code
+     * U+FFFD} for bad sequences, malformed escapes kept; origins that decode as ISO-8859-1 are not
+     * modelled), {@code +} as a space when {@code plusAsSpace}, and escapes of {@code & = # ;}
+     * kept when {@code keepDelimiters}. The fragment is included: a request-target has none, and origins that keep a
+     * {@code #} in the query decode what follows it too. Decoded control characters are left as
+     * they are, as the origin sees them; URL patterns are not {@code MULTILINE}, so they cannot
+     * make {@code ^} or {@code $} match inside the URL.
      */
-    static String decodeQuery(String url) {
+    static String decodeQuery(String url, boolean plusAsSpace, boolean keepDelimiters) {
         int q = url.indexOf('?');
-        if (q < 0 || (url.indexOf('%', q) < 0 && url.indexOf('+', q) < 0)) return url;
+        if (q < 0 || (url.indexOf('%', q) < 0 && (!plusAsSpace || url.indexOf('+', q) < 0))) return url;
         StringBuilder sb = new StringBuilder(url.length());
+        sb.append(url, 0, q + 1);
         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
         int end = url.length();
         for (int i = q + 1; i < end; i++) {
             char c = url.charAt(i);
             int hi = c == '%' && i + 2 < end ? hex(url.charAt(i + 1)) : -1;
             int lo = hi >= 0 ? hex(url.charAt(i + 2)) : -1;
-            if (lo >= 0) {
-                bytes.write(hi * 16 + lo);
+            int b = lo >= 0 ? hi * 16 + lo : -1;
+            if (b >= 0 && !(keepDelimiters && (b == '&' || b == '=' || b == '#' || b == ';'))) {
+                bytes.write(b);
                 i += 2;
                 continue;
             }
@@ -249,30 +267,36 @@ public final class FlowFilter {
                 sb.append(bytes.toString(UTF_8));
                 bytes.reset();
             }
-            sb.append(c == '+' ? ' ' : c);
+            if (b >= 0) {
+                sb.append(url, i, i + 3);
+                i += 2;
+                continue;
+            }
+            sb.append(plusAsSpace && c == '+' ? ' ' : c);
         }
         if (bytes.size() > 0) sb.append(bytes.toString(UTF_8));
-        return url.substring(0, q + 1) + escapeControls(sb.toString(), true);
+        return sb.toString();
     }
 
-    /**
-     * {@code s} with control characters ({@code U+0000}-{@code U+001F}, {@code U+007F}-{@code
-     * U+009F}) and the line terminators {@code U+2028} and {@code U+2029} escaped: as one byte
-     * when {@code s} holds raw request bytes (ISO-8859-1), as UTF-8 when it holds decoded text.
-     */
     private static final char[] HEX = "0123456789ABCDEF".toCharArray();
 
-    private static String escapeControls(String s, boolean utf8) {
+    /**
+     * {@code s}, raw request text, with control characters and every non-ASCII character escaped.
+     * HTTP/1, HPACK and QPACK all give request text one character per byte (ISO-8859-1), so each
+     * is escaped as the byte it is; a character above {@code U+00FF}, from a URL handed to {@link
+     * #normalizedUrl} directly, is escaped as UTF-8. A raw {@code é} and {@code %C3%A9} then look
+     * the same to a rule, and no line terminator reaches the regex.
+     */
+    private static String escapeRaw(String s) {
         StringBuilder sb = null;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            boolean control = c < 0x20 || (c >= 0x7f && c <= 0x9f) || c == '\u2028' || c == '\u2029';
-            if (!control) {
+            if (c >= 0x20 && c < 0x7f) {
                 if (sb != null) sb.append(c);
                 continue;
             }
             if (sb == null) sb = new StringBuilder(s.length() + 8).append(s, 0, i);
-            byte[] encoded = utf8 || c > 0xff ? String.valueOf(c).getBytes(UTF_8) : new byte[] {(byte) c};
+            byte[] encoded = c > 0xff ? String.valueOf(c).getBytes(UTF_8) : new byte[] {(byte) c};
             for (byte b : encoded) sb.append('%').append(HEX[(b >> 4) & 0xf]).append(HEX[b & 0xf]);
         }
         return sb == null ? s : sb.toString();
@@ -610,7 +634,9 @@ public final class FlowFilter {
      *       {@code - . _ ~}) decoded; other escapes stay escaped, in upper-case hex, and a
      *       malformed escape is kept as it is;</li>
      *   <li>dot segments ({@code /./}, {@code /x/../}, escaped or not) removed from the path, as
-     *       in RFC 3986 section 5.2.4.</li>
+     *       in RFC 3986 section 5.2.4;</li>
+     *   <li>control characters and non-ASCII bytes the client sent raw escaped, so a raw {@code
+     *       é} is {@code %C3%A9} and no line terminator reaches the regex.</li>
      * </ul>
      *
      * <p>Escaped {@code /} and {@code \}, {@code ;} parameters and empty segments ({@code //})
@@ -624,7 +650,7 @@ public final class FlowFilter {
         int sep = url.indexOf("://");
         if (sep <= 0 || !url.substring(0, sep).chars().allMatch(c -> (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
                 || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')) {
-            return escapeControls(decodeUnreserved(url), false);
+            return escapeRaw(decodeUnreserved(url));
         }
         String scheme = url.substring(0, sep).toLowerCase(Locale.ROOT);
         int start = sep + 3;
@@ -648,8 +674,21 @@ public final class FlowFilter {
         String rest = decodeUnreserved(url.substring(end));
         int pathEnd = 0;
         while (pathEnd < rest.length() && "?#".indexOf(rest.charAt(pathEnd)) < 0) pathEnd++;
-        return escapeControls(scheme + "://" + host.toLowerCase(Locale.ROOT) + (port == null ? "" : ":" + port)
-                + removeDotSegments(rest.substring(0, pathEnd)) + rest.substring(pathEnd), false);
+        return escapeRaw(scheme + "://" + asciiLowerCase(host) + (port == null ? "" : ":" + port)
+                + removeDotSegments(rest.substring(0, pathEnd)) + rest.substring(pathEnd));
+    }
+
+    /** {@code s} with ASCII letters in lower case; raw bytes above {@code 0x7F} are left for escaping. */
+    private static String asciiLowerCase(String s) {
+        StringBuilder sb = null;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= 'A' && c <= 'Z') {
+                if (sb == null) sb = new StringBuilder(s);
+                sb.setCharAt(i, (char) (c + 32));
+            }
+        }
+        return sb == null ? s : sb.toString();
     }
 
     /**
@@ -908,9 +947,10 @@ public final class FlowFilter {
                         + " the normalized URL, whose authority and path have no escaped unreserved characters,"
                         + " default port, user info or dot segments (see the ~u operator in FlowFilter)");
             }
-            // One line: a line terminator must not let ^ or $ match inside the URL.
+            // One line: a line terminator must not let ^ or $ match inside the URL, and . must
+            // cross the control characters a decoded query may hold, as the origin sees them.
             Pattern pattern = regex(regex, false);
-            return new Url(Pattern.compile(pattern.pattern(), pattern.flags() & ~Pattern.MULTILINE));
+            return new Url(Pattern.compile(pattern.pattern(), (pattern.flags() & ~Pattern.MULTILINE) | Pattern.DOTALL));
         }
 
         private Pattern regex(String regex, boolean bytes) {

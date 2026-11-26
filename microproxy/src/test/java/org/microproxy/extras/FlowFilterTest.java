@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
@@ -173,16 +174,22 @@ class FlowFilterTest {
 
     @Test
     void decodeQuery() {
-        assertEquals("https://e.test/dl?file=/files/x", FlowFilter.decodeQuery("https://e.test/dl?file=%2Ffiles%2Fx"));
-        assertEquals("https://e.test/?q=é&r=%", FlowFilter.decodeQuery("https://e.test/?q=%C3%A9&r=%"));
-        assertEquals("https://e.test/?q=\uFFFD", FlowFilter.decodeQuery("https://e.test/?q=%C3"), "malformed UTF-8 is replaced");
-        assertEquals("https://e.test/a%2Fb?x=/#f/", FlowFilter.decodeQuery("https://e.test/a%2Fb?x=%2F#f%2F"),
+        assertEquals("https://e.test/dl?file=/files/x", FlowFilter.decodeQuery("https://e.test/dl?file=%2Ffiles%2Fx", false, false));
+        assertEquals("https://e.test/?q=é&r=%", FlowFilter.decodeQuery("https://e.test/?q=%C3%A9&r=%", false, false));
+        assertEquals("https://e.test/?q=\uFFFD", FlowFilter.decodeQuery("https://e.test/?q=%C3", false, false), "malformed UTF-8 is replaced");
+        assertEquals("https://e.test/a%2Fb?x=/#f/", FlowFilter.decodeQuery("https://e.test/a%2Fb?x=%2F#f%2F", false, false),
                 "the path is not decoded; everything after ? is");
-        assertEquals("https://e.test/?cmd=rm -rf", FlowFilter.decodeQuery("https://e.test/?cmd=rm+-rf"), "+ is a space");
-        assertEquals("https://e.test/?n=a%0Ab%C2%85c", FlowFilter.decodeQuery("https://e.test/?n=a%0ab%c2%85c"),
-                "decoded line terminators stay escaped");
-        assertEquals("https://e.test/a%2Fb", FlowFilter.decodeQuery("https://e.test/a%2Fb"));
-        assertEquals(null, FlowFilter.queryDecoded(at("https://e.test/dl?file=/x")), "nothing to decode");
+        assertEquals("https://e.test/?cmd=rm+-rf", FlowFilter.decodeQuery("https://e.test/?cmd=rm+-rf", false, false));
+        assertEquals("https://e.test/?cmd=rm -rf", FlowFilter.decodeQuery("https://e.test/?cmd=rm+-rf", true, false), "+ as a space");
+        assertEquals("https://e.test/?n=a\nb\u0085c", FlowFilter.decodeQuery("https://e.test/?n=a%0ab%c2%85c", false, false),
+                "decoded controls are left as the origin sees them");
+        assertEquals("https://e.test/a%2Fb", FlowFilter.decodeQuery("https://e.test/a%2Fb", true, false));
+        assertEquals(List.of(), FlowFilter.queryDecoded(at("https://e.test/dl?file=/x")), "nothing to decode");
+        assertEquals(1, FlowFilter.queryDecoded(at("https://e.test/dl?file=%2Fx")).size(), "no + : one form");
+        assertEquals(2, FlowFilter.queryDecoded(at("https://e.test/dl?file=%2Fx+y")).size());
+        assertEquals(4, FlowFilter.queryDecoded(at("https://e.test/dl?file=%2Fx%26y+z")).size());
+        assertEquals("https://e.test/?f=/a%26b%3Dc%23d%3Be", FlowFilter.decodeQuery("https://e.test/?f=%2Fa%26b%3Dc%23d%3Be", false, true),
+                "delimiters stay escaped");
     }
 
     @Test
@@ -203,6 +210,35 @@ class FlowFilterTest {
     }
 
     @Test
+    void decodingNeverMakesADenyMatchLess() {
+        // A literal + next to an escape: one server keeps +, another reads it as a space.
+        assertTrue(blocks("~u tag=c\\+\\+", "https://e.test/?tag=c%2B+"));
+        assertTrue(blocks("~u tag=c\\+\\+", "https://e.test/?a=%2F&tag=c++"));
+        // Decoded controls stay raw, so \\s, . and [^&] see the tab or newline the server sees.
+        assertTrue(blocks("~u cmd=rm\\s+-rf", "https://e.test/?cmd=rm%09-rf"));
+        assertTrue(blocks("~u cmd=rm\\s+-rf", "https://e.test/?cmd=rm%0A-rf"));
+        assertTrue(blocks("~u cmd=rm[^&]-rf", "https://e.test/?cmd=rm%0D-rf"));
+        // Raw controls still cannot end the URL early for an anchor.
+        assertFalse(blocks("~u ^https://e\\.test/\\?n=a$", "https://e.test/?n=a%0Ab"));
+    }
+
+    @Test
+    void anEscapedDelimiterInsideAValueStillHitsARestOfValueRule() {
+        assertTrue(blocks("~u [?&]file=/files/[^&]*\\.exe", "https://e.test/?file=%2Ffiles%2Fa%26b.exe"));
+        assertTrue(blocks("~u [?&]next=https?://[^&]*evil\\.example", "https://e.test/?next=https:%2F%2Fu%26x@evil.example"));
+    }
+
+    @Test
+    void rawNonAsciiBytesLookLikeTheirEscapes() {
+        // Request-line bytes arrive as ISO-8859-1 chars: raw UTF-8 é is \u00C3\u00A9.
+        assertTrue(matches("~u /caf%C3%A9/", at("https://e.test/caf\u00C3\u00A9/")));
+        assertTrue(blocks("~u q=caf\u00E9", "https://e.test/?q=caf\u00C3\u00A9"));
+        assertEquals("https://e.test/a%A0%FFb", FlowFilter.normalizedUrl("https://e.test/a\u00A0\u00FFb"));
+        assertEquals("https://m%C3%BCnchen.example/", FlowFilter.normalizedUrl("https://M\u00C3\u00BCnchen.example/"),
+                "only ASCII letters are lower-cased: raw bytes keep their value");
+    }
+
+    @Test
     void theDecodedViewIsOnlyForFiltersWithAUrlRule() {
         assertTrue(FlowFilter.parse("~u x").usesUrl());
         assertTrue(FlowFilter.parse("x").usesUrl());
@@ -215,8 +251,7 @@ class FlowFilterTest {
     private static boolean blocks(String rule, String url) {
         FlowFilter filter = FlowFilter.parse(rule);
         FlowFilter.Flow flow = at(url);
-        FlowFilter.Flow decoded = FlowFilter.queryDecoded(flow);
-        return filter.matches(flow) || (decoded != null && filter.matches(decoded));
+        return filter.matches(flow) || FlowFilter.queryDecoded(flow).stream().anyMatch(filter::matches);
     }
 
     @Test
@@ -259,8 +294,8 @@ class FlowFilterTest {
         assertEquals("http://example.com:8080/", FlowFilter.normalizedUrl("http://example.com:8080/"));
         assertEquals("http://example.com/%C3%A9%2F", FlowFilter.normalizedUrl("http://example.com/%c3%a9%2f"),
                 "other escapes stay escaped, in upper-case hex");
-        assertEquals("http://example.com/%\u0663\u0663", FlowFilter.normalizedUrl("http://example.com/%\u0663\u0663"),
-                "only ASCII hex digits make an escape");
+        assertEquals("http://example.com/%%D9%A3%D9%A3", FlowFilter.normalizedUrl("http://example.com/%\u0663\u0663"),
+                "only ASCII hex digits make an escape; the non-ASCII digits are escaped as UTF-8");
         assertEquals("example.com/x", FlowFilter.normalizedUrl("example.com/x"), "not absolute: only escapes change");
         assertEquals("http://example.com/%2561", FlowFilter.normalizedUrl("http://example.com/%2561"), "decoded once only");
         assertEquals("http://example.com/%6", FlowFilter.normalizedUrl("http://example.com/%6"));
