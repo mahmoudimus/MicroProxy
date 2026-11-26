@@ -38,6 +38,8 @@ import org.microproxy.http.HttpVersion;
  * blocks {@code ?file=%2Ffiles%2Fx}, and an allow written as {@code |!~u ^https://example\.com/dl\?file=/ok$|403} still blocks {@code
  * /dl?file=%2Fok}: decoding never lets more through. Write query rules in decoded form; an
  * allow for a query that clients escape must accept both spellings ({@code next=(/|%2F)home}).
+ * A decoded form holding a line break is tried with {@code .} crossing it and stopping at it, so
+ * an allow whose {@code .} must span one writes {@code (?s)}.
  */
 public final class BlockList implements HttpFiltersSource {
 

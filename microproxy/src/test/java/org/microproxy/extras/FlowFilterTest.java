@@ -239,6 +239,17 @@ class FlowFilterTest {
     }
 
     @Test
+    void aLookaroundOverADecodedLineBreakStillDenies() {
+        // Without DOTALL .* stops at the decoded \n, the lookahead succeeds and the rule matches;
+        // with DOTALL only it would cross it and fail on every form.
+        assertTrue(blocks("~u \"^(?!.*[?&]safe=1)\"", "https://shop.example/x?a=%0A&safe=1"));
+        assertFalse(blocks("~u \"^(?!.*[?&]safe=1)\"", "https://shop.example/x?a=b&safe=1"));
+        assertTrue(blocks("~u \"evil(?!.*ok)\"", "https://e.test/?a=evil%0Aok"));
+        // and DOTALL is still tried: .* across the decoded line break.
+        assertTrue(blocks("~u [?&]next=//.*evil\\.example", "https://e.test/?next=%2F%2Fx%0Aevil.example"));
+    }
+
+    @Test
     void theDecodedViewIsOnlyForFiltersWithAUrlRule() {
         assertTrue(FlowFilter.parse("~u x").usesUrl());
         assertTrue(FlowFilter.parse("x").usesUrl());

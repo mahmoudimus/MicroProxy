@@ -73,10 +73,11 @@ parses one. `~d` drops a trailing dot from the host as well.
 `block_list` also blocks when a rule matches the URL with its query fully percent-decoded,
 since origins decode query values: `|~u [?&]file=/files/x|403` blocks `?file=%2Ffiles%2Fx`.
 Decoding never lets more through: an allow written as `|!~u ^https://example\.com/dl\?file=/ok$|403`
-still blocks `/dl?file=%2Fok`. The query is decoded twice, keeping `+` and reading it as a space, and
+still blocks `/dl?file=%2Fok`. The query is decoded with `+` kept and with `+` read as a space, and
 covers anything after a `#` too, so an allow for a query with a literal `+` (`?q=a+b`) needs `[+ ]`.
-Decoded control characters stay as the origin sees them, and URL rules use `.` across them:
-`|~u cmd=rm\s+-rf|403` blocks `?cmd=rm%09-rf`. Each decoding is also tried with escaped query delimiters
+Decoded control characters stay as the origin sees them, and a form holding a line break is
+tried with `.` crossing it and with `.` stopping at it: `|~u cmd=rm\s+-rf|403` blocks
+`?cmd=rm%09-rf`, and `|~u "^(?!.*[?&]safe=1)"|403` blocks `?a=%0A&safe=1`. An allow whose `.` must span a line break in a query value (a multi-line form field) writes `(?s)` or `[\s\S]`, or it blocks those requests. Each decoding is also tried with escaped query delimiters
 (`%26 %3D %23 %3B`) kept, so `[?&]file=/files/[^&]*\.exe` blocks `?file=%2Ffiles%2Fa%26b.exe`.
 Query decoding is UTF-8; origins that read query bytes as ISO-8859-1 are not modelled. Origins
 that split parameters on `;` need `[?&;]` in the rule. Write query rules in decoded form (`next=/home`, not `next=%2Fhome`): a deny

@@ -212,7 +212,9 @@ public final class FlowFilter {
      * {@code flow} as URL rules see it with the query of its normalized URL decoded, in each way
      * an origin may decode it: escapes as UTF-8 with {@code +} kept and with {@code +} as a space,
      * each also with the query delimiters {@code & = # ;} left escaped (so {@code [^&]*} does not
-     * stop at a decoded {@code %26} the origin reads inside one value). Forms equal to the normalized URL or to each other are left out, so the list is
+     * stop at a decoded {@code %26} the origin reads inside one value). A form with a decoded
+     * line terminator is offered twice, for URL rules with {@code .} crossing it and stopping at
+     * it. Forms equal to the normalized URL or to each other are left out, so the list is
      * empty when decoding changes nothing. Origins decode query values, so {@code
      * ?file=%2Ffiles%2Fx} is {@code ?file=/files/x} to them; {@link BlockList} blocks when a rule
      * matches the normalized URL or any of these forms. Only URL rules see the difference.
@@ -222,7 +224,7 @@ public final class FlowFilter {
      */
     public static List<Flow> queryDecoded(Flow flow) {
         String normalized = normalizedUrl(flow.url());
-        List<Flow> forms = new ArrayList<>(4);
+        List<Flow> forms = new ArrayList<>(8);
         List<String> seen = new ArrayList<>(5);
         seen.add(normalized);
         for (boolean keepDelimiters : new boolean[] {false, true}) {
@@ -230,7 +232,8 @@ public final class FlowFilter {
                 String decoded = decodeQuery(normalized, plusAsSpace, keepDelimiters);
                 if (!seen.contains(decoded)) {
                     seen.add(decoded);
-                    forms.add(new QueryDecodedFlow(flow, decoded));
+                    forms.add(new QueryDecodedFlow(flow, decoded, true));
+                    if (hasLineTerminator(decoded)) forms.add(new QueryDecodedFlow(flow, decoded, false));
                 }
             }
         }
@@ -302,14 +305,28 @@ public final class FlowFilter {
         return sb == null ? s : sb.toString();
     }
 
-    /** A flow whose URL rules see {@link #ruleUrl}; everything else is the delegate's. */
+    /** Whether {@code s} has a character {@link Pattern} treats as a line terminator. */
+    private static boolean hasLineTerminator(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\u0085' || c == '\u2028' || c == '\u2029') return true;
+        }
+        return false;
+    }
+
+    /**
+     * A flow whose URL rules see {@link #ruleUrl}, matched with or without {@link Pattern#DOTALL};
+     * everything else is the delegate's.
+     */
     private static final class QueryDecodedFlow implements Flow {
         private final Flow delegate;
         private final String ruleUrl;
+        private final boolean dotAll;
 
-        QueryDecodedFlow(Flow delegate, String ruleUrl) {
+        QueryDecodedFlow(Flow delegate, String ruleUrl, boolean dotAll) {
             this.delegate = delegate;
             this.ruleUrl = ruleUrl;
+            this.dotAll = dotAll;
         }
 
         @Override
@@ -507,11 +524,17 @@ public final class FlowFilter {
         }
     }
 
-    private record Url(Pattern pattern) implements Node {
+    /**
+     * A URL rule, compiled with {@link Pattern#DOTALL} and without. The normalized URL has no line
+     * terminator, so the two agree on it; a decoded query may hold one, and a rule can then match
+     * under either ({@code .*} across it, or a lookaround that relies on {@code .} stopping at
+     * it), so {@link #queryDecoded} offers such a form under each.
+     */
+    private record Url(Pattern dotAll, Pattern lines) implements Node {
         @Override
         public Tri eval(Flow f) {
-            String url = f instanceof QueryDecodedFlow q ? q.ruleUrl : normalizedUrl(f.url());
-            return Tri.of(pattern.matcher(url).find());
+            if (f instanceof QueryDecodedFlow q) return Tri.of((q.dotAll ? dotAll : lines).matcher(q.ruleUrl).find());
+            return Tri.of(dotAll.matcher(normalizedUrl(f.url())).find());
         }
 
         @Override
@@ -947,10 +970,11 @@ public final class FlowFilter {
                         + " the normalized URL, whose authority and path have no escaped unreserved characters,"
                         + " default port, user info or dot segments (see the ~u operator in FlowFilter)");
             }
-            // One line: a line terminator must not let ^ or $ match inside the URL, and . must
-            // cross the control characters a decoded query may hold, as the origin sees them.
+            // One line: a line terminator must not let ^ or $ match inside the URL. A decoded query
+            // is tried with . crossing its control characters and with . stopping at them.
             Pattern pattern = regex(regex, false);
-            return new Url(Pattern.compile(pattern.pattern(), (pattern.flags() & ~Pattern.MULTILINE) | Pattern.DOTALL));
+            int flags = pattern.flags() & ~Pattern.MULTILINE;
+            return new Url(Pattern.compile(pattern.pattern(), flags | Pattern.DOTALL), Pattern.compile(pattern.pattern(), flags));
         }
 
         private Pattern regex(String regex, boolean bytes) {
