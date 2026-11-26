@@ -207,6 +207,44 @@ class AddonsTest {
     }
 
     @Test
+    void blockListRulesHoldForEscapedPaths() throws IOException {
+        // The origin decodes /%61ds/ to /ads/: a deny must not be passed by escaping it,
+        // and an allow must not refuse the escaped spelling of what it allows.
+        int port = origin.getAddress().getPort();
+        start(BlockList.of("|~u ^http://127\\.0\\.0\\.1:" + port + "/ads/|403", "|!~u /public/ & ~u /private/|403"));
+        String base = "http://" + authority(origin);
+        assertTrue(rawGet(base + "/%61ds/x").startsWith("HTTP/1.1 403"));
+        assertTrue(rawGet(base + "/a%64%73/x").startsWith("HTTP/1.1 403"));
+        assertEquals(0, originHits.get());
+        // The same URL with user info, a zero-padded port or a dot segment is still /ads/.
+        assertTrue(rawGet("http://u@127.0.0.1:" + port + "/ads/x").startsWith("HTTP/1.1 403"));
+        assertTrue(rawGet("http://127.0.0.1:0" + port + "/ads/x").startsWith("HTTP/1.1 403"));
+        assertTrue(rawGet(base + "/x/%2E%2E/ads/x").startsWith("HTTP/1.1 403"));
+        assertEquals(0, originHits.get());
+        assertTrue(rawGet(base + "/%70ublic/private/x").startsWith("HTTP/1.1 200"));
+        assertEquals(1, originHits.get());
+    }
+
+    @Test
+    void blockListRulesHoldForEscapedQueries() throws IOException {
+        int port = origin.getAddress().getPort();
+        String host = "^http://127\\.0\\.0\\.1:" + port;
+        start(BlockList.of("|~u [?&]file=/files/x|403", "|!~u " + host + "/dl\\?file=/ok$ & ~u /dl|403"));
+        String base = "http://" + authority(origin);
+        assertTrue(rawGet(base + "/get?file=%2Ffiles%2Fx").startsWith("HTTP/1.1 403"), "a deny holds for an escaped query");
+        assertTrue(rawGet(base + "/dl?file=%2Fok").startsWith("HTTP/1.1 403"), "an allow does not widen through decoding");
+        assertEquals(0, originHits.get());
+        assertTrue(rawGet(base + "/dl?file=/ok").startsWith("HTTP/1.1 200"));
+        assertTrue(rawGet(base + "/get?file=%2Ffiles%2Fy").startsWith("HTTP/1.1 200"));
+        assertEquals(2, originHits.get());
+    }
+
+    private String rawGet(String absoluteUrl) throws IOException {
+        return TestSupport.rawExchange(proxy.getListenAddress(), "GET " + absoluteUrl + " HTTP/1.1\r\nHost: "
+                + authority(origin) + "\r\nConnection: close\r\n\r\n");
+    }
+
+    @Test
     void blockListSpecsAreValidated() {
         assertThrows(IllegalArgumentException.class, () -> BlockList.of("|~d x"));
         assertThrows(IllegalArgumentException.class, () -> BlockList.of("|~d x|abc"));

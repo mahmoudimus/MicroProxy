@@ -45,13 +45,46 @@ java -jar microproxy.jar --mitm --map-remote '|https://api\.example\.com/|http:/
 
 | expression | matches |
 |---|---|
-| `~u regex`, or a bare `regex` | the URL (absolute; `https://` inside intercepted sessions) |
+| `~u regex`, or a bare `regex` | the URL (absolute; `https://` inside intercepted sessions), normalized: see below |
 | `~d regex`, `~m regex` | the host, the method |
 | `~h regex`, `~hq regex`, `~hs regex` | a `Name: value` header line of the request or response, the request, the response |
 | `~t regex`, `~tq regex`, `~ts regex` | the `Content-Type` of either, the request, the response |
 | `~b regex`, `~bq regex`, `~bs regex` | the decoded body of either, the request, the response |
 | `~c code`, `~q`, `~s`, `~a`, `~all` | the response status; no response yet; a response; an asset (CSS, JavaScript, images, fonts); everything |
 | `!x`, `x & y`, `x \| y`, `(x)` | not, and, or, grouping |
+
+URL rules match a normalized URL, so a rule cannot be passed by spelling the same URL
+another way:
+
+- the scheme and host in lower case, without user info (`https://u@example.com/` is
+  `https://example.com/`) and without a trailing dot on the host;
+- the port as the proxy reads it: `:080`, `:+80` and an empty `:` are port 80, and the
+  scheme's default port (`:80` for http, `:443` for https) is dropped;
+- `%xx` escapes of unreserved characters (letters, digits, `-._~`) decoded, so `/%61ds/` is
+  `/ads/`; other escapes stay escaped, in upper-case hex;
+- dot segments removed from the path, escaped or not: `/x/../admin` and `/x/%2E%2E/admin`
+  are `/admin`.
+
+Escaped `/` and `\`, `;` parameters and empty segments (`//`) are left as they are, since
+origins disagree on what they mean. A rule written for the old spelling (one with `%61`,
+`:443` on https, `user@` or `/../`) may never match now; MicroProxy logs a warning when it
+parses one. `~d` drops a trailing dot from the host as well.
+
+`block_list` also blocks when a rule matches the URL with its query fully percent-decoded,
+since origins decode query values: `|~u [?&]file=/files/x|403` blocks `?file=%2Ffiles%2Fx`.
+Decoding never lets more through: an allow written as `|!~u ^https://example\.com/dl\?file=/ok$|403`
+still blocks `/dl?file=%2Fok`. The query is decoded twice, keeping `+` and reading it as a space, and
+covers anything after a `#` too, so an allow for a query with a literal `+` (`?q=a+b`) needs `[+ ]`.
+Decoded control characters stay as the origin sees them, and URL rules use `.` across them:
+`|~u cmd=rm\s+-rf|403` blocks `?cmd=rm%09-rf`. Each decoding is also tried with escaped query delimiters
+(`%26 %3D %23 %3B`) kept, so `[?&]file=/files/[^&]*\.exe` blocks `?file=%2Ffiles%2Fa%26b.exe`.
+Query decoding is UTF-8; origins that read query bytes as ISO-8859-1 are not modelled. Origins
+that split parameters on `;` need `[?&;]` in the rule. Write query rules in decoded form (`next=/home`, not `next=%2Fhome`): a deny
+written escaped does not match the literal spelling, and an allow for a query that clients
+escape must accept both spellings (`next=(/|%2F)home`). URL rules see the URL as one line: raw
+control characters and non-ASCII bytes in the request are escaped (a raw `é` is `%C3%A9`, so a
+path rule spells it `/caf%C3%A9/`; query rules can use `é`, since the decoded forms carry it), and `^` and `$` match
+only at the URL's ends.
 
 `!` binds tightest, then `&`, then `|`; expressions side by side are joined by "and" with the lowest
 precedence, as in mitmproxy (`a b | c` is `a & (b | c)`). Regexes are `java.util.regex`, searched

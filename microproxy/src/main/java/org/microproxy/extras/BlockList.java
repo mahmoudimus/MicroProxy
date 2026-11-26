@@ -31,6 +31,13 @@ import org.microproxy.http.HttpVersion;
  *
  * <p>Specs are {@code |flow-filter|status}, the separator being the first character. Only heads
  * are read, unless a filter looks at the request body ({@code ~bq}).
+ *
+ * <p>URL rules see the normalized URL ({@link FlowFilter}). A rule also blocks when it matches the
+ * URL with its query fully percent-decoded, with {@code +} kept or read as a space ({@link
+ * FlowFilter#queryDecoded}), since origins decode query values: {@code |~u [?&]file=/files/x|403}
+ * blocks {@code ?file=%2Ffiles%2Fx}, and an allow written as {@code |!~u ^https://example\.com/dl\?file=/ok$|403} still blocks {@code
+ * /dl?file=%2Fok}: decoding never lets more through. Write query rules in decoded form; an
+ * allow for a query that clients escape must accept both spellings ({@code next=(/|%2F)home}).
  */
 public final class BlockList implements HttpFiltersSource {
 
@@ -39,10 +46,13 @@ public final class BlockList implements HttpFiltersSource {
 
     private final List<Rule> rules;
     private final int maxBodySize;
+    /** Whether any rule has a URL rule, so the query-decoded view is worth computing. */
+    private final boolean usesUrl;
 
     private BlockList(List<Rule> rules, int maxBodySize) {
         this.rules = List.copyOf(rules);
         this.maxBodySize = maxBodySize;
+        this.usesUrl = this.rules.stream().anyMatch(rule -> rule.filter().usesUrl());
     }
 
     /**
@@ -127,7 +137,15 @@ public final class BlockList implements HttpFiltersSource {
         @Override
         public int requestBufferSizeInBytes(HttpRequest head) {
             int max = 0;
-            for (Rule rule : rules) max = Math.max(max, requestBufferFor(rule.filter(), head, maxBodySize));
+            for (Rule rule : rules) {
+                int n = requestBufferFor(rule.filter(), head, maxBodySize);
+                if (n == 0 && rule.filter().usesUrl() && rule.filter().usesRequestBody() && unbufferedBody(head)) {
+                    for (FlowFilter.Flow decoded : FlowFilter.queryDecoded(flow(null))) {
+                        if (rule.filter().mayMatch(decoded)) n = maxBodySize;
+                    }
+                }
+                max = Math.max(max, n);
+            }
             return max;
         }
 
@@ -135,14 +153,28 @@ public final class BlockList implements HttpFiltersSource {
         public HttpResponse clientToProxyRequest(HttpObject httpObject) {
             if (!(httpObject instanceof HttpRequest r)) return null;
             request = r;
+            FlowFilter.Flow flow = flow(null);
+            List<FlowFilter.Flow> decoded = usesUrl ? FlowFilter.queryDecoded(flow) : List.of();
             for (Rule rule : rules) {
-                if (!rule.filter().matches(flow(null))) continue;
+                // Origins decode query values: a rule blocks on either form, so a deny is not passed
+                // by escaping the query and an allow (!~u) does not widen through decoding.
+                if (!matchesAnyForm(rule.filter(), flow, decoded)) continue;
                 HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
                         HttpResponseStatus.valueOf(rule.status()));
                 if (rule.status() == NO_RESPONSE) kill = response;
                 return response;
             }
             return null;
+        }
+
+        /** Whether {@code filter} matches the exchange or, if it has a URL rule, any decoded form. */
+        private static boolean matchesAnyForm(FlowFilter filter, FlowFilter.Flow flow, List<FlowFilter.Flow> decoded) {
+            if (filter.matches(flow)) return true;
+            if (!filter.usesUrl()) return false;
+            for (FlowFilter.Flow form : decoded) {
+                if (filter.matches(form)) return true;
+            }
+            return false;
         }
 
         @Override
