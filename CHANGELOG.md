@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.10.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.9.0...v0.10.0) (2026-11-26)
+
+
+### Features
+
+* **formal:** add keccak-005 parent on the released 0.9.0 delivery base ([72ccd24](https://github.com/mahmoudimus/MicroProxy/commit/72ccd2401c3deee5e4e7dc54dca8560c3480248f))
+* **formal:** keccak-005 epoch on released 0.9.0 for the current-epoch gate ([6b144c4](https://github.com/mahmoudimus/MicroProxy/commit/6b144c40b8c0c42c576449149c53cc30ca20b99a))
+* **formal:** retain the keccak-005 qualification of published 0.9.0 ([6a5945f](https://github.com/mahmoudimus/MicroProxy/commit/6a5945fe75effa7716793231dff8152f5abab37b))
+
+
+### Bug Fixes
+
+* **filters:** match URL rules against the normalized URL ([ad218b2](https://github.com/mahmoudimus/MicroProxy/commit/ad218b2d3e986d4b503f4090189793769be5a2e4))
+* **filters:** match URL rules against the normalized URL ([dac0a4d](https://github.com/mahmoudimus/MicroProxy/commit/dac0a4df4e34bf58100cc9c3b1ff024cecfb59cd))
+* **filters:** never let query decoding make a deny match less ([9a1e731](https://github.com/mahmoudimus/MicroProxy/commit/9a1e73104e287cf6594a19e37dc923bd163177d0))
+* **filters:** try decoded line breaks with and without DOTALL ([d37897d](https://github.com/mahmoudimus/MicroProxy/commit/d37897dd798d7495319b167ffe5aa6373e40d3f6))
+* **filters:** try decoded line breaks with and without DOTALL ([bfb80b7](https://github.com/mahmoudimus/MicroProxy/commit/bfb80b710c3e3bb676875033d6cbf0179141a91f))
+* **quic:** check the certificate path, not every certificate the server sends ([082e310](https://github.com/mahmoudimus/MicroProxy/commit/082e3103c92bf0d4c72c8e20d16eac4d2015c2de))
+* **quic:** check the certificate path, not every certificate the server sends ([0be6688](https://github.com/mahmoudimus/MicroProxy/commit/0be6688db14acaeb8e56311f827d985f6d5792ec))
+
 ## [0.9.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.8.2...v0.9.0) (2026-11-17)
 
 
